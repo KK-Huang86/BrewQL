@@ -24,3 +24,39 @@ def test_health_is_ok_even_when_dependencies_are_down():
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+class FakeGenerator:
+    def __init__(self, sql="SELECT 1", exc=None):
+        self.sql, self.exc = sql, exc
+
+    async def generate(self, question):
+        if self.exc:
+            raise self.exc
+        return self.sql
+
+
+class FakeExecutor:
+    def __init__(self, columns, rows):
+        self.columns, self.rows = columns, rows
+
+    async def run(self, sql):
+        return self.columns, self.rows
+
+
+def test_ask_returns_sql_columns_and_rows():
+    client = client_with(
+        FakeGenerator(sql="SELECT city, count(*) AS n FROM cafes GROUP BY city"),
+        FakeExecutor(["city", "n"], [["台北市", 160], ["新北市", 40]]),
+    )
+
+    response = client.post("/api/ask", json={"question": "各城市有幾家咖啡店？"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "sql": "SELECT city, count(*) AS n FROM cafes GROUP BY city",
+        "columns": ["city", "n"],
+        "rows": [["台北市", 160], ["新北市", 40]],
+        "message": None,
+    }
