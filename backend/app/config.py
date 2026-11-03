@@ -9,3 +9,4 @@ class Settings(BaseSettings):
     aws_region: str = "us-east-1"
     bedrock_model_id: str = "anthropic.claude-haiku-5-5"
     database_url: str = ""
+    cors_origins: list[str] = ["http://localhost:5173"]
