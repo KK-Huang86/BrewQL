@@ -1,6 +1,8 @@
 import logging
 from types import SimpleNamespace as NS
 
+import pytest
+
 from app.llm import REPLY_SCHEMA, BedrockSqlGenerator
 from app.schema_context import SCHEMA_CONTEXT
 
@@ -48,3 +50,23 @@ async def test_logs_model_tokens_and_stop_reason(caplog):
     assert record.input_tokens == 321
     assert record.output_tokens == 12
     assert record.stop_reason == "end_turn"
+
+
+class FailingClient:
+    def __init__(self, exc):
+        self.messages = NS(create=lambda **_: (_ for _ in ()).throw(exc))
+
+
+async def test_sdk_errors_are_logged_and_reraised(caplog):
+    caplog.set_level(logging.INFO, logger="app.llm")
+    boom = RuntimeError("AccessDeniedException: not authorized to invoke model")
+    gen = BedrockSqlGenerator(FailingClient(boom), model_id="anthropic.claude-haiku-5-5")
+
+    with pytest.raises(RuntimeError) as raised:
+        await gen.generate("q")
+
+    assert raised.value is boom
+    [record] = [r for r in caplog.records if r.name == "app.llm"]
+    assert record.levelno == logging.ERROR
+    assert record.model_id == "anthropic.claude-haiku-5-5"
+    assert "AccessDenied" in record.getMessage() or record.exc_info
