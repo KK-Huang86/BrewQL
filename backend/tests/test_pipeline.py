@@ -1,3 +1,4 @@
+from app.llm import ReplyError
 from app.pipeline import AskResult, ask
 
 
@@ -47,4 +48,13 @@ async def test_sql_rejected_by_the_guard_is_never_executed():
     assert result.status == "error"
     assert result.sql == "DELETE FROM cafes"
     assert result.message
+    assert ex.calls == []
+
+
+async def test_reply_without_usable_sql_is_an_error_and_nothing_runs():
+    ex = FakeExecutor()
+
+    result = await ask("q", FakeGenerator(exc=ReplyError("模型回覆的 SQL 是空的")), ex)
+
+    assert result == AskResult(status="error", message="模型回覆的 SQL 是空的")
     assert ex.calls == []
