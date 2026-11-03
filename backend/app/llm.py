@@ -9,6 +9,9 @@ class ReplyError(ValueError):
 
 def parse_reply(message) -> str:
     """Extract the SQL from a structured-output reply."""
+    # A truncated reply may hold half a query; never run it.
+    if message.stop_reason == "max_tokens":
+        raise ReplyError("模型回覆超過長度上限，未產生完整 SQL")
     block = next(b for b in message.content if b.type == "text")
     sql = json.loads(block.text)["sql"]
     if not sql.strip():
