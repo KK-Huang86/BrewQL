@@ -2,16 +2,17 @@
 
 from dataclasses import asdict
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI
-from pydantic import BaseModel, field_serializer
+from pydantic import BaseModel, StringConstraints, field_serializer
 
-from app.pipeline import QueryExecutor, SqlGenerator, ask
+from app.pipeline import MAX_QUESTION_CHARS, QueryExecutor, SqlGenerator, ask
 
 
 class AskRequest(BaseModel):
-    question: str
+    # Same rule as the pipeline, enforced at the edge so bad input is a 422.
+    question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUESTION_CHARS)]
 
 
 class AskResponse(BaseModel):
