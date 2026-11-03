@@ -64,7 +64,7 @@ async def test_reply_without_usable_sql_is_an_error_and_nothing_runs():
 
 
 async def test_database_error_is_reported_with_the_sql():
-    ex = FakeExecutor(exc=QueryError("UndefinedColumnError: column \"x\" does not exist"))
+    ex = FakeExecutor(exc=QueryError('UndefinedColumnError: column "x" does not exist'))
 
     result = await ask("q", FakeGenerator(sql="SELECT x FROM cafes"), ex)
 
