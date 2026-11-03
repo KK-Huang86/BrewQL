@@ -21,3 +21,8 @@ def test_valid_structured_reply_yields_sql():
 def test_blank_sql_is_an_error():
     with pytest.raises(ReplyError, match="空"):
         parse_reply(reply(text('{"sql": "  "}')))
+
+
+def test_reply_cut_off_by_token_limit_is_an_error():
+    with pytest.raises(ReplyError, match="上限"):
+        parse_reply(reply(text('{"sql": "SELECT COUNT(*) FR'), stop_reason="max_tokens"))
