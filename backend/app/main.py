@@ -1,10 +1,11 @@
 """HTTP API: health check and question endpoint."""
 
 from dataclasses import asdict
+from decimal import Decimal
 from typing import Any, Literal
 
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 from app.pipeline import QueryExecutor, SqlGenerator, ask
 
@@ -19,6 +20,11 @@ class AskResponse(BaseModel):
     columns: list[str]
     rows: list[list[Any]]
     message: str | None
+
+    @field_serializer("rows")
+    def _rows(self, rows: list[list[Any]]) -> list[list[Any]]:
+        # Postgres NUMERIC arrives as Decimal; charts need JSON numbers, not strings.
+        return [[float(v) if isinstance(v, Decimal) else v for v in row] for row in rows]
 
 
 def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins: list[str]) -> FastAPI:
