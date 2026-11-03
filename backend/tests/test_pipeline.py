@@ -1,6 +1,8 @@
+import pytest
+
 from app.db import QueryError
 from app.llm import ReplyError
-from app.pipeline import AskResult, ask
+from app.pipeline import AskResult, InvalidQuestion, ask
 
 
 class FakeGenerator:
@@ -69,3 +71,21 @@ async def test_database_error_is_reported_with_the_sql():
     assert result.status == "error"
     assert result.sql == "SELECT x FROM cafes"
     assert "does not exist" in result.message
+
+
+@pytest.mark.parametrize("question", ["", "   ", "\n\t", "問" * 1001])
+async def test_blank_or_too_long_question_never_reaches_the_model(question):
+    gen = FakeGenerator()
+
+    with pytest.raises(InvalidQuestion):
+        await ask(question, gen, FakeExecutor())
+
+    assert gen.questions == []
+
+
+async def test_question_is_trimmed_and_1000_chars_is_allowed():
+    gen = FakeGenerator()
+
+    await ask("  " + "問" * 1000 + "  ", gen, FakeExecutor())
+
+    assert gen.questions == ["問" * 1000]
