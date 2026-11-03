@@ -88,3 +88,32 @@ def test_invalid_question_is_422_and_never_reaches_the_model(body):
     response = client_with().post("/api/ask", json=body)
 
     assert response.status_code == 422
+
+
+def test_sql_rejected_by_the_guard_is_200_with_error_status():
+    client = client_with(FakeGenerator(sql="DELETE FROM cafes"), ExplodingDependency())
+
+    response = client.post("/api/ask", json={"question": "刪掉所有店"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "error"
+    assert body["sql"] == "DELETE FROM cafes"
+    assert body["message"]
+
+
+def test_bedrock_failure_is_5xx_and_logged(caplog):
+    client = TestClient(
+        create_app(
+            generator=FakeGenerator(exc=RuntimeError("AccessDeniedException")),
+            executor=ExplodingDependency(),
+            cors_origins=[],
+        ),
+        raise_server_exceptions=False,
+    )
+
+    response = client.post("/api/ask", json={"question": "q"})
+
+    assert 500 <= response.status_code < 600
+    assert "AccessDeniedException" not in response.text  # internal detail stays in the log
+    assert any("AccessDeniedException" in (r.exc_text or str(r.exc_info)) for r in caplog.records)
