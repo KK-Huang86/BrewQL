@@ -1,6 +1,8 @@
 from types import SimpleNamespace as NS
 
-from app.llm import parse_reply
+import pytest
+
+from app.llm import ReplyError, parse_reply
 
 
 def reply(*blocks, stop_reason="end_turn"):
@@ -14,3 +16,8 @@ def text(t):
 
 def test_valid_structured_reply_yields_sql():
     assert parse_reply(reply(text('{"sql": "SELECT COUNT(*) FROM cafes"}'))) == "SELECT COUNT(*) FROM cafes"
+
+
+def test_blank_sql_is_an_error():
+    with pytest.raises(ReplyError, match="空"):
+        parse_reply(reply(text('{"sql": "  "}')))
