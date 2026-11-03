@@ -2,9 +2,9 @@
 
 ## 1. Demo 資料庫
 
-- [ ] 1.1 撰寫 `cafes` schema 與約 200 家示範咖啡店（固定種子、台北市與新北市至少 8 區）；驗證：在全新 Postgres 執行成功，分布檢查查詢符合 spec（已有初稿）
-- [ ] 1.2 建立唯讀角色 `genbi_reader`（只授權 `cafes` SELECT、預設唯讀）；驗證：以該角色執行 `DELETE FROM cafes` 被拒（已有初稿）
-- [ ] 1.3 compose 加入 db（pgvector image、init 掛載、健康檢查、127.0.0.1、必填密碼）與 `.env.example`；驗證：缺少密碼時啟動失敗並指出變數
+- [x] 1.1 撰寫 `cafes` schema 與約 200 家示範咖啡店（固定種子、台北市與新北市至少 8 區）；驗證：在全新 Postgres 執行成功，分布檢查查詢符合 spec（已有初稿）
+- [x] 1.2 建立唯讀角色 `genbi_reader`（只授權 `cafes` SELECT、預設唯讀）；驗證：以該角色執行 `DELETE FROM cafes` 被拒（已有初稿）
+- [x] 1.3 compose 加入 db（pgvector image、init 掛載、健康檢查、127.0.0.1、必填密碼）與 `.env.example`；驗證：缺少密碼時啟動失敗並指出變數
 
 ## 2. SQL 防護（最小版）
 
