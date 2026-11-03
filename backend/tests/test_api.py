@@ -117,3 +117,29 @@ def test_bedrock_failure_is_5xx_and_logged(caplog):
     assert 500 <= response.status_code < 600
     assert "AccessDeniedException" not in response.text  # internal detail stays in the log
     assert any("AccessDeniedException" in (r.exc_text or str(r.exc_info)) for r in caplog.records)
+
+
+def preflight(client, origin, method="POST"):
+    return client.options(
+        "/api/ask",
+        headers={"Origin": origin, "Access-Control-Request-Method": method},
+    )
+
+
+def test_cors_allows_the_configured_frontend_for_get_and_post():
+    response = preflight(client_with(origins=["http://localhost:5173"]), "http://localhost:5173")
+
+    assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+    assert set(response.headers["access-control-allow-methods"].replace(" ", "").split(",")) == {"GET", "POST"}
+
+
+def test_cors_ignores_unknown_origins():
+    response = preflight(client_with(origins=["http://localhost:5173"]), "https://evil.example")
+
+    assert "access-control-allow-origin" not in response.headers
+
+
+def test_cors_does_not_allow_other_methods():
+    response = preflight(client_with(origins=["http://localhost:5173"]), "http://localhost:5173", method="DELETE")
+
+    assert response.status_code == 400
