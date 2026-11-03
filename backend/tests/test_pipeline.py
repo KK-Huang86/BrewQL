@@ -37,3 +37,14 @@ async def test_question_becomes_sql_and_result():
     )
     assert gen.questions == ["台北市有幾家咖啡店？"]
     assert ex.calls == ["SELECT count(*) AS n FROM cafes WHERE city = '台北市'"]
+
+
+async def test_sql_rejected_by_the_guard_is_never_executed():
+    ex = FakeExecutor()
+
+    result = await ask("把咖啡店都刪掉", FakeGenerator(sql="DELETE FROM cafes"), ex)
+
+    assert result.status == "error"
+    assert result.sql == "DELETE FROM cafes"
+    assert result.message
+    assert ex.calls == []
