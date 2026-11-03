@@ -1,6 +1,7 @@
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -77,3 +78,13 @@ def test_dates_serialize_as_iso_strings_and_decimals_as_numbers():
     response = client.post("/api/ask", json={"question": "q"})
 
     assert response.json()["rows"] == [["2026-05-01", "2026-05-01T09:30:00Z", 4.5]]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [{}, {"question": ""}, {"question": "   "}, {"question": "問" * 1001}, {"question": 123}],
+)
+def test_invalid_question_is_422_and_never_reaches_the_model(body):
+    response = client_with().post("/api/ask", json=body)
+
+    assert response.status_code == 422
