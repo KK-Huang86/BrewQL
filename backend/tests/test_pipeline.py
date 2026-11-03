@@ -89,3 +89,12 @@ async def test_question_is_trimmed_and_1000_chars_is_allowed():
     await ask("  " + "問" * 1000 + "  ", gen, FakeExecutor())
 
     assert gen.questions == ["問" * 1000]
+
+
+async def test_model_service_errors_propagate():
+    boom = RuntimeError("ThrottlingException")
+
+    with pytest.raises(RuntimeError) as raised:
+        await ask("q", FakeGenerator(exc=boom), FakeExecutor())
+
+    assert raised.value is boom
