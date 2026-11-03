@@ -12,6 +12,8 @@ def parse_reply(message) -> str:
     # A truncated reply may hold half a query; never run it.
     if message.stop_reason == "max_tokens":
         raise ReplyError("模型回覆超過長度上限，未產生完整 SQL")
+    if message.stop_reason == "refusal":
+        raise ReplyError("模型拒絕回答這個問題")
     block = next(b for b in message.content if b.type == "text")
     sql = json.loads(block.text)["sql"]
     if not sql.strip():
