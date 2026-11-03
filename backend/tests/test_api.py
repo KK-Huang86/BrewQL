@@ -1,3 +1,6 @@
+from datetime import UTC, date, datetime
+from decimal import Decimal
+
 from fastapi.testclient import TestClient
 
 from app.main import create_app
@@ -60,3 +63,17 @@ def test_ask_returns_sql_columns_and_rows():
         "rows": [["台北市", 160], ["新北市", 40]],
         "message": None,
     }
+
+
+def test_dates_serialize_as_iso_strings_and_decimals_as_numbers():
+    client = client_with(
+        FakeGenerator(),
+        FakeExecutor(
+            ["day", "at", "rating"],
+            [[date(2026, 5, 1), datetime(2026, 5, 1, 9, 30, tzinfo=UTC), Decimal("4.5")]],
+        ),
+    )
+
+    response = client.post("/api/ask", json={"question": "q"})
+
+    assert response.json()["rows"] == [["2026-05-01", "2026-05-01T09:30:00Z", 4.5]]
