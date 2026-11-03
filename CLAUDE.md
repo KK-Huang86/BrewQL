@@ -1,113 +1,78 @@
-# Find Coffee - LINE Bot 咖啡店搜尋服務
+# GenBI - Find Coffee 營運數據助理
 
 ## 專案概述
 
-Find Coffee 是以 Django 建置的 LINE Bot 咖啡店搜尋服務，主要服務範圍為台灣。支援店名、地址、行政區與使用者位置搜尋，並提供收藏、投票式咖啡店屬性、搜尋歷史、好友與 AI 店家評論等功能。
+GenBI 讓不會寫 SQL 的營運人員用中文提問，系統產生 SQL、經多層防護後執行，回傳圖表與答案，並附上實際執行的 SQL 讓使用者檢視與修改。資料來源為 Find Coffee（咖啡店搜尋服務）的資料表結構加上模擬的使用者行為資料；GenBI 是 Find Coffee 旁的獨立服務，只能唯讀存取資料，不修改 Find Coffee 本身。
 
 ## 技術棧
 
-- **後端**: Django 6.0 + Python >= 3.13
-- **Web 服務**: Gunicorn + Nginx
-- **資料庫**: PostgreSQL 16，透過 PgBouncer transaction pooling 連線
-- **Cache / Lock / State**: Redis
-- **異步任務**: Celery（開發環境使用 Redis broker，生產環境使用 AWS SQS）
-- **LINE Bot**: line-bot-sdk v3（Messaging API）
-- **外部整合**: Google Places API、Groq API
-- **圖片儲存**: AWS S3 + CloudFront
+- **後端**: FastAPI（全面 async）+ Python >= 3.13
+- **LLM**: Amazon Bedrock 上的 Claude（預設 Haiku 5.5），透過 `anthropic[bedrock]` SDK 呼叫
+- **SQL 解析與驗證**: sqlglot
+- **資料庫**: PostgreSQL 16 + pgvector，asyncpg 連線
+- **前端**: React + TypeScript + Vite，圖表使用 Recharts
 - **容器化**: Docker Compose
-- **IaC**: Terraform
-- **套件管理**: uv
-- **測試與品質**: pytest、pytest-django、Factory Boy、Ruff、pre-commit
+- **IaC**: Terraform（AWS：EC2、IAM、Budgets）
+- **套件管理**: uv（後端）、npm（前端）
+- **測試與品質**: pytest、pytest-asyncio、Ruff；Vitest、React Testing Library
 - **Spec 工作流**: OpenSpec + Spectra
 
-## 專案結構
+## 專案結構（monorepo）
 
 ```
-├── core/               # Django settings、Celery、health checks 與 URL routing
-├── cafe/               # 咖啡店、收藏、屬性投票、CafeNomad 快取與 Celery tasks
-│   ├── management/    # CafeNomad / Google 資料匯入指令
-│   ├── services/      # 屬性匹配與投票業務邏輯
-│   └── tests/
-├── line_bot/            # LINE webhook 與對話核心邏輯
-│   ├── builders/      # Flex Message / Quick Reply builders
-│   ├── handlers/      # Postback action handlers
-│   ├── services/      # 搜尋歷史等服務
-│   ├── event_handlers.py
-│   ├── state.py       # Redis-backed 對話狀態
-│   └── tests/
-├── users/              # LINE 使用者與好友關係
-├── integrations/       # Google Places、Groq 與 API 用量管理
-├── utils/              # Redis lock 等共用工具
-├── nginx/              # Nginx reverse proxy 設定
-├── terraform/          # S3、CloudFront 與 IAM 等 AWS 資源
+├── backend/            # FastAPI 服務
+│   ├── app/           # API、SQL 產生、SQL 防護、圖表選擇、資料庫執行器
+│   ├── scripts/       # smoke 腳本（實際呼叫 Bedrock）
+│   └── tests/         # 單元測試；integration/ 為需要真實 Postgres 的整合測試
+├── frontend/           # React 前端
+├── db/
+│   ├── init/          # Postgres 首次啟動執行：schema、view、模擬資料、唯讀角色
+│   └── checks/        # 驗證模擬資料故事的 SQL
+├── infra/terraform/    # AWS 部署資源
 ├── openspec/           # 規格、change proposal、design 與 tasks
-├── docker-compose.yml  # web、celery、nginx、PostgreSQL、PgBouncer、Redis
-└── pyproject.toml      # Python dependencies 與工具設定
+├── .github/workflows/  # CI（依目錄以 path filter 分開執行）
+└── docker-compose.yml  # db、backend、frontend
 ```
 
-## 重要 Models
-
-- `Cafe`: Google Places 咖啡店主資料、照片與評論
-- `Favorite`: 使用者與咖啡店的收藏關係
-- `CafeAttributeVote`: 使用者對插座、限時、寵物等屬性的投票
-- `CafeNomadCache`: CafeNomad 屬性快取
-- `User`: LINE 使用者及其 API 用量紀錄關聯
-- `Friendship`: 使用者好友關係
-- `ApiUsageRecord`: Google Places 與 AI API 月度用量計數
-
-## Celery Tasks（`cafe/tasks.py`）
-
-- `download_and_upload_cafe_photo`: 下載 Google 照片 → 上傳 S3
-- `refresh_cafe_data`: 重新向 Google Places 取得咖啡店資料；店家資料過期 30 天、照片過期 180 天時觸發更新流程
-
-## LINE Bot 架構
-
-- **Webhook**: `/callback/`，由 `line_bot/views.py` 驗證 LINE signature 後 dispatch event
-- **Rich Menu**: 6 格選單，設定邏輯位於 `line_bot/views.py`
-- **State 管理**: `StateManager` + `UserState` 控制對話流程
-- **Postback 路由**: `ACTION_HANDLERS` dispatch table
-- **並發防護**: Redis lock 防止同一使用者重複處理請求
+目錄會隨 OpenSpec change 逐步建立；尚未完成的 change 對應的目錄可能還不存在。
 
 ## 開發指令
 
 ```bash
-# 安裝或同步依賴
-uv sync --group dev
+# 後端：安裝依賴、測試、靜態檢查
+uv --directory backend sync --group dev
+uv --directory backend run pytest -q
+uv --directory backend run ruff check .
 
-# 啟動 Django 開發伺服器
-uv run python manage.py runserver
+# 實際呼叫 Bedrock 的 smoke 測試（需要 AWS 憑證與模型權限）
+uv --directory backend run python -m scripts.ask "台北市有幾家工作友善的咖啡店？"
 
-# 啟動完整容器化環境
+# 前端
+npm --prefix frontend install
+npm --prefix frontend test
+npm --prefix frontend run build
+
+# 完整容器化環境（重建 Demo 資料庫：docker compose down -v）
 docker compose up --build
-
-# 測試與 coverage
-uv run pytest -q
-uv run pytest --cov --cov-report=term-missing
-
-# 靜態檢查
-uv run ruff check .
-
-# Django 檢查與 migration
-uv run python manage.py check
-uv run python manage.py makemigrations --check --dry-run
 
 # OpenSpec change 驗證
 openspec validate <change-name> --strict
 
 # Terraform
-terraform -chdir=terraform fmt -check
-terraform -chdir=terraform validate
-terraform -chdir=terraform plan
+terraform -chdir=infra/terraform fmt -check
+terraform -chdir=infra/terraform validate
+terraform -chdir=infra/terraform plan
 ```
 
 ## 注意事項
 
 - Commit 訊息使用繁體中文。
-- 圖片存放於 S3，透過 CloudFront 存取。
 - 環境變數放在 `.env`；不得 commit secrets，新增變數時同步更新 `.env.example`。
-- 生產環境 Celery broker 為 SQS；不要假設 Redis 在所有環境都是 broker。
-- PostgreSQL 連線經 PgBouncer transaction pooling；`CONN_MAX_AGE` 需維持 `0`，`DISABLE_SERVER_SIDE_CURSORS` 需維持 `True`。
-- 測試使用 `core.test_settings`，外部 API、Redis、Celery broker、S3 不應在 unit test 中真實呼叫。
+- API 連線資料庫一律使用唯讀角色 `genbi_reader`，不得使用資料庫擁有者帳號。
+- LLM 產生或使用者提供的 SQL 必須經過 SQL 防護驗證才能執行；不得新增繞過防護的執行路徑。
+- 不得把真實 Find Coffee 使用者資料（LINE ID、收藏紀錄等）放進 repo 或 Demo 資料庫。
+- Unit test 不得真實呼叫 Bedrock 或其他外部服務；需要真實 Postgres 的測試放在 `backend/tests/integration/`。
+- 部署主機以 IAM role 取得 AWS 臨時憑證，不得建立或使用長期 access key。
 
 # TDD 開發規範（專案固定規則）
 
@@ -146,17 +111,3 @@ terraform -chdir=terraform plan
    - 同時執行 `/spectra-drift` 檢查該 change 與目前程式碼現狀是否已產生落差。
    - 若 verify 或 drift 回報落差，必須先處理（修正實作或回頭 `ingest` 調整 spec），確認一致後才能建議使用者開 PR。
    - 這一層是流程約定，仰賴我主動執行，不是 CI 保證；若程式碼是透過我以外的方式修改，此規則不會被觸發。
-
-## Agent skills
-
-### Issue tracker
-
-Issues live in GitHub Issues (`KK-Huang86/Find_Coffee`). See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Using default five-label vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context layout — one `CONTEXT.md` at repo root, ADRs in `docs/adr/`. See `docs/agents/domain.md`.

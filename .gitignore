@@ -1,0 +1,54 @@
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / frontend
+node_modules/
+dist/
+*.tsbuildinfo
+.vite/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+terraform.tfvars
+*.auto.tfvars
+crash.log
+
+# Data dumps (real Find Coffee data must not be committed)
+*.sql.gz
+*.dump
+backup.sql
+db/dumps/
+
+# Eval outputs
+eval/results/
+
+# Spec tooling caches
+.spectra/
+openspec/.vector-search.db*
+
+# Claude Code local settings (shared .claude/commands and skills stay tracked)
+.claude/settings.local.json
