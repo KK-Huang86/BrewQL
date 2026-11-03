@@ -26,3 +26,8 @@ def test_blank_sql_is_an_error():
 def test_reply_cut_off_by_token_limit_is_an_error():
     with pytest.raises(ReplyError, match="上限"):
         parse_reply(reply(text('{"sql": "SELECT COUNT(*) FR'), stop_reason="max_tokens"))
+
+
+def test_model_refusal_is_an_error():
+    with pytest.raises(ReplyError, match="拒絕"):
+        parse_reply(reply(stop_reason="refusal"))
