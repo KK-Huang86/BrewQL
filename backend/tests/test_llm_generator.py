@@ -1,4 +1,6 @@
+import asyncio
 import logging
+import time
 from types import SimpleNamespace as NS
 
 import pytest
@@ -70,3 +72,21 @@ async def test_sdk_errors_are_logged_and_reraised(caplog):
     assert record.levelno == logging.ERROR
     assert record.model_id == "anthropic.claude-haiku-5-5"
     assert "AccessDenied" in record.getMessage() or record.exc_info
+
+
+async def test_slow_model_call_does_not_block_the_event_loop():
+    class SlowClient(FakeClient):
+        def _create(self, **kwargs):
+            time.sleep(0.3)  # the real SDK blocks its thread while waiting on the network
+            return super()._create(**kwargs)
+
+    gen = BedrockSqlGenerator(SlowClient(), model_id="m")
+    start = time.perf_counter()
+
+    async def heartbeat():
+        await asyncio.sleep(0.01)
+        return time.perf_counter() - start
+
+    _, heartbeat_after = await asyncio.gather(gen.generate("q"), heartbeat())
+
+    assert heartbeat_after < 0.1
