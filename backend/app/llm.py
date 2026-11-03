@@ -2,8 +2,11 @@
 
 import asyncio
 import json
+import logging
 
 from app.schema_context import SCHEMA_CONTEXT
+
+log = logging.getLogger(__name__)
 
 # Structured-output schema: the API guarantees the reply text is JSON of this shape.
 # Ticket 3 extends it to sql / refuse / clarify.
@@ -36,6 +39,15 @@ class BedrockSqlGenerator:
             system=SCHEMA_CONTEXT,
             messages=[{"role": "user", "content": question}],
             output_config={"effort": "low", "format": {"type": "json_schema", "schema": REPLY_SCHEMA}},
+        )
+        log.info(
+            "bedrock call",
+            extra={
+                "model_id": self._model_id,
+                "input_tokens": message.usage.input_tokens,
+                "output_tokens": message.usage.output_tokens,
+                "stop_reason": message.stop_reason,
+            },
         )
         return parse_reply(message)
 
