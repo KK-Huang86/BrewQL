@@ -14,7 +14,8 @@ def real_cafes_columns() -> set[str]:
 
 
 def test_schema_context_describes_every_cafes_column():
-    missing = {c for c in real_cafes_columns() if c not in SCHEMA_CONTEXT}
+    # Match the bullet "- <column>：" so "id" is not satisfied by "place_id".
+    missing = {c for c in real_cafes_columns() if f"- {c}：" not in SCHEMA_CONTEXT}
     assert not missing, f"schema context is missing columns: {missing}"
 
 
