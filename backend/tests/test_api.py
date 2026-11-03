@@ -143,3 +143,14 @@ def test_cors_does_not_allow_other_methods():
     response = preflight(client_with(origins=["http://localhost:5173"]), "http://localhost:5173", method="DELETE")
 
     assert response.status_code == 400
+
+
+def test_production_app_starts_and_is_healthy_without_database_or_aws(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody:x@127.0.0.1:1/none")
+    monkeypatch.setenv("AWS_REGION", "us-east-1")
+
+    from app.main import build_app
+
+    response = TestClient(build_app()).get("/health")
+
+    assert response.json() == {"status": "ok"}
