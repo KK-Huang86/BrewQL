@@ -69,8 +69,10 @@ terraform -chdir=infra/terraform plan
 
 ## 注意事項
 
-- Commit 訊息使用繁體中文。
-- 分支策略：`main` 為可 Demo／部署的穩定版本，`develop` 為開發主線。每個 OpenSpec change 從 `develop` 開 `feature/<change-name>` 分支，以 PR 合回 `develop`；要部署時再把 `develop` 合進 `main`。不直接 commit 到 `main`。
+- Commit 訊息一律使用英文，格式為 Conventional Commits（`feat:`、`fix:`、`chore:`、`docs:`、`test:`、`refactor:`），例如 `feat: add read-only query executor`。OpenSpec 文件與程式碼註解不受此限。
+- 分支策略：`main` 為可 Demo／部署的穩定版本，`develop` 為開發主線，兩者在 GitHub 上受保護，只能透過 PR 合併（禁止直接 push、force push 與刪除）。每個 OpenSpec change 從 `develop` 開 `feature/<change-name>` 分支，以 PR 合回 `develop`；要部署時再從 `develop` 開 PR 合進 `main`。
+- 撰寫 PR 內容時，必須先用 Skill tool 呼叫 `mattpocock-skills:pr`，依其範本（Summary、Evidence、Merge Danger）撰寫。
+- 每完成兩個 OpenSpec change（PR 合併並 archive 後），提醒使用者執行 `/mattpocock-skills:retro`（此 skill 只能由使用者觸發），並依 retro 結果向使用者說明執行層面可優化之處。
 - 環境變數放在 `.env`；不得 commit secrets，新增變數時同步更新 `.env.example`。
 - API 連線資料庫一律使用唯讀角色 `genbi_reader`，不得使用資料庫擁有者帳號。
 - LLM 產生或使用者提供的 SQL 必須經過 SQL 防護驗證才能執行；不得新增繞過防護的執行路徑。
