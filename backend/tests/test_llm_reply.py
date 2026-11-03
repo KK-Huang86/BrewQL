@@ -46,3 +46,9 @@ def test_model_refusal_is_an_error():
 def test_reply_not_matching_schema_is_an_error(blocks):
     with pytest.raises(ReplyError, match="格式"):
         parse_reply(reply(*blocks))
+
+
+def test_thinking_blocks_before_the_answer_are_skipped():
+    # Haiku 5.5 thinks by default, so a thinking block may precede the JSON text.
+    thinking = NS(type="thinking", thinking="", signature="sig")
+    assert parse_reply(reply(thinking, text('{"sql": "SELECT 1"}'))) == "SELECT 1"
