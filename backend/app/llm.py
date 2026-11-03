@@ -46,7 +46,11 @@ class BedrockSqlGenerator:
             log.exception("bedrock call failed", extra={"model_id": self._model_id})
             raise
         log.info(
-            "bedrock call",
+            "bedrock call model=%s input_tokens=%d output_tokens=%d stop_reason=%s",
+            self._model_id,
+            message.usage.input_tokens,
+            message.usage.output_tokens,
+            message.stop_reason,
             extra={
                 "model_id": self._model_id,
                 "input_tokens": message.usage.input_tokens,
