@@ -1,3 +1,4 @@
+import logging
 from types import SimpleNamespace as NS
 
 from app.llm import REPLY_SCHEMA, BedrockSqlGenerator
@@ -34,3 +35,16 @@ async def test_sends_question_with_schema_and_json_schema_and_returns_sql():
     assert call["messages"] == [{"role": "user", "content": "台北市有幾家咖啡店？"}]
     assert call["output_config"]["format"] == {"type": "json_schema", "schema": REPLY_SCHEMA}
     assert REPLY_SCHEMA["required"] == ["sql"]
+
+
+async def test_logs_model_tokens_and_stop_reason(caplog):
+    caplog.set_level(logging.INFO, logger="app.llm")
+    gen = BedrockSqlGenerator(FakeClient(), model_id="anthropic.claude-haiku-5-5")
+
+    await gen.generate("q")
+
+    [record] = [r for r in caplog.records if r.name == "app.llm"]
+    assert record.model_id == "anthropic.claude-haiku-5-5"
+    assert record.input_tokens == 321
+    assert record.output_tokens == 12
+    assert record.stop_reason == "end_turn"
