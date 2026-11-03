@@ -1,13 +1,16 @@
-# GenBI - Find Coffee 營運數據助理
+# BrewQL - Find Coffee 營運數據助理
 
 ## 專案概述
 
-GenBI 讓不會寫 SQL 的營運人員用中文提問，系統產生 SQL、經多層防護後執行，回傳圖表與答案，並附上實際執行的 SQL 讓使用者檢視與修改。資料來源為 Find Coffee（咖啡店搜尋服務）的資料表結構加上模擬的使用者行為資料；GenBI 是 Find Coffee 旁的獨立服務，只能唯讀存取資料，不修改 Find Coffee 本身。
+BrewQL 是一個 GenBI（生成式 BI）服務：讓不會寫 SQL 的營運人員用中文提問，系統產生 SQL、經多層防護後執行，回傳圖表與答案，並附上實際執行的 SQL 讓使用者檢視與修改。資料來源為 Find Coffee（咖啡店搜尋服務）的資料表結構加上模擬的使用者行為資料；BrewQL 是 Find Coffee 旁的獨立服務，只能唯讀存取資料，不修改 Find Coffee 本身。
 
 ## 技術棧
 
 - **後端**: FastAPI（全面 async）+ Python >= 3.13
-- **LLM**: Amazon Bedrock 上的 Claude（預設 Haiku 5.5），透過 `anthropic[bedrock]` SDK 呼叫
+- **LLM**: Amazon Bedrock 上的 Claude（預設 Haiku 5.5），透過 `anthropic[bedrock]` SDK 呼叫，使用 structured outputs
+- **輸入防護**: Amazon Bedrock Guardrails
+- **流程編排**: 一般 async 函式起步，步驟與分支變多後改用 LangGraph
+- **RAG**: Bedrock Titan Text Embeddings + pgvector
 - **SQL 解析與驗證**: sqlglot
 - **資料庫**: PostgreSQL 16 + pgvector，asyncpg 連線
 - **前端**: React + TypeScript + Vite，圖表使用 Recharts
@@ -67,6 +70,7 @@ terraform -chdir=infra/terraform plan
 ## 注意事項
 
 - Commit 訊息使用繁體中文。
+- 分支策略：`main` 為可 Demo／部署的穩定版本，`develop` 為開發主線。每個 OpenSpec change 從 `develop` 開 `feature/<change-name>` 分支，以 PR 合回 `develop`；要部署時再把 `develop` 合進 `main`。不直接 commit 到 `main`。
 - 環境變數放在 `.env`；不得 commit secrets，新增變數時同步更新 `.env.example`。
 - API 連線資料庫一律使用唯讀角色 `genbi_reader`，不得使用資料庫擁有者帳號。
 - LLM 產生或使用者提供的 SQL 必須經過 SQL 防護驗證才能執行；不得新增繞過防護的執行路徑。
