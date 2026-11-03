@@ -32,14 +32,19 @@ class BedrockSqlGenerator:
 
     async def generate(self, question: str) -> str:
         # The SDK call is synchronous; run it in a worker thread so the event loop stays free.
-        message = await asyncio.to_thread(
-            self._client.messages.create,
-            model=self._model_id,
-            max_tokens=self._max_tokens,
-            system=SCHEMA_CONTEXT,
-            messages=[{"role": "user", "content": question}],
-            output_config={"effort": "low", "format": {"type": "json_schema", "schema": REPLY_SCHEMA}},
-        )
+        try:
+            message = await asyncio.to_thread(
+                self._client.messages.create,
+                model=self._model_id,
+                max_tokens=self._max_tokens,
+                system=SCHEMA_CONTEXT,
+                messages=[{"role": "user", "content": question}],
+                output_config={"effort": "low", "format": {"type": "json_schema", "schema": REPLY_SCHEMA}},
+            )
+        except Exception:
+            # Network, permission and throttling errors must surface, never pass as a result.
+            log.exception("bedrock call failed", extra={"model_id": self._model_id})
+            raise
         log.info(
             "bedrock call",
             extra={
