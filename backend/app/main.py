@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints, field_serializer
 
@@ -34,6 +35,10 @@ class AskResponse(BaseModel):
 
 def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins: list[str]) -> FastAPI:
     app = FastAPI(title="BrewQL")
+    # Dev only: in deployment nginx serves the UI and /api on one origin, so no CORS is needed.
+    app.add_middleware(
+        CORSMiddleware, allow_origins=cors_origins, allow_methods=["GET", "POST"], allow_headers=["Content-Type"]
+    )
 
     @app.get("/health")
     async def health() -> dict[str, str]:
@@ -47,7 +52,9 @@ def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins
         except Exception:
             # Bedrock/network failures: full detail goes to the log, a generic message to the client.
             log.exception("ask failed")
-            return JSONResponse(status_code=502, content={"status": "error", "message": "模型服務暫時無法使用，請稍後再試"})
+            return JSONResponse(
+                status_code=502, content={"status": "error", "message": "模型服務暫時無法使用，請稍後再試"}
+            )
         return AskResponse(**asdict(result))
 
     return app
