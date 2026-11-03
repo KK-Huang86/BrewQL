@@ -3,6 +3,8 @@
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
+from app.sql_guard import SqlGuardError, validate_sql
+
 
 class SqlGenerator(Protocol):
     async def generate(self, question: str) -> str: ...
@@ -23,5 +25,9 @@ class AskResult:
 
 async def ask(question: str, generator: SqlGenerator, executor: QueryExecutor) -> AskResult:
     sql = await generator.generate(question)
+    try:
+        sql = validate_sql(sql)
+    except SqlGuardError as e:
+        return AskResult(status="error", sql=sql, message=str(e))
     columns, rows = await executor.run(sql)
     return AskResult(status="ok", sql=sql, columns=columns, rows=rows)
