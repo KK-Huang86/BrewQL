@@ -31,3 +31,18 @@ def test_reply_cut_off_by_token_limit_is_an_error():
 def test_model_refusal_is_an_error():
     with pytest.raises(ReplyError, match="拒絕"):
         parse_reply(reply(stop_reason="refusal"))
+
+
+@pytest.mark.parametrize(
+    "blocks",
+    [
+        [],  # no text block at all
+        [text("SELECT 1")],  # not JSON
+        [text('{"query": "SELECT 1"}')],  # missing sql
+        [text('{"sql": 42}')],  # sql not a string
+        [text('["SELECT 1"]')],  # not an object
+    ],
+)
+def test_reply_not_matching_schema_is_an_error(blocks):
+    with pytest.raises(ReplyError, match="格式"):
+        parse_reply(reply(*blocks))
