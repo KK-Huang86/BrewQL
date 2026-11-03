@@ -7,6 +7,12 @@ from app.db import QueryError
 from app.llm import ReplyError
 from app.sql_guard import SqlGuardError, validate_sql
 
+MAX_QUESTION_CHARS = 1000
+
+
+class InvalidQuestion(ValueError):
+    """The question is blank or too long; the model is never called."""
+
 
 class SqlGenerator(Protocol):
     async def generate(self, question: str) -> str: ...
@@ -26,6 +32,9 @@ class AskResult:
 
 
 async def ask(question: str, generator: SqlGenerator, executor: QueryExecutor) -> AskResult:
+    question = question.strip()
+    if not 1 <= len(question) <= MAX_QUESTION_CHARS:
+        raise InvalidQuestion(f"問題需為 1~{MAX_QUESTION_CHARS} 字")
     try:
         sql = await generator.generate(question)
     except ReplyError as e:
