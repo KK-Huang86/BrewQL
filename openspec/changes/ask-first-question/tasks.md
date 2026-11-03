@@ -21,8 +21,8 @@
 
 ## 4. API
 
-- [ ] 4.1 測試 + 實作：`/health`（外部依賴不可用仍回 ok）、`/api/ask`（成功、日期與 Decimal 序列化、422 三種、防護拒絕回 error、Bedrock 失敗回 5xx）、CORS；驗證：測試由紅轉綠（已有初稿，5xx 與 CORS 測試待補）
-- [ ] 4.2 backend Dockerfile 並加入 compose（以 `genbi_reader` 連線、本機 AWS 憑證唯讀掛載）；驗證：`docker compose up` 後 `curl localhost:8000/health` 回 ok
+- [x] 4.1 測試 + 實作：`/health`（外部依賴不可用仍回 ok）、`/api/ask`（成功、日期與 Decimal 序列化、422 三種、防護拒絕回 error、Bedrock 失敗回 5xx）、CORS；驗證：測試由紅轉綠（已有初稿，5xx 與 CORS 測試待補）
+- [x] 4.2 backend Dockerfile 並加入 compose（以 `genbi_reader` 連線、本機 AWS 憑證唯讀掛載）；驗證：`docker compose up` 後 `curl localhost:8000/health` 回 ok
 
 ## 5. 前端
 
