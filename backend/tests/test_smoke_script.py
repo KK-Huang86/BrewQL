@@ -1,6 +1,5 @@
-from tests.test_llm_generator import FakeClient
-
 from scripts.ask import main
+from tests.test_llm_generator import FakeClient
 
 
 async def test_smoke_script_prints_sql_and_token_counts(capsys):
