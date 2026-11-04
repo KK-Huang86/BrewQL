@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
-import type { AskResponse } from './api/ask'
+import { AskError, type AskResponse } from './api/ask'
 import AskPage from './AskPage'
 
 /** A request the test resolves by hand, to observe the in-flight state. */
@@ -84,5 +84,41 @@ describe('AskPage', () => {
 
     expect(await screen.findByText('查無資料')).toBeInTheDocument()
     expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
+
+  it('shows the message and no table when the answer is an error', async () => {
+    const ask = vi.fn(async () => ({
+      status: 'error' as const,
+      sql: 'DELETE FROM cafes',
+      columns: [],
+      rows: [],
+      message: '只允許 SELECT 查詢',
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), '刪掉所有店{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('只允許 SELECT 查詢')
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.queryByText('查無資料')).not.toBeInTheDocument()
+  })
+
+  it('shows a request failure and lets the user ask again', async () => {
+    const ask = vi
+      .fn()
+      .mockRejectedValueOnce(new AskError('無法連線到伺服器，請確認網路後再試'))
+      .mockResolvedValueOnce({ status: 'ok', sql: 'SELECT 1', columns: ['n'], rows: [[1]], message: null })
+    render(<AskPage ask={ask} />)
+    const input = screen.getByRole('textbox', { name: '問題' })
+
+    await userEvent.type(input, '第一題{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('無法連線到伺服器')
+    expect(screen.getByRole('button', { name: '送出' })).toBeEnabled()
+
+    await userEvent.click(screen.getByRole('button', { name: '送出' }))
+
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 })
