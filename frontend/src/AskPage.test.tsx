@@ -1,0 +1,31 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { describe, expect, it, vi } from 'vitest'
+import type { AskResponse } from './api/ask'
+import AskPage from './AskPage'
+
+/** A request the test resolves by hand, to observe the in-flight state. */
+function deferred() {
+  let resolve!: (value: AskResponse) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<AskResponse>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  return { promise, resolve, reject }
+}
+
+describe('AskPage', () => {
+  it('sends the question once and shows a pending state', async () => {
+    const pending = deferred()
+    const ask = vi.fn(() => pending.promise)
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), '台北市有幾家咖啡店？')
+    await userEvent.click(screen.getByRole('button', { name: '送出' }))
+
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(ask).toHaveBeenCalledWith('台北市有幾家咖啡店？')
+    expect(screen.getByRole('status')).toHaveTextContent('處理中')
+  })
+})
