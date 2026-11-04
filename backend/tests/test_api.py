@@ -172,3 +172,30 @@ def test_production_app_starts_and_is_healthy_without_database_or_aws(monkeypatc
     response = TestClient(build_app()).get("/health")
 
     assert response.json() == {"status": "ok"}
+
+
+class DownExecutor:
+    async def run(self, sql):
+        from app.db import DatabaseUnavailable
+
+        raise DatabaseUnavailable("OSError: connection refused")
+
+
+def test_database_outage_is_503_with_its_own_message(caplog):
+    client = TestClient(
+        create_app(generator=FakeGenerator(), executor=DownExecutor(), cors_origins=[]),
+        raise_server_exceptions=False,
+    )
+
+    response = client.post("/api/ask", json={"question": "q"})
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "status": "error",
+        "sql": None,
+        "columns": [],
+        "rows": [],
+        "message": "資料庫暫時無法使用，請稍後再試",
+    }
+    assert "connection refused" not in response.text
+    assert any("connection refused" in (r.exc_text or "") for r in caplog.records)
