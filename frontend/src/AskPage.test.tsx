@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import type { AskResponse } from './api/ask'
@@ -50,5 +50,29 @@ describe('AskPage', () => {
     await userEvent.click(screen.getByRole('button', { name: '送出' }))
 
     expect(ask).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the result as a table with the executed SQL', async () => {
+    const ask = vi.fn(async () => ({
+      status: 'ok' as const,
+      sql: 'SELECT district, n FROM t',
+      columns: ['district', 'n'],
+      rows: [
+        ['大安區', 40],
+        ['中山區', 35],
+        ['信義區', 25],
+      ],
+      message: null,
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), '各區店數{Enter}')
+
+    const table = await screen.findByRole('table')
+    expect(within(table).getAllByRole('columnheader').map((th) => th.textContent)).toEqual(['district', 'n'])
+    expect(within(table).getAllByRole('row')).toHaveLength(4) // header + 3 rows
+    expect(within(table).getByRole('cell', { name: '大安區' })).toBeInTheDocument()
+    expect(screen.getByText('SELECT district, n FROM t')).toBeInTheDocument()
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
 })
