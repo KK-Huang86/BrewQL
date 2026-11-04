@@ -28,7 +28,15 @@
 
 #### Scenario: Bedrock 無法使用
 - **WHEN** 呼叫 Bedrock 失敗
-- **THEN** 回傳 HTTP 5xx，錯誤被記錄
+- **THEN** 回傳 HTTP 502，回應仍含五個欄位（`status=error`、`sql=null`、空的 `columns`/`rows`、通用 `message`），錯誤追蹤只記錄一次，回應不含內部錯誤細節
+
+#### Scenario: 資料庫無法連線
+- **WHEN** 連線池無法建立（資料庫未啟動、密碼錯誤）
+- **THEN** 回傳 HTTP 503 與「資料庫暫時無法使用」，不誤報為模型錯誤；下一次提問會重新嘗試連線
+
+#### Scenario: 服務關閉
+- **WHEN** API 服務關閉
+- **THEN** 關閉資料庫連線池
 
 ### Requirement: CORS
 系統 SHALL 只允許設定的前端來源跨域呼叫，只開放 `GET` 與 `POST`。

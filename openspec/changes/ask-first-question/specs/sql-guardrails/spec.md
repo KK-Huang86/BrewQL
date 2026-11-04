@@ -30,6 +30,10 @@ API MUST 以只有 SELECT 權限的唯讀角色連線資料庫，每次查詢 MU
 - **WHEN** 以 API 使用的角色直接執行 `DELETE FROM cafes`
 - **THEN** 資料庫拒絕，筆數不變
 
+#### Scenario: 解除 read-only transaction 仍無法寫入
+- **WHEN** 以 `genbi_reader` 直接連線，用 `BEGIN READ WRITE` 執行 `DELETE`、`INSERT`、`CREATE TABLE`
+- **THEN** 因權限不足被拒絕（證明擋下的是角色權限本身，而非 read-only transaction）
+
 #### Scenario: 空結果仍有欄位名稱
 - **WHEN** 查詢沒有符合的資料
 - **THEN** 回傳空的資料列與正確的欄位名稱

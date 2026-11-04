@@ -33,7 +33,7 @@ BrewQL 是一個 GenBI（生成式 BI）服務：讓不會寫 SQL 的營運人�
 │   └── checks/        # 驗證模擬資料故事的 SQL
 ├── infra/terraform/    # AWS 部署資源
 ├── openspec/           # 規格、change proposal、design 與 tasks
-├── .github/workflows/  # CI（依目錄以 path filter 分開執行）
+├── .github/workflows/  # CI（每個 PR 都跑；push 到 develop/main 才依目錄 path filter）
 └── docker-compose.yml  # db、backend、frontend
 ```
 

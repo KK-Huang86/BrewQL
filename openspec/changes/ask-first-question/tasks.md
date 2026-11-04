@@ -33,9 +33,17 @@
 
 ## 6. CI 與文件
 
-- [x] 6.1 GitHub Actions：backend（ruff + pytest + Postgres service 跑整合測試）、frontend（build + test），以 path filter 分開；驗證：push 後綠燈
+- [x] 6.1 GitHub Actions：backend（ruff + pytest + Postgres service 跑整合測試）、frontend（build + test），每個 PR 都執行（push 到 develop/main 才用 path filter，見 design D1）；驗證：push 後綠燈
 - [x] 6.2 spec 一致性檢查 workflow；驗證：測試 PR 確認「只改程式碼」失敗、「程式碼 + openspec」通過
 - [x] 6.3 README：專案定位、架構圖、本機啟動步驟、資料為模擬的說明；驗證：照 README 從零啟動成功
+
+## 6.5 Code review 修正
+
+- [x] 6.5.1 整合測試：以 `genbi_reader` 直接連線、`BEGIN READ WRITE` 執行寫入，因權限不足被拒；驗證：暫時 GRANT DELETE 時該測試失敗
+- [x] 6.5.2 測試 + 實作：502 回應維持五個欄位；資料庫連不上回 503；資料庫原始錯誤不回傳給使用者；驗證：測試由紅轉綠
+- [x] 6.5.3 測試 + 實作：Bedrock 失敗只記一次錯誤追蹤；服務關閉時關閉連線池；Bedrock client 逾時 15 秒、重試 2 次（API 與 smoke 腳本共用）；驗證：測試由紅轉綠
+- [x] 6.5.4 測試 + 實作：smoke 腳本印出 token 數；驗證：測試由紅轉綠
+- [x] 6.5.5 `.env.example` 補 `DATABASE_URL`、`CORS_ORIGINS` 說明；前端映像改用 Node 24 與 CI 一致；驗證：`docker build` 成功
 
 ## 7. 端到端驗證
 

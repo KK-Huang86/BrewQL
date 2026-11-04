@@ -5,7 +5,7 @@
 ## ADDED Requirements
 
 ### Requirement: 後端與前端檢查
-CI SHALL 在 `backend/` 變更時執行 lint 與測試，在 `frontend/` 變更時執行 build 與測試；任何一項失敗 MUST 讓 CI 失敗。
+CI SHALL 在每個 PR 執行後端 lint 與測試、前端 build 與測試；任何一項失敗 MUST 讓 CI 失敗。push 到 `develop`/`main` 時才依目錄以 path filter 分開執行。
 
 #### Scenario: 後端測試失敗
 - **WHEN** PR 讓某個後端測試失敗
