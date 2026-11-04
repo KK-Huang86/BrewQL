@@ -75,4 +75,14 @@ describe('AskPage', () => {
     expect(screen.getByText('SELECT district, n FROM t')).toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   })
+
+  it('says 查無資料 when the query returns no rows', async () => {
+    const ask = vi.fn(async () => ({ status: 'ok' as const, sql: 'SELECT 1', columns: ['n'], rows: [], message: null }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), '高雄有幾家{Enter}')
+
+    expect(await screen.findByText('查無資料')).toBeInTheDocument()
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  })
 })
