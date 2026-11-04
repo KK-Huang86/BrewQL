@@ -16,7 +16,7 @@ from app.llm import BedrockSqlGenerator
 async def main(question: str) -> None:
     settings = Settings()
     client = AnthropicBedrock(aws_region=settings.aws_region)
-    generator = BedrockSqlGenerator(client, model_id=settings.bedrock_model_id)
+    generator = BedrockSqlGenerator(client, model_id=settings.bedrock_model_id, effort=settings.bedrock_effort)
     sql = await generator.generate(question)
     print(sql)
 

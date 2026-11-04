@@ -25,10 +25,14 @@ class ReplyError(ValueError):
 class BedrockSqlGenerator:
     """Generate SQL with Claude via an injected Bedrock client (anthropic.AnthropicBedrock)."""
 
-    def __init__(self, client, *, model_id: str, max_tokens: int = 4000):
+    def __init__(self, client, *, model_id: str, effort: str | None = "low", max_tokens: int = 4000):
         self._client = client
         self._model_id = model_id
         self._max_tokens = max_tokens
+        # Effort exists on Claude 4.6+/5.x only; None omits it for models like Haiku 4.5.
+        self._output_config: dict = {"format": {"type": "json_schema", "schema": REPLY_SCHEMA}}
+        if effort:
+            self._output_config["effort"] = effort
 
     async def generate(self, question: str) -> str:
         # The SDK call is synchronous; run it in a worker thread so the event loop stays free.
@@ -39,7 +43,7 @@ class BedrockSqlGenerator:
                 max_tokens=self._max_tokens,
                 system=SCHEMA_CONTEXT,
                 messages=[{"role": "user", "content": question}],
-                output_config={"effort": "low", "format": {"type": "json_schema", "schema": REPLY_SCHEMA}},
+                output_config=self._output_config,
             )
         except Exception:
             # Network, permission and throttling errors must surface, never pass as a result.

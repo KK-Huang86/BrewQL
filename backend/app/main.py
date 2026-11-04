@@ -70,7 +70,9 @@ def build_app() -> FastAPI:
 
     settings = Settings()
     generator = BedrockSqlGenerator(
-        AnthropicBedrock(aws_region=settings.aws_region), model_id=settings.bedrock_model_id
+        AnthropicBedrock(aws_region=settings.aws_region),
+        model_id=settings.bedrock_model_id,
+        effort=settings.bedrock_effort,
     )
     return create_app(
         generator=generator, executor=PgExecutor(settings.database_url), cors_origins=settings.cors_origins
