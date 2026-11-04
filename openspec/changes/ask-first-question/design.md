@@ -46,3 +46,4 @@ CI 比較 PR 與 base branch 的變更路徑；有程式碼目錄變更卻沒有
 - [ticket 範圍比其他 ticket 大] → 已有後端初稿；若超過 8 小時，把 CI 與 spec 檢查拆成獨立 ticket
 - [React 不熟] → 頁面只做輸入框、表格、錯誤訊息
 - [只允許單一 SELECT 仍可能查到不該看的資料表] → Demo 資料庫此時只有 `cafes`；ticket 2 加白名單
+
