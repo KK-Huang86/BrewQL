@@ -1,6 +1,8 @@
 """HTTP API: health check and question endpoint."""
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from decimal import Decimal
 from typing import Annotated, Any, Literal
@@ -41,7 +43,13 @@ def _error(status_code: int, message: str) -> JSONResponse:
 
 
 def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins: list[str]) -> FastAPI:
-    app = FastAPI(title="BrewQL")
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+        # Release pooled connections so restarts don't leave sessions open on Postgres.
+        await executor.close()
+
+    app = FastAPI(title="BrewQL", lifespan=lifespan)
     # Dev only: in deployment nginx serves the UI and /api on one origin, so no CORS is needed.
     app.add_middleware(
         CORSMiddleware, allow_origins=cors_origins, allow_methods=["GET", "POST"], allow_headers=["Content-Type"]

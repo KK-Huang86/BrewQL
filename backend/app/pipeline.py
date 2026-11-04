@@ -23,6 +23,7 @@ class SqlGenerator(Protocol):
 
 class QueryExecutor(Protocol):
     async def run(self, sql: str) -> tuple[list[str], list[list[Any]]]: ...
+    async def close(self) -> None: ...
 
 
 @dataclass
