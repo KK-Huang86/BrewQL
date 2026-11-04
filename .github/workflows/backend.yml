@@ -1,8 +1,9 @@
 name: backend
 
 on:
+  # Every PR runs both workflows: required checks must always report,
+  # and a skipped path-filtered run would block the merge forever.
   pull_request:
-    paths: ["backend/**", "db/**", ".github/workflows/backend.yml"]
   push:
     branches: [develop, main]
     paths: ["backend/**", "db/**", ".github/workflows/backend.yml"]
@@ -11,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
     services:
       postgres:

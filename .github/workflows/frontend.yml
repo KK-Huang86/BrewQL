@@ -1,8 +1,9 @@
 name: frontend
 
 on:
+  # Every PR runs both workflows: required checks must always report,
+  # and a skipped path-filtered run would block the merge forever.
   pull_request:
-    paths: ["frontend/**", ".github/workflows/frontend.yml"]
   push:
     branches: [develop, main]
     paths: ["frontend/**", ".github/workflows/frontend.yml"]
@@ -11,7 +12,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  frontend:
     runs-on: ubuntu-latest
     defaults:
       run:
