@@ -28,4 +28,14 @@ describe('AskPage', () => {
     expect(ask).toHaveBeenCalledWith('台北市有幾家咖啡店？')
     expect(screen.getByRole('status')).toHaveTextContent('處理中')
   })
+
+  it.each(['', '   '])('does not send a blank question (%j)', async (text) => {
+    const ask = vi.fn(() => deferred().promise)
+    render(<AskPage ask={ask} />)
+
+    if (text) await userEvent.type(screen.getByRole('textbox', { name: '問題' }), text)
+    await userEvent.click(screen.getByRole('button', { name: '送出' }))
+
+    expect(ask).not.toHaveBeenCalled()
+  })
 })
