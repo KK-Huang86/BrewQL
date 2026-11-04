@@ -102,3 +102,13 @@ async def test_effort_is_sent_only_when_configured():
     assert with_effort.calls[0]["output_config"]["effort"] == "low"
     assert "effort" not in without_effort.calls[0]["output_config"]
     assert without_effort.calls[0]["output_config"]["format"]["type"] == "json_schema"
+
+
+def test_bedrock_client_gives_up_before_nginx_cuts_the_request():
+    from app.llm import build_bedrock_client
+
+    client = build_bedrock_client(aws_region="us-east-1")
+
+    assert client.max_retries == 2
+    # Every attempt plus retries must finish inside nginx's 60s proxy timeout.
+    assert client.timeout * (client.max_retries + 1) < 60
