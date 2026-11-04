@@ -38,4 +38,17 @@ describe('AskPage', () => {
 
     expect(ask).not.toHaveBeenCalled()
   })
+
+  it('does not send a second request while one is pending', async () => {
+    const ask = vi.fn(() => deferred().promise)
+    render(<AskPage ask={ask} />)
+    const input = screen.getByRole('textbox', { name: '問題' })
+
+    await userEvent.type(input, '第一題')
+    await userEvent.click(screen.getByRole('button', { name: '送出' }))
+    await userEvent.type(input, '{Enter}')
+    await userEvent.click(screen.getByRole('button', { name: '送出' }))
+
+    expect(ask).toHaveBeenCalledTimes(1)
+  })
 })
