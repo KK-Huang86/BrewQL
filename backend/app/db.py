@@ -10,6 +10,10 @@ class QueryError(Exception):
     """The database rejected or failed the query; the message is safe to show."""
 
 
+class DatabaseUnavailable(Exception):
+    """Cannot reach or log in to the database; an outage, not a problem with the question."""
+
+
 class PgExecutor:
     def __init__(self, dsn: str):
         self._dsn = dsn
@@ -20,7 +24,11 @@ class PgExecutor:
         # Created on first query so the app (and tests) can start without a database.
         async with self._lock:
             if self._pool is None:
-                self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
+                try:
+                    self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=5)
+                except (OSError, TimeoutError, asyncpg.PostgresError, asyncpg.InterfaceError) as e:
+                    # Pool stays None, so the next question retries the connection.
+                    raise DatabaseUnavailable(f"{type(e).__name__}: {e}") from e
         return self._pool
 
     async def run(self, sql: str) -> tuple[list[str], list[list[Any]]]:
