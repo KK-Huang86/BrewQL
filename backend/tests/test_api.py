@@ -199,3 +199,22 @@ def test_database_outage_is_503_with_its_own_message(caplog):
     }
     assert "connection refused" not in response.text
     assert any("connection refused" in (r.exc_text or "") for r in caplog.records)
+
+
+def test_bedrock_failure_is_logged_with_a_traceback_exactly_once(caplog):
+    from types import SimpleNamespace as NS
+
+    from app.llm import BedrockSqlGenerator
+
+    def create(**kwargs):
+        raise RuntimeError("ThrottlingException")
+
+    generator = BedrockSqlGenerator(NS(messages=NS(create=create)), model_id="m")
+    client = TestClient(
+        create_app(generator=generator, executor=ExplodingDependency(), cors_origins=[]),
+        raise_server_exceptions=False,
+    )
+
+    client.post("/api/ask", json={"question": "q"})
+
+    assert len([r for r in caplog.records if r.exc_info]) == 1
