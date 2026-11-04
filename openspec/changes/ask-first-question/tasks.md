@@ -34,7 +34,7 @@
 ## 6. CI 與文件
 
 - [x] 6.1 GitHub Actions：backend（ruff + pytest + Postgres service 跑整合測試）、frontend（build + test），以 path filter 分開；驗證：push 後綠燈
-- [ ] 6.2 spec 一致性檢查 workflow；驗證：測試 PR 確認「只改程式碼」失敗、「程式碼 + openspec」通過
+- [x] 6.2 spec 一致性檢查 workflow；驗證：測試 PR 確認「只改程式碼」失敗、「程式碼 + openspec」通過
 - [ ] 6.3 README：專案定位、架構圖、本機啟動步驟、資料為模擬的說明；驗證：照 README 從零啟動成功
 
 ## 7. 端到端驗證
