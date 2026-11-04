@@ -218,3 +218,18 @@ def test_bedrock_failure_is_logged_with_a_traceback_exactly_once(caplog):
     client.post("/api/ask", json={"question": "q"})
 
     assert len([r for r in caplog.records if r.exc_info]) == 1
+
+
+def test_shutdown_closes_the_database_pool():
+    class ClosableExecutor(FakeExecutor):
+        closed = 0
+
+        async def close(self):
+            self.closed += 1
+
+    ex = ClosableExecutor([], [])
+    with TestClient(create_app(generator=FakeGenerator(), executor=ex, cors_origins=[])) as client:
+        client.get("/health")
+        assert ex.closed == 0
+
+    assert ex.closed == 1
