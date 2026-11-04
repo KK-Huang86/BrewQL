@@ -26,6 +26,8 @@ services:
       # Empty would make botocore look for a profile named "", so fall back to "default".
       AWS_PROFILE: ${AWS_PROFILE:-default}
       BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-anthropic.claude-haiku-5-5}
+      # No colon: an explicitly empty value stays empty and disables effort.
+      BEDROCK_EFFORT: ${BEDROCK_EFFORT-low}
     volumes:
       # Local dev: reuse host AWS credentials read-only. On EC2 the instance role is used instead.
       - ${HOME}/.aws:/home/app/.aws:ro

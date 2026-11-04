@@ -17,7 +17,7 @@
 - [x] 3.2 撰寫 `cafes` 的 schema 說明作為 system prompt；驗證：欄位與 1.1 一致
 - [x] 3.3 測試 + 實作：Bedrock 產生器（以假 SDK client 驗證送出內容、log 含模型 ID 與 token、SDK 例外往外拋、呼叫期間事件迴圈不阻塞）；驗證：測試由紅轉綠（已有初稿）
 - [x] 3.4 測試 + 實作：流程（成功、沒有 SQL 回 error、防護拒絕回 error 且未執行、空白與過長問題、服務錯誤往外拋）；驗證：測試由紅轉綠（已有初稿，需刪除本 ticket 不含的重試等邏輯）
-- [ ] 3.5 smoke 腳本：輸入問題印出 SQL 與 token 數；驗證：Bedrock 開通後實際執行「台北市有幾家咖啡店？」並記錄輸出（腳本已完成；本機 IAM user 缺 `bedrock:InvokeModel`，403 時錯誤有記錄並拋出，待權限開通後重跑）
+- [x] 3.5 smoke 腳本：輸入問題印出 SQL 與 token 數；驗證：Bedrock 開通後實際執行「台北市有幾家咖啡店？」並記錄輸出（帳號尚無法使用 Haiku 5.5，改以 `us.anthropic.claude-haiku-4-5-20251001-v1:0` + `BEDROCK_EFFORT=` 驗證：產生 `SELECT COUNT(*) as cafe_count FROM cafes WHERE city = '台北市'`，input 561 / output 26 tokens）
 
 ## 4. API
 
