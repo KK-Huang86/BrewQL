@@ -119,6 +119,24 @@ def test_bedrock_failure_is_5xx_and_logged(caplog):
     assert any("AccessDeniedException" in (r.exc_text or str(r.exc_info)) for r in caplog.records)
 
 
+def test_bedrock_failure_body_keeps_the_response_contract():
+    client = TestClient(
+        create_app(generator=FakeGenerator(exc=RuntimeError("boom")), executor=ExplodingDependency(), cors_origins=[]),
+        raise_server_exceptions=False,
+    )
+
+    response = client.post("/api/ask", json={"question": "q"})
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "status": "error",
+        "sql": None,
+        "columns": [],
+        "rows": [],
+        "message": "模型服務暫時無法使用，請稍後再試",
+    }
+
+
 def preflight(client, origin, method="POST"):
     return client.options(
         "/api/ask",
