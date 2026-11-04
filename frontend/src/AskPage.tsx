@@ -43,6 +43,13 @@ function Answer({ answer }: { answer: AskResponse }) {
   return (
     <section>
       {answer.sql && <pre>{answer.sql}</pre>}
+      {answer.rows.length === 0 ? <p>查無資料</p> : <ResultTable answer={answer} />}
+    </section>
+  )
+}
+
+function ResultTable({ answer }: { answer: AskResponse }) {
+  return (
       <table>
         <thead>
           <tr>
@@ -61,6 +68,5 @@ function Answer({ answer }: { answer: AskResponse }) {
           ))}
         </tbody>
       </table>
-    </section>
   )
 }
