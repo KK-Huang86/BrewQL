@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints, field_serializer
 
+from app.db import DatabaseUnavailable
 from app.pipeline import MAX_QUESTION_CHARS, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
@@ -55,6 +56,9 @@ def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins
     async def ask_question(body: AskRequest):
         try:
             result = await ask(body.question, generator, executor)
+        except DatabaseUnavailable:
+            log.exception("database unavailable")
+            return _error(503, "資料庫暫時無法使用，請稍後再試")
         except Exception:
             # Bedrock/network failures: full detail goes to the log, a generic message to the client.
             log.exception("ask failed")
