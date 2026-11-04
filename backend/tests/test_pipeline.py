@@ -63,14 +63,16 @@ async def test_reply_without_usable_sql_is_an_error_and_nothing_runs():
     assert ex.calls == []
 
 
-async def test_database_error_is_reported_with_the_sql():
+async def test_database_error_is_reported_with_the_sql_but_not_the_raw_error(caplog):
     ex = FakeExecutor(exc=QueryError('UndefinedColumnError: column "x" does not exist'))
 
     result = await ask("q", FakeGenerator(sql="SELECT x FROM cafes"), ex)
 
     assert result.status == "error"
     assert result.sql == "SELECT x FROM cafes"
-    assert "does not exist" in result.message
+    # Raw Postgres text reveals schema internals; users get a generic hint, the log keeps the detail.
+    assert result.message == "查詢執行失敗，請換個問法再試"
+    assert any('column "x" does not exist' in r.getMessage() for r in caplog.records)
 
 
 @pytest.mark.parametrize("question", ["", "   ", "\n\t", "問" * 1001])
