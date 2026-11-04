@@ -10,7 +10,8 @@ export default function AskPage({ ask }: Props) {
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     const trimmed = question.trim()
-    if (!trimmed) return
+    // Enter still submits while the button is disabled, so guard here too.
+    if (!trimmed || pending) return
     setPending(true)
     await ask(trimmed)
   }
@@ -22,7 +23,9 @@ export default function AskPage({ ask }: Props) {
           問題
           <input value={question} onChange={(e) => setQuestion(e.target.value)} />
         </label>
-        <button type="submit">送出</button>
+        <button type="submit" disabled={pending}>
+          送出
+        </button>
       </form>
       {pending && <p role="status">處理中…</p>}
     </main>
