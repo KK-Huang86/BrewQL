@@ -4,13 +4,13 @@ uv run python -m scripts.ask "台北市有幾家咖啡店？"
 """
 
 import asyncio
-import logging
 import sys
 
 from anthropic import AnthropicBedrock
 
 from app.config import Settings
 from app.llm import BedrockSqlGenerator
+from app.logging_setup import configure_logging
 
 
 async def main(question: str) -> None:
@@ -22,6 +22,5 @@ async def main(question: str) -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    configure_logging()
     asyncio.run(main(" ".join(sys.argv[1:]) or "台北市有幾家咖啡店？"))

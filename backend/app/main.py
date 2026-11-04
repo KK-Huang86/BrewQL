@@ -67,7 +67,9 @@ def build_app() -> FastAPI:
     from app.config import Settings
     from app.db import PgExecutor
     from app.llm import BedrockSqlGenerator
+    from app.logging_setup import configure_logging
 
+    configure_logging()
     settings = Settings()
     generator = BedrockSqlGenerator(
         AnthropicBedrock(aws_region=settings.aws_region),
