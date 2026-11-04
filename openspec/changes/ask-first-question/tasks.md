@@ -26,10 +26,10 @@
 
 ## 5. 前端
 
-- [ ] 5.1 建立 Vite + React + TypeScript、Vitest、React Testing Library、`/api` dev proxy；驗證：`npm run build`、`npm test` 成功
-- [ ] 5.2 測試 + 實作：API client（成功、非 200 與網路錯誤轉錯誤訊息）；驗證：測試由紅轉綠
-- [ ] 5.3 測試 + 實作：頁面（正常送出、空白不送、處理中不重送、表格、查無資料、錯誤後可再送出）；驗證：測試由紅轉綠
-- [ ] 5.4 frontend Dockerfile（nginx 提供靜態檔並轉發 `/api`）加入 compose；驗證：瀏覽 `http://localhost:8080`
+- [x] 5.1 建立 Vite + React + TypeScript、Vitest、React Testing Library、`/api` dev proxy；驗證：`npm run build`、`npm test` 成功
+- [x] 5.2 測試 + 實作：API client（成功、非 200 與網路錯誤轉錯誤訊息）；驗證：測試由紅轉綠
+- [x] 5.3 測試 + 實作：頁面（正常送出、空白不送、處理中不重送、表格、查無資料、錯誤後可再送出）；驗證：測試由紅轉綠
+- [x] 5.4 frontend Dockerfile（nginx 提供靜態檔並轉發 `/api`）加入 compose；驗證：瀏覽 `http://localhost:8080`
 
 ## 6. CI 與文件
 
