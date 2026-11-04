@@ -45,9 +45,14 @@ class BedrockSqlGenerator:
                 messages=[{"role": "user", "content": question}],
                 output_config=self._output_config,
             )
-        except Exception:
-            # Network, permission and throttling errors must surface, never pass as a result.
-            log.exception("bedrock call failed", extra={"model_id": self._model_id})
+        except Exception as e:
+            # Re-raise so the API answers 5xx; it logs the traceback, here we only add the model.
+            log.error(
+                "bedrock call failed model=%s error=%s",
+                self._model_id,
+                f"{type(e).__name__}: {e}",
+                extra={"model_id": self._model_id},
+            )
             raise
         log.info(
             "bedrock call model=%s input_tokens=%d output_tokens=%d stop_reason=%s",
