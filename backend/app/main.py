@@ -33,6 +33,12 @@ class AskResponse(BaseModel):
         return [[float(v) if isinstance(v, Decimal) else v for v in row] for row in rows]
 
 
+def _error(status_code: int, message: str) -> JSONResponse:
+    # Same shape as a normal answer so the client never special-cases 5xx bodies.
+    body = AskResponse(status="error", sql=None, columns=[], rows=[], message=message)
+    return JSONResponse(status_code=status_code, content=body.model_dump())
+
+
 def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins: list[str]) -> FastAPI:
     app = FastAPI(title="BrewQL")
     # Dev only: in deployment nginx serves the UI and /api on one origin, so no CORS is needed.
@@ -52,9 +58,7 @@ def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins
         except Exception:
             # Bedrock/network failures: full detail goes to the log, a generic message to the client.
             log.exception("ask failed")
-            return JSONResponse(
-                status_code=502, content={"status": "error", "message": "模型服務暫時無法使用，請稍後再試"}
-            )
+            return _error(502, "模型服務暫時無法使用，請稍後再試")
         return AskResponse(**asdict(result))
 
     return app
