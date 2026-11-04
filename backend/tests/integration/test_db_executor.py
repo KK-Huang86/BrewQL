@@ -33,3 +33,23 @@ async def test_lazy_pool_lets_executor_start_without_a_database():
 
     ex = PgExecutor("postgresql://nobody:x@127.0.0.1:1/none")
     await ex.close()
+
+
+@pytest.mark.parametrize(
+    "sql",
+    ["DELETE FROM cafes", "INSERT INTO cafes (name) VALUES ('x')", "CREATE TABLE t (i int)"],
+)
+async def test_reader_role_itself_cannot_write_even_outside_read_only_transaction(reader_dsn, sql):
+    # Bypass PgExecutor and lift the read-only default, so only the role's grants are left.
+    import asyncpg
+
+    conn = await asyncpg.connect(reader_dsn)
+    try:
+        # READ WRITE overrides the role's read-only default; rollback keeps the seed data
+        # intact even if a regressed grant lets the write through.
+        await conn.execute("BEGIN READ WRITE")
+        with pytest.raises(asyncpg.InsufficientPrivilegeError):
+            await conn.execute(sql)
+    finally:
+        await conn.execute("ROLLBACK")
+        await conn.close()
