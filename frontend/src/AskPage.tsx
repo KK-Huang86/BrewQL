@@ -61,23 +61,23 @@ function Answer({ answer }: { answer: AskResponse }) {
 
 function ResultTable({ answer }: { answer: AskResponse }) {
   return (
-      <table>
-        <thead>
-          <tr>
-            {answer.columns.map((column) => (
-              <th key={column}>{column}</th>
+    <table>
+      <thead>
+        <tr>
+          {answer.columns.map((column) => (
+            <th key={column}>{column}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {answer.rows.map((row, i) => (
+          <tr key={i}>
+            {row.map((value, j) => (
+              <td key={j}>{String(value ?? '')}</td>
             ))}
           </tr>
-        </thead>
-        <tbody>
-          {answer.rows.map((row, i) => (
-            <tr key={i}>
-              {row.map((value, j) => (
-                <td key={j}>{String(value ?? '')}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        ))}
+      </tbody>
+    </table>
   )
 }
