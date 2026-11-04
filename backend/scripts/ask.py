@@ -6,16 +6,14 @@ uv run python -m scripts.ask "台北市有幾家咖啡店？"
 import asyncio
 import sys
 
-from anthropic import AnthropicBedrock
-
 from app.config import Settings
-from app.llm import BedrockSqlGenerator
+from app.llm import BedrockSqlGenerator, build_bedrock_client
 from app.logging_setup import configure_logging
 
 
 async def main(question: str) -> None:
     settings = Settings()
-    client = AnthropicBedrock(aws_region=settings.aws_region)
+    client = build_bedrock_client(aws_region=settings.aws_region)
     generator = BedrockSqlGenerator(client, model_id=settings.bedrock_model_id, effort=settings.bedrock_effort)
     sql = await generator.generate(question)
     print(sql)

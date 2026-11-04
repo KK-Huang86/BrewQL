@@ -18,6 +18,18 @@ REPLY_SCHEMA = {
 }
 
 
+# 3 attempts x 15s (+ short backoff) stays under nginx's 60s proxy_read_timeout.
+BEDROCK_TIMEOUT_SECONDS = 15
+BEDROCK_MAX_RETRIES = 2
+
+
+def build_bedrock_client(*, aws_region: str):
+    """Bedrock client shared by the API and the smoke script; no network call until used."""
+    from anthropic import AnthropicBedrock
+
+    return AnthropicBedrock(aws_region=aws_region, timeout=BEDROCK_TIMEOUT_SECONDS, max_retries=BEDROCK_MAX_RETRIES)
+
+
 class ReplyError(ValueError):
     """The model reply has no usable SQL; the message is safe to show users."""
 

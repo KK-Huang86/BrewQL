@@ -78,17 +78,15 @@ def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins
 
 def build_app() -> FastAPI:
     """Wire real dependencies from settings. Nothing connects until the first question."""
-    from anthropic import AnthropicBedrock
-
     from app.config import Settings
     from app.db import PgExecutor
-    from app.llm import BedrockSqlGenerator
+    from app.llm import BedrockSqlGenerator, build_bedrock_client
     from app.logging_setup import configure_logging
 
     configure_logging()
     settings = Settings()
     generator = BedrockSqlGenerator(
-        AnthropicBedrock(aws_region=settings.aws_region),
+        build_bedrock_client(aws_region=settings.aws_region),
         model_id=settings.bedrock_model_id,
         effort=settings.bedrock_effort,
     )
