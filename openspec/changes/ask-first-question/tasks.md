@@ -39,4 +39,4 @@
 
 ## 7. 端到端驗證
 
-- [ ] 7.1 `docker compose up` 後在瀏覽器問「台北市有幾家咖啡店？」與「大安區評分最高的 5 家店」；驗證：顯示正確表格，記錄 SQL 與耗時
+- [x] 7.1 `docker compose up` 後在瀏覽器問「台北市有幾家咖啡店？」與「大安區評分最高的 5 家店」；驗證：顯示正確表格，記錄 SQL 與耗時（使用者於瀏覽器確認畫面正常；API 實測：台北市 → `SELECT COUNT(*) ... WHERE city = '台北市'` = 160，1.5s；大安區前 5 → `... ORDER BY rating DESC NULLS LAST LIMIT 5`，0.9s；模型 Haiku 4.5 US 推論設定檔）
