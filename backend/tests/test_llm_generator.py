@@ -90,3 +90,15 @@ async def test_slow_model_call_does_not_block_the_event_loop():
     _, heartbeat_after = await asyncio.gather(gen.generate("q"), heartbeat())
 
     assert heartbeat_after < 0.1
+
+
+async def test_effort_is_sent_only_when_configured():
+    # Older models such as Haiku 4.5 reject the effort parameter with a 400.
+    with_effort, without_effort = FakeClient(), FakeClient()
+
+    await BedrockSqlGenerator(with_effort, model_id="m", effort="low").generate("q")
+    await BedrockSqlGenerator(without_effort, model_id="m", effort=None).generate("q")
+
+    assert with_effort.calls[0]["output_config"]["effort"] == "low"
+    assert "effort" not in without_effort.calls[0]["output_config"]
+    assert without_effort.calls[0]["output_config"]["format"]["type"] == "json_schema"
