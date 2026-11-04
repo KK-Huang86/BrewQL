@@ -1,11 +1,14 @@
 """Core flow: question -> SQL (model) -> guard -> read-only execution -> result."""
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from app.db import QueryError
 from app.llm import ReplyError
 from app.sql_guard import SqlGuardError, validate_sql
+
+log = logging.getLogger(__name__)
 
 MAX_QUESTION_CHARS = 1000
 
@@ -46,5 +49,6 @@ async def ask(question: str, generator: SqlGenerator, executor: QueryExecutor) -
     try:
         columns, rows = await executor.run(sql)
     except QueryError as e:
-        return AskResult(status="error", sql=sql, message=str(e))
+        log.warning("query failed sql=%s detail=%s", sql, e)
+        return AskResult(status="error", sql=sql, message="查詢執行失敗，請換個問法再試")
     return AskResult(status="ok", sql=sql, columns=columns, rows=rows)

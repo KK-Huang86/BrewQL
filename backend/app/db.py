@@ -7,7 +7,7 @@ import asyncpg
 
 
 class QueryError(Exception):
-    """The database rejected or failed the query; the message is safe to show."""
+    """The database rejected the query; the message is raw detail for logs, not for users."""
 
 
 class DatabaseUnavailable(Exception):
