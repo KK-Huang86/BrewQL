@@ -53,3 +53,33 @@ async def test_reader_role_itself_cannot_write_even_outside_read_only_transactio
     finally:
         await conn.execute("ROLLBACK")
         await conn.close()
+
+
+async def test_reader_role_has_a_default_statement_timeout(reader_dsn):
+    # Protects direct connections that bypass the API's per-query SET LOCAL.
+    import asyncpg
+
+    conn = await asyncpg.connect(reader_dsn)
+    try:
+        assert await conn.fetchval("SHOW statement_timeout") == "5s"
+    finally:
+        await conn.close()
+
+
+async def test_each_query_gets_its_own_statement_timeout(reader_dsn):
+    # 300ms is far below the role's 5s default, so only SET LOCAL can stop this.
+    import time
+
+    from app.db import PgExecutor
+
+    ex = PgExecutor(reader_dsn, statement_timeout_ms=300)
+    try:
+        started = time.monotonic()
+        with pytest.raises(QueryError, match="QueryCanceled"):
+            await ex.run("SELECT pg_sleep(2)")
+        assert time.monotonic() - started < 1.5
+        # The connection goes back to the pool healthy and the next query works.
+        _, rows = await ex.run("SELECT count(*) FROM cafes")
+        assert rows == [[200]]
+    finally:
+        await ex.close()

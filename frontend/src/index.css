@@ -6,6 +6,8 @@
   --border: #d8dcd2;
   --accent: #6b4f3a;
   --danger: #b42318;
+  --guard: #8a5a00;
+  --guard-bg: #fff6e0;
   font-family: system-ui, -apple-system, 'Noto Sans TC', sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -26,3 +28,5 @@ section { margin-top: 16px; overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; background: var(--surface); }
 th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 th { background: #f1efe9; }
+.guardrail { color: var(--guard); background: var(--guard-bg); border-left: 4px solid var(--guard); border-radius: 8px; padding: 10px 14px; }
+.guardrail p { margin: 4px 0 0; }

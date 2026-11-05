@@ -13,7 +13,8 @@
   |---|---|---|
   | 資料庫角色 | `genbi_reader` 只有 `SELECT`，預設 read-only transaction、5 秒逾時 | ✅ |
   | SQL 驗證 | sqlglot 解析整棵語法樹：只允許單一 SELECT，CTE、`SELECT INTO` 中的寫入也會被擋 | ✅ |
-  | 資料表白名單、`LIMIT`、危險函式與欄位 | | ticket 2 |
+  | 資料表白名單、敏感欄位、危險函式 | 只能查 `cafes`（CTE 依作用範圍判斷）；擋 `pg_catalog`、`line_user_id`、`pg_sleep`、`dblink` 等 | ✅ |
+  | 執行限制 | 外層 `LIMIT` 最多 1000；每個查詢 `SET LOCAL statement_timeout` 5 秒 | ✅ |
   | Bedrock Guardrails（輸入過濾） | | ticket 3 |
 
 - **結構化輸出**：模型必須回傳符合 JSON schema 的 `{"sql": "..."}`；截斷、拒答、格式不符都不會執行任何查詢。
@@ -113,8 +114,8 @@ npm --prefix frontend run build
 
 | # | Change | 內容 |
 |---|---|---|
-| 1 | `ask-first-question` | 中文提問 → Bedrock 產生 SQL → 唯讀執行 → 表格（進行中） |
-| 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位 |
+| 1 | `ask-first-question` | 中文提問 → Bedrock 產生 SQL → 唯讀執行 → 表格 ✅ |
+| 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位（進行中） |
 | 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails |
 | 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試 |
 | 5 | `eval-golden-set` | 以執行結果比對的正確率評估 |

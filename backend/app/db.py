@@ -15,8 +15,12 @@ class DatabaseUnavailable(Exception):
 
 
 class PgExecutor:
-    def __init__(self, dsn: str):
+    def __init__(self, dsn: str, *, statement_timeout_ms: int = 5000):
+        # Postgres treats 0 as "no timeout"; refuse it rather than silently lift the limit.
+        if statement_timeout_ms <= 0:
+            raise ValueError(f"statement_timeout_ms must be positive, got {statement_timeout_ms}")
         self._dsn = dsn
+        self._statement_timeout_ms = statement_timeout_ms
         self._pool: asyncpg.Pool | None = None
         self._lock = asyncio.Lock()
 
@@ -36,6 +40,9 @@ class PgExecutor:
         try:
             # Read-only transaction is a second barrier on top of the role's grants.
             async with pool.acquire() as conn, conn.transaction(readonly=True):
+                # SET LOCAL ends with the transaction, so pooled connections never keep it.
+                # SET takes no bind parameters; the value is an int checked in __init__.
+                await conn.execute(f"SET LOCAL statement_timeout = {int(self._statement_timeout_ms)}")
                 # A prepared statement exposes column names even when no rows match.
                 stmt = await conn.prepare(sql)
                 columns = [a.name for a in stmt.get_attributes()]

@@ -48,7 +48,13 @@ function Answer({ answer }: { answer: AskResponse }) {
   return (
     <section>
       {answer.sql && <pre>{answer.sql}</pre>}
-      {answer.status === 'error' ? (
+      {answer.status === 'error' && answer.error_kind === 'guardrail' ? (
+        // Blocked on purpose, not broken: a distinct look so users don't just retry.
+        <div role="alert" className="guardrail">
+          <strong>安全防護</strong>
+          <p>{answer.message}</p>
+        </div>
+      ) : answer.status === 'error' ? (
         <p role="alert">{answer.message}</p>
       ) : answer.rows.length === 0 ? (
         <p>查無資料</p>

@@ -103,6 +103,42 @@ describe('AskPage', () => {
     expect(screen.queryByText('查無資料')).not.toBeInTheDocument()
   })
 
+  it('marks a guardrail rejection as 安全防護 with the reason and the blocked SQL', async () => {
+    const ask = vi.fn(async () => ({
+      status: 'error' as const,
+      sql: 'SELECT * FROM pg_shadow',
+      columns: [],
+      rows: [],
+      message: '不允許的資料表：pg_shadow；可用的資料表：cafes',
+      error_kind: 'guardrail' as const,
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), '列出密碼{Enter}')
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('安全防護')
+    expect(alert).toHaveTextContent('不允許的資料表：pg_shadow')
+    expect(screen.getByText('SELECT * FROM pg_shadow')).toBeInTheDocument()
+  })
+
+  it.each(['query', 'generation'] as const)('does not label a %s error as 安全防護', async (kind) => {
+    const ask = vi.fn(async () => ({
+      status: 'error' as const,
+      sql: null,
+      columns: [],
+      rows: [],
+      message: '查詢執行失敗，請換個問法再試',
+      error_kind: kind,
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), 'q{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('查詢執行失敗')
+    expect(screen.queryByText(/安全防護/)).not.toBeInTheDocument()
+  })
+
   it('shows a request failure and lets the user ask again', async () => {
     const ask = vi
       .fn()

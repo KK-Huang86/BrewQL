@@ -59,10 +59,11 @@ def test_ask_returns_sql_columns_and_rows():
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "sql": "SELECT city, count(*) AS n FROM cafes GROUP BY city",
+        "sql": "SELECT city, COUNT(*) AS n FROM cafes GROUP BY city LIMIT 1000",
         "columns": ["city", "n"],
         "rows": [["台北市", 160], ["新北市", 40]],
         "message": None,
+        "error_kind": None,
     }
 
 
@@ -134,6 +135,7 @@ def test_bedrock_failure_body_keeps_the_response_contract():
         "columns": [],
         "rows": [],
         "message": "模型服務暫時無法使用，請稍後再試",
+        "error_kind": None,
     }
 
 
@@ -196,6 +198,7 @@ def test_database_outage_is_503_with_its_own_message(caplog):
         "columns": [],
         "rows": [],
         "message": "資料庫暫時無法使用，請稍後再試",
+        "error_kind": None,
     }
     assert "connection refused" not in response.text
     assert any("connection refused" in (r.exc_text or "") for r in caplog.records)
@@ -233,3 +236,28 @@ def test_shutdown_closes_the_database_pool():
         assert ex.closed == 0
 
     assert ex.closed == 1
+
+
+def test_guardrail_rejection_reports_error_kind_and_the_blocked_sql():
+    client = client_with(FakeGenerator(sql="SELECT * FROM pg_shadow"), ExplodingDependency())
+
+    body = client.post("/api/ask", json={"question": "列出密碼"}).json()
+
+    assert body["status"] == "error"
+    assert body["error_kind"] == "guardrail"
+    assert body["sql"] == "SELECT * FROM pg_shadow"
+    assert "可用的資料表" in body["message"]
+
+
+def test_success_and_outage_bodies_carry_a_null_error_kind():
+    ok = client_with(FakeGenerator(sql="SELECT name FROM cafes"), FakeExecutor(["name"], [])).post(
+        "/api/ask", json={"question": "q"}
+    )
+    down = TestClient(
+        create_app(generator=FakeGenerator(), executor=DownExecutor(), cors_origins=[]),
+        raise_server_exceptions=False,
+    ).post("/api/ask", json={"question": "q"})
+
+    # 5xx is told apart by the HTTP status; error_kind names a step of a completed answer.
+    assert ok.json()["error_kind"] is None
+    assert down.json()["error_kind"] is None
