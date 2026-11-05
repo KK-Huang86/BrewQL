@@ -1,0 +1,27 @@
+name: terraform
+
+# Runs on every PR (no path filter) so a required check is never skipped.
+# No AWS credentials: fmt and validate only, init without a backend.
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+    paths: ["infra/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.0"
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
