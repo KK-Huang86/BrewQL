@@ -31,6 +31,10 @@ _FORBIDDEN_NODES = (
 DEFAULT_ALLOWED_TABLES = frozenset({"cafes"})
 
 
+# Identifiers of real users; never returned even if a future table has them.
+BLOCKED_COLUMNS = frozenset({"line_user_id"})
+
+
 class SqlGuardError(ValueError):
     """SQL failed validation; the message is safe to show users and the LLM."""
 
@@ -51,6 +55,9 @@ def validate_sql(sql: str, *, allowed_tables: frozenset[str] | set[str] = DEFAUL
         if isinstance(node, _FORBIDDEN_NODES):
             raise SqlGuardError(f"不允許的操作：{type(node).__name__}")
     _check_tables(tree, {t.lower() for t in allowed_tables})
+    for column in tree.find_all(exp.Column):
+        if column.name.lower() in BLOCKED_COLUMNS:
+            raise SqlGuardError(f"不允許的欄位：{column.name}")
     return sql
 
 
