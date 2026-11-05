@@ -38,11 +38,11 @@ async def main(question: str, *, client=None, model_id: str | None = None, effor
     llm_log.setLevel(logging.INFO)
     llm_log.addHandler(catcher)
     try:
-        sql = await generator.generate(question)
+        reply = await generator.generate(question)
     finally:
         llm_log.removeHandler(catcher)
         llm_log.setLevel(old_level)
-    print(sql)
+    print(reply.sql if reply.kind == "sql" else f"[{reply.kind}] {reply.message}")
     print(f"input_tokens={catcher.usage.get('input_tokens')} output_tokens={catcher.usage.get('output_tokens')}")
 
 
