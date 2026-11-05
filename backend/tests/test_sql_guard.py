@@ -112,3 +112,18 @@ def test_cte_name_only_covers_its_own_query():
     # The outer "secret" is the real table: the CTE is only visible inside the subquery.
     with pytest.raises(SqlGuardError, match="secret"):
         validate_sql("SELECT * FROM (WITH secret AS (SELECT 1 AS a) SELECT a FROM secret) x, secret")
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT line_user_id FROM cafes",
+        'SELECT "LINE_USER_ID" FROM cafes',  # quoted + upper case
+        "SELECT c.Line_User_Id FROM cafes c",
+        "SELECT name FROM cafes WHERE line_user_id IS NOT NULL",  # not only in the select list
+        "SELECT count(DISTINCT line_user_id) FROM cafes",
+    ],
+)
+def test_blocked_columns_are_rejected_anywhere(sql):
+    with pytest.raises(SqlGuardError, match="不允許的欄位"):
+        validate_sql(sql)
