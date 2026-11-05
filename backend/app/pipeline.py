@@ -33,6 +33,8 @@ class AskResult:
     columns: list[str] = field(default_factory=list)
     rows: list[list[Any]] = field(default_factory=list)
     message: str | None = None
+    # Which step failed, so the UI, evals and retries can treat each differently.
+    error_kind: Literal["generation", "guardrail", "query"] | None = None
 
 
 async def ask(question: str, generator: SqlGenerator, executor: QueryExecutor) -> AskResult:
@@ -42,14 +44,14 @@ async def ask(question: str, generator: SqlGenerator, executor: QueryExecutor) -
     try:
         sql = await generator.generate(question)
     except ReplyError as e:
-        return AskResult(status="error", message=str(e))
+        return AskResult(status="error", message=str(e), error_kind="generation")
     try:
         sql = validate_sql(sql)
     except SqlGuardError as e:
-        return AskResult(status="error", sql=sql, message=str(e))
+        return AskResult(status="error", sql=sql, message=str(e), error_kind="guardrail")
     try:
         columns, rows = await executor.run(sql)
     except QueryError as e:
         log.warning("query failed sql=%s detail=%s", sql, e)
-        return AskResult(status="error", sql=sql, message="查詢執行失敗，請換個問法再試")
+        return AskResult(status="error", sql=sql, message="查詢執行失敗，請換個問法再試", error_kind="query")
     return AskResult(status="ok", sql=sql, columns=columns, rows=rows)
