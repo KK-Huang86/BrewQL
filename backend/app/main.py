@@ -29,6 +29,7 @@ class AskResponse(BaseModel):
     columns: list[str]
     rows: list[list[Any]]
     message: str | None
+    error_kind: Literal["generation", "guardrail", "query"] | None = None
 
     @field_serializer("rows")
     def _rows(self, rows: list[list[Any]]) -> list[list[Any]]:
