@@ -7,7 +7,7 @@
 
 ## 2. 執行限制
 
-- [ ] 2.1 整合測試 + 實作：`SET LOCAL statement_timeout`、角色預設 timeout，`pg_sleep` 逾時被中止；驗證：測試由紅轉綠
+- [x] 2.1 整合測試 + 實作：`SET LOCAL statement_timeout`、角色預設 timeout，`pg_sleep` 逾時被中止；驗證：測試由紅轉綠（角色預設 5s 在 ticket 1 已設定，本 ticket 補測試；每查詢預設 5000ms，≤ 0 視為設定錯誤，因為 Postgres 的 0 代表不限時）
 
 ## 3. API 與畫面
 
