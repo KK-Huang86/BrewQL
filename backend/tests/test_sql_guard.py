@@ -106,3 +106,9 @@ def test_allowlisted_tables_ctes_and_public_schema_pass(sql):
 def test_allowlist_can_be_configured():
     with pytest.raises(SqlGuardError, match="可用的資料表：search_logs"):
         validate_sql("SELECT name FROM cafes", allowed_tables={"search_logs"})
+
+
+def test_cte_name_only_covers_its_own_query():
+    # The outer "secret" is the real table: the CTE is only visible inside the subquery.
+    with pytest.raises(SqlGuardError, match="secret"):
+        validate_sql("SELECT * FROM (WITH secret AS (SELECT 1 AS a) SELECT a FROM secret) x, secret")
