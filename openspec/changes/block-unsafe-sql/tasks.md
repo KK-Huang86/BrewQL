@@ -11,8 +11,8 @@
 
 ## 3. API 與畫面
 
-- [ ] 3.1 測試 + 實作：回應加入 `error_kind`（guardrail / query / generation）；驗證：API 測試由紅轉綠
-- [ ] 3.2 測試 + 實作：畫面依 `error_kind=guardrail` 顯示原因與 SQL、樣式不同；驗證：前端測試由紅轉綠
+- [x] 3.1 測試 + 實作：回應加入 `error_kind`（guardrail / query / generation）；驗證：API 測試由紅轉綠（成功與 5xx 回應為 `null`；5xx 由 HTTP 狀態碼區分）
+- [x] 3.2 測試 + 實作：畫面依 `error_kind=guardrail` 顯示原因與 SQL、樣式不同；驗證：前端測試由紅轉綠
 
 ## 4. 端到端驗證
 
