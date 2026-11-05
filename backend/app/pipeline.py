@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from app.db import QueryError
+from app.input_guard import GuardVerdict
 from app.llm import Reply, ReplyError
 from app.sql_guard import SqlGuardError, validate_sql
 
@@ -19,6 +20,10 @@ class InvalidQuestion(ValueError):
 
 class SqlGenerator(Protocol):
     async def generate(self, question: str) -> Reply: ...
+
+
+class InputGuard(Protocol):
+    async def check(self, question: str) -> GuardVerdict: ...
 
 
 class QueryExecutor(Protocol):
@@ -39,10 +44,17 @@ class AskResult:
     refusal_source: Literal["input_guardrail", "model"] | None = None
 
 
-async def ask(question: str, generator: SqlGenerator, executor: QueryExecutor) -> AskResult:
+async def ask(
+    question: str, generator: SqlGenerator, executor: QueryExecutor, *, input_guard: InputGuard | None = None
+) -> AskResult:
     question = question.strip()
     if not 1 <= len(question) <= MAX_QUESTION_CHARS:
         raise InvalidQuestion(f"問題需為 1~{MAX_QUESTION_CHARS} 字")
+    # First gate: a blocked question never reaches the model. Failures propagate (fail closed).
+    if input_guard is not None:
+        verdict = await input_guard.check(question)
+        if verdict.blocked:
+            return AskResult(status="refused", message=verdict.message, refusal_source="input_guardrail")
     try:
         reply = await generator.generate(question)
     except ReplyError as e:

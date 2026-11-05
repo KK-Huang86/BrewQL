@@ -1,6 +1,6 @@
 """Runtime settings from environment variables (and .env in local development)."""
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,8 +13,18 @@ class Settings(BaseSettings):
     bedrock_effort: str | None = "low"
     database_url: str = ""
     cors_origins: list[str] = ["http://localhost:5173"]
+    # Input guardrail; unset skips the check (local development only).
+    bedrock_guardrail_id: str | None = None
+    bedrock_guardrail_version: str | None = None
 
-    @field_validator("bedrock_effort", mode="before")
+    @field_validator("bedrock_effort", "bedrock_guardrail_id", "bedrock_guardrail_version", mode="before")
     @classmethod
-    def _blank_effort_is_none(cls, value: str | None) -> str | None:
+    def _blank_is_none(cls, value: str | None) -> str | None:
         return value or None
+
+    @model_validator(mode="after")
+    def _guardrail_needs_a_published_version(self) -> "Settings":
+        # Never fall back to DRAFT: unpublished edits must not go live silently.
+        if self.bedrock_guardrail_id and not self.bedrock_guardrail_version:
+            raise ValueError("BEDROCK_GUARDRAIL_VERSION is required when BEDROCK_GUARDRAIL_ID is set")
+        return self

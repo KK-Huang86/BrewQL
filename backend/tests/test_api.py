@@ -361,7 +361,7 @@ def test_input_guard_block_is_200_refused_from_the_input_guardrail():
     assert body["message"] == "這個問題無法處理"
 
 
-def test_production_app_warns_when_no_input_guardrail_is_configured(monkeypatch, caplog):
+def test_production_app_warns_when_no_input_guardrail_is_configured(monkeypatch, capsys):
     monkeypatch.setenv("DATABASE_URL", "postgresql://nobody:x@127.0.0.1:1/none")
     monkeypatch.delenv("BEDROCK_GUARDRAIL_ID", raising=False)
 
@@ -369,4 +369,6 @@ def test_production_app_warns_when_no_input_guardrail_is_configured(monkeypatch,
 
     build_app()
 
-    assert any(r.levelname == "WARNING" and "guardrail" in r.getMessage().lower() for r in caplog.records)
+    # build_app installs the app's own stderr handler (no propagation), so read stderr.
+    warnings = [line for line in capsys.readouterr().err.splitlines() if " WARNING " in line]
+    assert any("GUARDRAIL" in line.upper() for line in warnings)
