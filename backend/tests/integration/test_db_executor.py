@@ -53,3 +53,14 @@ async def test_reader_role_itself_cannot_write_even_outside_read_only_transactio
     finally:
         await conn.execute("ROLLBACK")
         await conn.close()
+
+
+async def test_reader_role_has_a_default_statement_timeout(reader_dsn):
+    # Protects direct connections that bypass the API's per-query SET LOCAL.
+    import asyncpg
+
+    conn = await asyncpg.connect(reader_dsn)
+    try:
+        assert await conn.fetchval("SHOW statement_timeout") == "5s"
+    finally:
+        await conn.close()
