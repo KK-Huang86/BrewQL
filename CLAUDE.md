@@ -47,6 +47,9 @@ uv --directory backend sync --group dev
 uv --directory backend run pytest -q
 uv --directory backend run ruff check .
 
+# 整合測試用 Postgres（CI 同一組測試密碼；用完 down）
+eval "$(db/test-db.sh up)"; uv --directory backend run pytest -q; db/test-db.sh down
+
 # 實際呼叫 Bedrock 的 smoke 測試（需要 AWS 憑證與模型權限）
 uv --directory backend run python -m scripts.ask "台北市有幾家工作友善的咖啡店？"
 
@@ -91,6 +94,7 @@ terraform -chdir=infra/terraform plan
    - 新寫的測試在無實作前應為紅燈（fail）
    - 實作完成後測試需全部通過（green）
    - 通過後再視情況重構（refactor），且重構後測試仍需全綠
+   - git 歷史要能證明順序：每個循環先 commit 紅燈測試（`test: ... (red)`），再 commit 實作（`feat: ... (green)`）；測試一寫就綠的驗證型測試，以 `test:` 單獨 commit 並在訊息中說明突變驗證
 4. **測試全過才能生成/合併程式碼**：只有當對應的 unit test（含邊界案例）全部撰寫完成且驗證通過後，才可以生成或提交最終的實作程式碼。
 5. **測試不可為了遷就程式碼而修改**：unit test 撰寫完成後，除非商業邏輯（需求本身）有變更，否則不可以因為程式碼實作結果、或是為了讓測試通過，而回頭修改測試內容（例如放寬斷言、刪除邊界案例、改動期望值以符合實作輸出）。測試失敗時，預設應該修的是程式碼，而不是測試；只有在確認是商業邏輯變更時，才能連動修改測試，且需同步說明變更原因。
 
@@ -113,7 +117,6 @@ terraform -chdir=infra/terraform plan
 
 1. **結構檢查（交給 CI）**：若這次變更修改了實作程式碼，卻沒有同步修改對應的 `openspec/specs/**` 或該 change 目錄下的文件，CI 應直接擋下 PR。這是可自動化、確定性的規則，不需要 AI 判斷。
 2. **語意檢查（由我在流程中執行，不寫進 CI）**：驗證 task/實作是否真的符合 proposal、design 的描述，需要語意判讀，不適合當 CI 硬性 gate（成本高、可能不穩定）。因此：
-   - 在 `/spectra-apply` 的任務完成、要準備開 PR 之前，必須先執行 `/spectra-verify` 確認實作與 change 的 spec/design 一致。
-   - 同時執行 `/spectra-drift` 檢查該 change 與目前程式碼現狀是否已產生落差。
-   - 若 verify 或 drift 回報落差，必須先處理（修正實作或回頭 `ingest` 調整 spec），確認一致後才能建議使用者開 PR。
+   - change 的任務完成、要準備開 PR 之前，依序執行：`openspec validate <change> --strict`、`spectra drift <change>`（檢查 spec 與程式碼現狀的落差）、`mattpocock-skills:code-review`（Standards 與 Spec 兩個面向，以 `develop` 為比較基準）。
+   - 任一項回報落差，必須先處理（修正實作或回頭調整 spec／design／tasks），確認一致後才能建議使用者開 PR。
    - 這一層是流程約定，仰賴我主動執行，不是 CI 保證；若程式碼是透過我以外的方式修改，此規則不會被觸發。
