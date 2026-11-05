@@ -1,9 +1,11 @@
 ## 1. 結構化輸出與模型拒答
 
-- [ ] 1.1 測試 + 實作：JSON schema 擴充為 sql／refuse／clarify，產生 SQL 的介面改回傳三種結果之一；類型與欄位不一致回 error；驗證：測試由紅轉綠
-- [ ] 1.2 測試 + 實作：Bedrock 結束原因 refusal 轉拒答（`refusal_source=model`）；驗證：以假 SDK client 的測試由紅轉綠
-- [ ] 1.3 更新 system prompt 說明拒答與反問規則，禁止以必定查不到資料的 SQL 敷衍；驗證：涵蓋修改資料、預測、模糊三類
-- [ ] 1.4 測試 + 實作：流程與 API 回傳 `refused`、`clarify`（HTTP 200、`sql=null`、`refusal_source`）且不執行查詢；驗證：測試由紅轉綠
+- [x] 1.1 測試 + 實作：JSON schema 擴充為 sql／refuse／clarify，產生 SQL 的介面改回傳三種結果之一；類型與欄位不一致回 error；驗證：測試由紅轉綠
+- [x] 1.2 測試 + 實作：Bedrock 結束原因 refusal 轉拒答（`refusal_source=model`）；驗證：以假 SDK client 的測試由紅轉綠
+- [x] 1.3 更新 system prompt 說明拒答與反問規則，禁止以必定查不到資料的 SQL 敷衍；驗證：涵蓋修改資料、預測、模糊三類
+- [x] 1.4 測試 + 實作：流程與 API 回傳 `refused`、`clarify`（HTTP 200、`sql=null`、`refusal_source`）且不執行查詢；驗證：測試由紅轉綠
+
+  - 真實 Bedrock（Haiku 4.5，smoke 腳本）：刪除資料、pg_shadow、寫詩、預測新會員 → refuse；「最近熱門的店」→ clarify（反問天數與指標）；「台北市有幾家咖啡店？」→ SQL。ticket 2 的空結果敷衍沒有再出現。input tokens 由約 560 增至約 1,100。
 
 ## 2. 輸入防護
 
