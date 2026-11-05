@@ -115,7 +115,7 @@ npm --prefix frontend run build
 | # | Change | 內容 |
 |---|---|---|
 | 1 | `ask-first-question` | 中文提問 → Bedrock 產生 SQL → 唯讀執行 → 表格 ✅ |
-| 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位（進行中） |
+| 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位 ✅ |
 | 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails |
 | 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試 |
 | 5 | `eval-golden-set` | 以執行結果比對的正確率評估 |
