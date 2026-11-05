@@ -1,6 +1,6 @@
 import pytest
 
-from app.sql_guard import SqlGuardError, validate_sql
+from app.sql_guard import BLOCKED_FUNCTIONS, SqlGuardError, validate_sql
 
 
 def test_plain_select_passes():
@@ -149,3 +149,10 @@ def test_dangerous_functions_are_rejected_anywhere(sql):
 
 def test_ordinary_functions_pass():
     validate_sql("SELECT district, round(avg(rating), 2), count(*) FROM cafes GROUP BY district")
+
+
+@pytest.mark.parametrize("name", sorted(BLOCKED_FUNCTIONS))
+def test_every_blocked_function_is_caught_by_the_parser(name):
+    # Fails if a sqlglot upgrade starts parsing one of them as a typed function.
+    with pytest.raises(SqlGuardError, match="不允許的函式"):
+        validate_sql(f"SELECT {name}('x')")

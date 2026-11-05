@@ -35,6 +35,21 @@ DEFAULT_ALLOWED_TABLES = frozenset({"cafes"})
 BLOCKED_COLUMNS = frozenset({"line_user_id"})
 
 
+# Functions that stall the database, touch the server's files, reach other
+# databases, change settings or kill sessions. Not exhaustive: the read-only
+# role and statement timeout bound whatever slips through.
+BLOCKED_FUNCTIONS = frozenset(
+    {
+        "pg_sleep", "pg_sleep_for", "pg_sleep_until",
+        "pg_read_file", "pg_read_binary_file", "pg_ls_dir", "pg_stat_file",
+        "lo_import", "lo_export",
+        "dblink", "dblink_exec", "dblink_connect",
+        "set_config", "current_setting",
+        "pg_terminate_backend", "pg_cancel_backend", "pg_reload_conf",
+    }
+)  # fmt: skip
+
+
 class SqlGuardError(ValueError):
     """SQL failed validation; the message is safe to show users and the LLM."""
 
@@ -58,6 +73,10 @@ def validate_sql(sql: str, *, allowed_tables: frozenset[str] | set[str] = DEFAUL
     for column in tree.find_all(exp.Column):
         if column.name.lower() in BLOCKED_COLUMNS:
             raise SqlGuardError(f"不允許的欄位：{column.name}")
+    for func in tree.find_all(exp.Anonymous):
+        # Postgres-only functions parse as Anonymous; built-ins like avg/round never match.
+        if func.name.lower() in BLOCKED_FUNCTIONS:
+            raise SqlGuardError(f"不允許的函式：{func.name}")
     return sql
 
 
