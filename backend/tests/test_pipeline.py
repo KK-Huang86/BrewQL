@@ -101,3 +101,24 @@ async def test_model_service_errors_propagate():
         await ask("q", FakeGenerator(exc=boom), FakeExecutor())
 
     assert raised.value is boom
+
+
+@pytest.mark.parametrize(
+    ("generator", "executor", "kind"),
+    [
+        (FakeGenerator(exc=ReplyError("模型拒絕回答這個問題")), FakeExecutor(), "generation"),
+        (FakeGenerator(sql="SELECT * FROM pg_shadow"), FakeExecutor(), "guardrail"),
+        (FakeGenerator(sql="SELECT x FROM cafes"), FakeExecutor(exc=QueryError("UndefinedColumnError")), "query"),
+    ],
+)
+async def test_each_error_is_tagged_with_where_it_failed(generator, executor, kind):
+    result = await ask("q", generator, executor)
+
+    assert result.status == "error"
+    assert result.error_kind == kind
+
+
+async def test_success_has_no_error_kind():
+    result = await ask("q", FakeGenerator(sql="SELECT name FROM cafes"), FakeExecutor())
+
+    assert result.error_kind is None
