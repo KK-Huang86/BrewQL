@@ -24,12 +24,13 @@ class AskRequest(BaseModel):
 
 
 class AskResponse(BaseModel):
-    status: Literal["ok", "error"]
+    status: Literal["ok", "error", "refused", "clarify"]
     sql: str | None
     columns: list[str]
     rows: list[list[Any]]
     message: str | None
     error_kind: Literal["generation", "guardrail", "query"] | None = None
+    refusal_source: Literal["input_guardrail", "model"] | None = None
 
     @field_serializer("rows")
     def _rows(self, rows: list[list[Any]]) -> list[list[Any]]:
