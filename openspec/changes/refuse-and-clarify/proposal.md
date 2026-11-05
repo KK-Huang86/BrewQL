@@ -7,6 +7,7 @@
 - 結構化輸出擴充為三種結果：SQL、拒答、反問（由 JSON schema 保證格式）
 - 新增回應狀態 `refused`、`clarify`，兩者都不執行任何 SQL
 - 模型安全機制拒絕（refusal）時視為拒答
+- system prompt 禁止以必定查不到資料的 SQL 敷衍拒絕（ticket 2 實測發現）
 - 新增輸入防護：問題先經 **Amazon Bedrock Guardrails** 檢查 prompt attack 與與數據無關的話題，被攔下時直接拒答、不呼叫模型
 - Guardrail 以 Terraform 建立，CI 加入 Terraform 檢查
 - 畫面以不同樣式顯示拒答與反問，並標示拒答來源（輸入防護／模型）
@@ -20,6 +21,7 @@
 ### Modified Capabilities
 
 - `query-pipeline`: 結構化輸出新增拒答與反問。
+- `query-api`: 回應新增 `refused`、`clarify` 狀態與 `refusal_source`，輸入檢查失敗回 502。
 - `query-web-ui`: 新增拒答與反問的顯示。
 - `project-ci`: 新增 Terraform 檢查。
 
@@ -28,5 +30,7 @@
 - 修改：結構化輸出 schema、system prompt、流程、API 回應狀態、前端訊息元件
 - 新增：`infra/terraform/`（目前只有 Guardrail 資源）、Terraform CI workflow
 - 新依賴：boto3（呼叫 ApplyGuardrail）
+- 新設定：`BEDROCK_GUARDRAIL_ID`、`BEDROCK_GUARDRAIL_VERSION`
+- AWS 權限：`brewql` IAM user 需增加 `bedrock:ApplyGuardrail`
 - 成本：Guardrails 依檢查的文字量計費，Demo 用量極低
 - 依賴 ticket：`ask-first-question`

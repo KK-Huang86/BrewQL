@@ -14,6 +14,10 @@
 - **WHEN** 問題為「下個月會有幾位新會員？」
 - **THEN** 回傳 `status=refused`，說明只能查詢歷史資料，資料庫未收到查詢
 
+#### Scenario: 要求修改資料
+- **WHEN** 問題為「刪除所有咖啡店資料」
+- **THEN** 回傳 `status=refused`、`refusal_source=model`，而不是產生必定查不到資料的 SQL；資料庫未收到查詢
+
 #### Scenario: 模型安全拒絕
 - **WHEN** Bedrock 回應的結束原因為 refusal
 - **THEN** 回傳 `status=refused`，不讀取回覆內容
