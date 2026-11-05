@@ -26,3 +26,20 @@ def test_every_setting_is_documented_in_env_example():
 
     missing = {name.upper() for name in Settings.model_fields} - documented
     assert not missing, f"add to .env.example: {sorted(missing)}"
+
+
+def test_guardrail_is_off_by_default(monkeypatch):
+    monkeypatch.delenv("BEDROCK_GUARDRAIL_ID", raising=False)
+    assert Settings(_env_file=None).bedrock_guardrail_id is None
+
+
+def test_guardrail_id_without_a_version_is_rejected_at_startup(monkeypatch):
+    # Never fall back to DRAFT: an unpublished edit must not go live silently.
+    import pytest
+    from pydantic import ValidationError
+
+    monkeypatch.setenv("BEDROCK_GUARDRAIL_ID", "gr-123")
+    monkeypatch.delenv("BEDROCK_GUARDRAIL_VERSION", raising=False)
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
