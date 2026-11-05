@@ -31,6 +31,9 @@ _FORBIDDEN_NODES = (
 DEFAULT_ALLOWED_TABLES = frozenset({"cafes"})
 
 
+# Most rows one query may return; protects the API, the browser and the model context.
+DEFAULT_MAX_ROWS = 1000
+
 # Identifiers of real users; never returned even if a future table has them.
 BLOCKED_COLUMNS = frozenset({"line_user_id"})
 
@@ -54,7 +57,15 @@ class SqlGuardError(ValueError):
     """SQL failed validation; the message is safe to show users and the LLM."""
 
 
-def validate_sql(sql: str, *, allowed_tables: frozenset[str] | set[str] = DEFAULT_ALLOWED_TABLES) -> str:
+def validate_sql(
+    sql: str,
+    *,
+    allowed_tables: frozenset[str] | set[str] = DEFAULT_ALLOWED_TABLES,
+    max_rows: int = DEFAULT_MAX_ROWS,
+) -> str:
+    """Return the SQL to execute (with the row cap applied), or raise SqlGuardError."""
+    if max_rows <= 0:
+        raise ValueError(f"max_rows must be positive, got {max_rows}")
     if not sql.strip().strip(";").strip():
         raise SqlGuardError("SQL 是空的")
     try:
@@ -77,7 +88,22 @@ def validate_sql(sql: str, *, allowed_tables: frozenset[str] | set[str] = DEFAUL
         # Postgres-only functions parse as Anonymous; built-ins like avg/round never match.
         if func.name.lower() in BLOCKED_FUNCTIONS:
             raise SqlGuardError(f"不允許的函式：{func.name}")
-    return sql
+    _cap_rows(tree, max_rows)
+    return tree.sql(dialect="postgres")
+
+
+def _cap_rows(tree: exp.Query, max_rows: int) -> None:
+    # Only the outer LIMIT bounds what is returned; inner limits are left alone.
+    limit = tree.args.get("limit")
+    count = None
+    if isinstance(limit, exp.Limit):
+        count = limit.expression
+    elif isinstance(limit, exp.Fetch):
+        count = limit.args.get("count")
+    requested = int(count.this) if isinstance(count, exp.Literal) and count.is_int else None
+    # LIMIT ALL, LIMIT (subquery) and no LIMIT all fall back to the cap.
+    rows = min(requested, max_rows) if requested is not None else max_rows
+    tree.set("limit", exp.Limit(expression=exp.Literal.number(rows)))
 
 
 def _check_tables(tree: exp.Expression, allowed: set[str]) -> None:
