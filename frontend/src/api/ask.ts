@@ -4,6 +4,8 @@ export type AskResponse = {
   columns: string[]
   rows: unknown[][]
   message: string | null
+  /** Which step failed; only set when status is 'error'. */
+  error_kind?: 'generation' | 'guardrail' | 'query' | null
 }
 
 /** A failed request; `message` is safe to show the user. */
