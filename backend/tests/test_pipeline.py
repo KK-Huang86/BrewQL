@@ -60,7 +60,7 @@ async def test_reply_without_usable_sql_is_an_error_and_nothing_runs():
 
     result = await ask("q", FakeGenerator(exc=ReplyError("模型回覆的 SQL 是空的")), ex)
 
-    assert result == AskResult(status="error", message="模型回覆的 SQL 是空的")
+    assert result == AskResult(status="error", message="模型回覆的 SQL 是空的", error_kind="generation")
     assert ex.calls == []
 
 
