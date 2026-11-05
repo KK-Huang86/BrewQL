@@ -10,8 +10,8 @@
 ## 2. 輸入防護
 
 - [ ] 2.1 Terraform 建立 Bedrock Guardrail（Standard 方案、cross-region、prompt attack、無關話題、拒絕訊息）與發布版本，state 加入 `.gitignore`，CI 每個 PR 執行 `fmt -check` 與 `validate`；驗證：`terraform validate` 通過、`apply` 後輸出 ID 與版本
-- [ ] 2.2 測試 + 實作：輸入檢查（攔下時不呼叫模型、通過時繼續、未設定時跳過並在啟動時警告、呼叫失敗 fail closed 回 502），以假 client 測試；新增設定同步 `.env.example`；驗證：測試由紅轉綠
-- [ ] 2.3 測試 + 實作：輸入檢查 log 記錄結果、原因類別與耗時；驗證：以 caplog 的測試由紅轉綠
+- [x] 2.2 測試 + 實作：輸入檢查（攔下時不呼叫模型、通過時繼續、未設定時跳過並在啟動時警告、呼叫失敗 fail closed 回 502），以假 client 測試；新增設定同步 `.env.example`；驗證：測試由紅轉綠
+- [x] 2.3 測試 + 實作：輸入檢查 log 記錄結果、原因類別與耗時；驗證：以 caplog 的測試由紅轉綠
 
 ## 3. 前端
 
