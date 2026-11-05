@@ -1,19 +1,20 @@
 import pytest
 
 from app.db import QueryError
-from app.llm import ReplyError
+from app.llm import Reply, ReplyError
 from app.pipeline import AskResult, InvalidQuestion, ask
 
 
 class FakeGenerator:
-    def __init__(self, sql="SELECT 1", exc=None):
-        self.sql, self.exc, self.questions = sql, exc, []
+    def __init__(self, sql="SELECT 1", exc=None, reply=None):
+        self.reply = reply or Reply(kind="sql", sql=sql)
+        self.exc, self.questions = exc, []
 
     async def generate(self, question):
         self.questions.append(question)
         if self.exc:
             raise self.exc
-        return self.sql
+        return self.reply
 
 
 class FakeExecutor:
@@ -122,3 +123,32 @@ async def test_success_has_no_error_kind():
     result = await ask("q", FakeGenerator(sql="SELECT name FROM cafes"), FakeExecutor())
 
     assert result.error_kind is None
+
+
+async def test_refusal_returns_the_reason_and_runs_nothing():
+    ex = FakeExecutor()
+    gen = FakeGenerator(reply=Reply(kind="refuse", message="不能修改資料"))
+
+    result = await ask("刪除所有咖啡店資料", gen, ex)
+
+    assert result == AskResult(status="refused", message="不能修改資料", refusal_source="model")
+    assert ex.calls == []
+
+
+async def test_clarify_returns_the_question_back_and_runs_nothing():
+    ex = FakeExecutor()
+    gen = FakeGenerator(reply=Reply(kind="clarify", message="「最近」是指幾天內？"))
+
+    result = await ask("最近熱門的店", gen, ex)
+
+    assert result == AskResult(status="clarify", message="「最近」是指幾天內？")
+    assert result.refusal_source is None
+    assert ex.calls == []
+
+
+async def test_answers_and_errors_have_no_refusal_source():
+    ok = await ask("q", FakeGenerator(sql="SELECT name FROM cafes"), FakeExecutor())
+    blocked = await ask("q", FakeGenerator(sql="DELETE FROM cafes"), FakeExecutor())
+
+    assert ok.refusal_source is None
+    assert blocked.refusal_source is None

@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from fastapi.testclient import TestClient
 
+from app.llm import Reply
 from app.main import create_app
 
 
@@ -31,13 +32,14 @@ def test_health_is_ok_even_when_dependencies_are_down():
 
 
 class FakeGenerator:
-    def __init__(self, sql="SELECT 1", exc=None):
-        self.sql, self.exc = sql, exc
+    def __init__(self, sql="SELECT 1", exc=None, reply=None):
+        self.reply = reply or Reply(kind="sql", sql=sql)
+        self.exc = exc
 
     async def generate(self, question):
         if self.exc:
             raise self.exc
-        return self.sql
+        return self.reply
 
 
 class FakeExecutor:
@@ -64,6 +66,7 @@ def test_ask_returns_sql_columns_and_rows():
         "rows": [["台北市", 160], ["新北市", 40]],
         "message": None,
         "error_kind": None,
+        "refusal_source": None,
     }
 
 
@@ -136,6 +139,7 @@ def test_bedrock_failure_body_keeps_the_response_contract():
         "rows": [],
         "message": "模型服務暫時無法使用，請稍後再試",
         "error_kind": None,
+        "refusal_source": None,
     }
 
 
@@ -199,6 +203,7 @@ def test_database_outage_is_503_with_its_own_message(caplog):
         "rows": [],
         "message": "資料庫暫時無法使用，請稍後再試",
         "error_kind": None,
+        "refusal_source": None,
     }
     assert "connection refused" not in response.text
     assert any("connection refused" in (r.exc_text or "") for r in caplog.records)
@@ -261,3 +266,39 @@ def test_success_and_outage_bodies_carry_a_null_error_kind():
     # 5xx is told apart by the HTTP status; error_kind names a step of a completed answer.
     assert ok.json()["error_kind"] is None
     assert down.json()["error_kind"] is None
+
+
+def test_refusal_is_200_with_reason_and_source():
+    client = client_with(FakeGenerator(reply=Reply(kind="refuse", message="只能查詢歷史資料")), ExplodingDependency())
+
+    response = client.post("/api/ask", json={"question": "下個月會有幾位新會員？"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "refused",
+        "sql": None,
+        "columns": [],
+        "rows": [],
+        "message": "只能查詢歷史資料",
+        "error_kind": None,
+        "refusal_source": "model",
+    }
+
+
+def test_clarify_is_200_with_the_question_back():
+    client = client_with(
+        FakeGenerator(reply=Reply(kind="clarify", message="「熱門」是指什麼指標？")), ExplodingDependency()
+    )
+
+    response = client.post("/api/ask", json={"question": "最近熱門的店"})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "clarify",
+        "sql": None,
+        "columns": [],
+        "rows": [],
+        "message": "「熱門」是指什麼指標？",
+        "error_kind": None,
+        "refusal_source": None,
+    }
