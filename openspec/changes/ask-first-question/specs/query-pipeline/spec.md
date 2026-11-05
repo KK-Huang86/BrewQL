@@ -31,7 +31,7 @@
 - **THEN** 回傳 `status=error`，沒有執行任何查詢
 
 ### Requirement: 輸入驗證與服務錯誤
-問題去除前後空白後 MUST 為 1~1000 字元，否則不呼叫模型。Bedrock 的網路、權限、限流錯誤 MUST 被記錄並往外拋出，MUST NOT 被當作正常結果或靜默忽略。
+問題去除前後空白後 MUST 為 1~1000 字元，否則不呼叫模型。Bedrock 的網路、權限、限流錯誤 MUST 被記錄並往外拋出，MUST NOT 被當作正常結果或靜默忽略。Bedrock client 的逾時與重試 MUST 有上限，且總時間 MUST 短於前端代理的 60 秒逾時。資料庫拒絕查詢時，MUST 回傳 `status=error`、實際的 SQL 與通用訊息；資料庫原始錯誤只寫入 log，MUST NOT 回傳給使用者。
 
 #### Scenario: 空白問題
 - **WHEN** 問題只有空白

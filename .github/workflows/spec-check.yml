@@ -1,0 +1,21 @@
+name: spec-check
+
+# Structural rule from CLAUDE.md: code changes must ship with an openspec/ change.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  spec-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Test the checker
+        run: python3 -m unittest discover -s tools
+      - name: Code changes come with spec changes
+        run: |
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" | python3 tools/spec_check.py

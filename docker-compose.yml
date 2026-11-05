@@ -1,0 +1,49 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: genbi
+      POSTGRES_USER: ${POSTGRES_USER:-genbi_owner}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      GENBI_READER_PASSWORD: ${GENBI_READER_PASSWORD:?set GENBI_READER_PASSWORD in .env}
+    volumes:
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      # Bound to localhost only; never exposed on a public interface.
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d genbi"]
+      interval: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      # Read-only role only; the owner credentials never reach the API.
+      DATABASE_URL: postgresql://genbi_reader:${GENBI_READER_PASSWORD}@db:5432/genbi
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      # Empty would make botocore look for a profile named "", so fall back to "default".
+      AWS_PROFILE: ${AWS_PROFILE:-default}
+      BEDROCK_MODEL_ID: ${BEDROCK_MODEL_ID:-anthropic.claude-haiku-5-5}
+      # No colon: an explicitly empty value stays empty and disables effort.
+      BEDROCK_EFFORT: ${BEDROCK_EFFORT-low}
+    volumes:
+      # Local dev: reuse host AWS credentials read-only. On EC2 the instance role is used instead.
+      - ${HOME}/.aws:/home/app/.aws:ro
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  pgdata:
