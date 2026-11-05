@@ -73,8 +73,7 @@ def _cte_in_scope(table: exp.Table, name: str) -> bool:
     """True if a WITH clause enclosing this table defines `name`."""
     node = table.parent
     while node is not None:
-        with_ = node.args.get("with_") if isinstance(node, exp.Query) else None
-        if with_ and any(cte.alias_or_name.lower() == name for cte in with_.expressions):
+        if isinstance(node, exp.Query) and any(cte.alias_or_name.lower() == name for cte in node.ctes):
             return True
         node = node.parent
     return False
