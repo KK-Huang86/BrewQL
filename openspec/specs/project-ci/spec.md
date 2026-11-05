@@ -1,7 +1,7 @@
 # project-ci Specification
 
 ## Purpose
-以自動化檢查守住程式碼品質與「程式碼和 spec 同步」的專案規則。
+以自動化檢查守住程式碼品質與「程式碼和 spec 同步」的專案規則：每個 PR 都必須通過後端、前端與 spec 一致性檢查才能合併。
 
 ## Requirements
 

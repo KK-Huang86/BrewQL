@@ -1,7 +1,7 @@
 # query-api Specification
 
 ## Purpose
-定義前端與後端之間的 HTTP 合約，包含健康檢查與提問。
+定義前端與後端之間的 HTTP 合約，包含健康檢查與提問；成功與錯誤回應使用同一個形狀，讓前端能一致地呈現結果、錯誤原因與實際執行的 SQL。
 
 ## Requirements
 
