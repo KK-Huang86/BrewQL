@@ -3,8 +3,8 @@ import pytest
 from app.sql_guard import BLOCKED_FUNCTIONS, SqlGuardError, validate_sql
 
 
-def test_plain_select_passes():
-    assert validate_sql("SELECT name FROM cafes") == "SELECT name FROM cafes"
+def test_plain_select_passes_with_the_row_cap_added():
+    assert validate_sql("SELECT name FROM cafes") == "SELECT name FROM cafes LIMIT 1000"
 
 
 def test_delete_is_rejected():
@@ -156,3 +156,39 @@ def test_every_blocked_function_is_caught_by_the_parser(name):
     # Fails if a sqlglot upgrade starts parsing one of them as a typed function.
     with pytest.raises(SqlGuardError, match="不允許的函式"):
         validate_sql(f"SELECT {name}('x')")
+
+
+@pytest.mark.parametrize(
+    ("sql", "expected"),
+    [
+        ("SELECT name FROM cafes LIMIT 999999", "SELECT name FROM cafes LIMIT 1000"),  # too big: capped
+        ("SELECT name FROM cafes LIMIT 10", "SELECT name FROM cafes LIMIT 10"),  # smaller: kept
+        ("SELECT name FROM cafes LIMIT 1000", "SELECT name FROM cafes LIMIT 1000"),  # exactly the cap
+        ("SELECT name FROM cafes LIMIT ALL", "SELECT name FROM cafes LIMIT 1000"),  # unbounded
+        ("SELECT name FROM cafes LIMIT (SELECT 99999)", "SELECT name FROM cafes LIMIT 1000"),  # not a literal
+        ("SELECT name FROM cafes FETCH FIRST 5 ROWS ONLY", "SELECT name FROM cafes LIMIT 5"),
+        ("SELECT name FROM cafes FETCH FIRST 5000 ROWS ONLY", "SELECT name FROM cafes LIMIT 1000"),
+        (
+            "SELECT name FROM cafes UNION SELECT district FROM cafes",  # cap the whole union
+            "SELECT name FROM cafes UNION SELECT district FROM cafes LIMIT 1000",
+        ),
+        (
+            "SELECT name FROM cafes WHERE id IN (SELECT id FROM cafes LIMIT 5000)",  # inner limit untouched
+            "SELECT name FROM cafes WHERE id IN (SELECT id FROM cafes LIMIT 5000) LIMIT 1000",
+        ),
+    ],
+)
+def test_row_cap_is_enforced_on_the_outer_query(sql, expected):
+    assert validate_sql(sql) == expected
+
+
+def test_row_cap_can_be_configured():
+    assert validate_sql("SELECT name FROM cafes LIMIT 80", max_rows=50) == "SELECT name FROM cafes LIMIT 50"
+
+
+@pytest.mark.parametrize("max_rows", [0, -1])
+def test_non_positive_row_cap_is_a_configuration_error(max_rows):
+    # A broken setting is the operator's bug, not the model's: not a SqlGuardError.
+    with pytest.raises(ValueError, match="max_rows") as info:
+        validate_sql("SELECT name FROM cafes", max_rows=max_rows)
+    assert not isinstance(info.value, SqlGuardError)

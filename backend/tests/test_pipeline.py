@@ -35,12 +35,13 @@ async def test_question_becomes_sql_and_result():
 
     assert result == AskResult(
         status="ok",
-        sql="SELECT count(*) AS n FROM cafes WHERE city = '台北市'",
+        sql="SELECT COUNT(*) AS n FROM cafes WHERE city = '台北市' LIMIT 1000",
         columns=["n"],
         rows=[[160]],
     )
     assert gen.questions == ["台北市有幾家咖啡店？"]
-    assert ex.calls == ["SELECT count(*) AS n FROM cafes WHERE city = '台北市'"]
+    # The guard's rewrite (row cap) is what runs and what the user sees.
+    assert ex.calls == ["SELECT COUNT(*) AS n FROM cafes WHERE city = '台北市' LIMIT 1000"]
 
 
 async def test_sql_rejected_by_the_guard_is_never_executed():
@@ -69,7 +70,7 @@ async def test_database_error_is_reported_with_the_sql_but_not_the_raw_error(cap
     result = await ask("q", FakeGenerator(sql="SELECT x FROM cafes"), ex)
 
     assert result.status == "error"
-    assert result.sql == "SELECT x FROM cafes"
+    assert result.sql == "SELECT x FROM cafes LIMIT 1000"
     # Raw Postgres text reveals schema internals; users get a generic hint, the log keeps the detail.
     assert result.message == "查詢執行失敗，請換個問法再試"
     assert any('column "x" does not exist' in r.getMessage() for r in caplog.records)

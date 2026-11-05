@@ -59,7 +59,7 @@ def test_ask_returns_sql_columns_and_rows():
     assert response.status_code == 200
     assert response.json() == {
         "status": "ok",
-        "sql": "SELECT city, count(*) AS n FROM cafes GROUP BY city",
+        "sql": "SELECT city, COUNT(*) AS n FROM cafes GROUP BY city LIMIT 1000",
         "columns": ["city", "n"],
         "rows": [["台北市", 160], ["新北市", 40]],
         "message": None,
