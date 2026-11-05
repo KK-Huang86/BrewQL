@@ -1,7 +1,11 @@
 """Check each question with Amazon Bedrock Guardrails before the SQL model sees it."""
 
 import asyncio
+import logging
+import time
 from dataclasses import dataclass
+
+log = logging.getLogger(__name__)
 
 DEFAULT_BLOCK_MESSAGE = "這個問題無法處理：BrewQL 只回答 Find Coffee 咖啡店營運數據的問題。"
 
@@ -27,6 +31,7 @@ class BedrockInputGuard:
         self._guardrail_version = guardrail_version
 
     async def check(self, question: str) -> GuardVerdict:
+        start = time.perf_counter()
         try:
             # boto3 is synchronous; keep the event loop free.
             response = await asyncio.to_thread(
@@ -36,10 +41,27 @@ class BedrockInputGuard:
                 source="INPUT",
                 content=[{"text": {"text": question}}],
             )
-            return _verdict(response)
+            verdict = _verdict(response)
         except Exception as e:
             # Network, permission or an unreadable response: never treat as "passed".
-            raise InputGuardUnavailable(f"{type(e).__name__}: {e}") from e
+            error = f"{type(e).__name__}: {e}"
+            log.warning(
+                "input guardrail failed error=%s latency_ms=%d", error, _ms(start), extra={"latency_ms": _ms(start)}
+            )
+            raise InputGuardUnavailable(error) from e
+        # Outcome only; the question text belongs to the audit log, not here.
+        log.info(
+            "input guardrail blocked=%s reasons=%s latency_ms=%d",
+            verdict.blocked,
+            ",".join(verdict.reasons) or "-",
+            _ms(start),
+            extra={"blocked": verdict.blocked, "reasons": list(verdict.reasons), "latency_ms": _ms(start)},
+        )
+        return verdict
+
+
+def _ms(start: float) -> int:
+    return int((time.perf_counter() - start) * 1000)
 
 
 def _verdict(response: dict) -> GuardVerdict:

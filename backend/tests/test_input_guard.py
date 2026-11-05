@@ -1,4 +1,5 @@
 import pytest
+
 from app.input_guard import BedrockInputGuard, GuardVerdict, InputGuardUnavailable
 
 
