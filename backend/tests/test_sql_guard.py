@@ -127,3 +127,25 @@ def test_cte_name_only_covers_its_own_query():
 def test_blocked_columns_are_rejected_anywhere(sql):
     with pytest.raises(SqlGuardError, match="不允許的欄位"):
         validate_sql(sql)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT pg_sleep(10) FROM cafes",  # hold a connection
+        "SELECT name FROM cafes WHERE PG_SLEEP(1) IS NULL",  # upper case, in WHERE
+        "SELECT pg_read_file('/etc/passwd')",  # read server files
+        "SELECT * FROM dblink('host=x', 'select 1') AS t(a int)",  # in FROM, reach another DB
+        "SELECT set_config('statement_timeout', '0', false)",  # lift our limits
+        "SELECT current_setting('data_directory')",
+        "SELECT pg_terminate_backend(1)",
+        "SELECT * FROM pg_ls_dir('.')",
+    ],
+)
+def test_dangerous_functions_are_rejected_anywhere(sql):
+    with pytest.raises(SqlGuardError, match="不允許的函式"):
+        validate_sql(sql)
+
+
+def test_ordinary_functions_pass():
+    validate_sql("SELECT district, round(avg(rating), 2), count(*) FROM cafes GROUP BY district")
