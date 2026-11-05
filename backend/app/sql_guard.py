@@ -55,7 +55,6 @@ def validate_sql(sql: str, *, allowed_tables: frozenset[str] | set[str] = DEFAUL
 
 
 def _check_tables(tree: exp.Expression, allowed: set[str]) -> None:
-    cte_names = {cte.alias_or_name.lower() for cte in tree.find_all(exp.CTE)}
     for table in tree.find_all(exp.Table):
         # FROM generate_series(...) etc. is a function, checked by the function rules.
         if not isinstance(table.this, exp.Identifier):
@@ -64,7 +63,18 @@ def _check_tables(tree: exp.Expression, allowed: set[str]) -> None:
         # Only bare names or public.<name>; pg_catalog, information_schema and
         # three-part names never reach the allowlist check.
         qualified_ok = not table.catalog and schema in ("", "public")
-        if qualified_ok and (name in allowed or (not schema and name in cte_names)):
+        if qualified_ok and (name in allowed or (not schema and _cte_in_scope(table, name))):
             continue
         shown = ".".join(p for p in (table.catalog, table.db, table.name) if p)
         raise SqlGuardError(f"不允許的資料表：{shown}；可用的資料表：{', '.join(sorted(allowed))}")
+
+
+def _cte_in_scope(table: exp.Table, name: str) -> bool:
+    """True if a WITH clause enclosing this table defines `name`."""
+    node = table.parent
+    while node is not None:
+        with_ = node.args.get("with_") if isinstance(node, exp.Query) else None
+        if with_ and any(cte.alias_or_name.lower() == name for cte in with_.expressions):
+            return True
+        node = node.parent
+    return False
