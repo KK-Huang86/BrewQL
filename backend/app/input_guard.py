@@ -44,18 +44,17 @@ class BedrockInputGuard:
             verdict = _verdict(response)
         except Exception as e:
             # Network, permission or an unreadable response: never treat as "passed".
-            error = f"{type(e).__name__}: {e}"
-            log.warning(
-                "input guardrail failed error=%s latency_ms=%d", error, _ms(start), extra={"latency_ms": _ms(start)}
-            )
+            error, latency = f"{type(e).__name__}: {e}", _ms(start)
+            log.warning("input guardrail failed error=%s latency_ms=%d", error, latency, extra={"latency_ms": latency})
             raise InputGuardUnavailable(error) from e
         # Outcome only; the question text belongs to the audit log, not here.
+        latency = _ms(start)
         log.info(
             "input guardrail blocked=%s reasons=%s latency_ms=%d",
             verdict.blocked,
             ",".join(verdict.reasons) or "-",
-            _ms(start),
-            extra={"blocked": verdict.blocked, "reasons": list(verdict.reasons), "latency_ms": _ms(start)},
+            latency,
+            extra={"blocked": verdict.blocked, "reasons": list(verdict.reasons), "latency_ms": latency},
         )
         return verdict
 

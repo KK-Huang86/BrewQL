@@ -4,18 +4,22 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, get_args
 
 from app.schema_context import SCHEMA_CONTEXT
 
 log = logging.getLogger(__name__)
+
+# The model's three possible decisions; the schema, the type and the parser all use this.
+ReplyKind = Literal["sql", "refuse", "clarify"]
+REPLY_KINDS: tuple[str, ...] = get_args(ReplyKind)
 
 # Structured-output schema: the API guarantees the reply text is JSON of this shape.
 # All fields are required (structured outputs need that); unused ones are "".
 REPLY_SCHEMA = {
     "type": "object",
     "properties": {
-        "kind": {"type": "string", "enum": ["sql", "refuse", "clarify"], "description": "回覆類型"},
+        "kind": {"type": "string", "enum": list(REPLY_KINDS), "description": "回覆類型"},
         "sql": {"type": "string", "description": "kind=sql 時的單一 PostgreSQL SELECT 查詢，其餘為空字串"},
         "message": {"type": "string", "description": "kind=refuse 的原因或 kind=clarify 的反問，kind=sql 時為空字串"},
     },
@@ -46,7 +50,7 @@ class ReplyError(ValueError):
 class Reply:
     """What the model decided: run this SQL, refuse, or ask the user to clarify."""
 
-    kind: Literal["sql", "refuse", "clarify"]
+    kind: ReplyKind
     sql: str | None = None
     message: str | None = None
 
@@ -114,7 +118,7 @@ def parse_reply(message) -> Reply:
         data = json.loads(block.text) if block else None
     except json.JSONDecodeError:
         data = None
-    if not isinstance(data, dict) or data.get("kind") not in ("sql", "refuse", "clarify"):
+    if not isinstance(data, dict) or data.get("kind") not in REPLY_KINDS:
         raise ReplyError("模型回覆格式不符，沒有有效的回覆類型")
     kind, sql, text = data["kind"], data.get("sql"), data.get("message")
     if not isinstance(sql, str) or not isinstance(text, str):
