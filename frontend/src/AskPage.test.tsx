@@ -157,4 +157,69 @@ describe('AskPage', () => {
     expect(await screen.findByRole('table')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
+
+  it.each([
+    ['input_guardrail', '輸入防護'],
+    ['model', '模型判斷'],
+  ] as const)('shows a %s refusal with its reason and source, and no table', async (source, label) => {
+    const ask = vi.fn(async () => ({
+      status: 'refused' as const,
+      sql: null,
+      columns: [],
+      rows: [],
+      message: '這個問題無法處理',
+      error_kind: null,
+      refusal_source: source,
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), '幫我寫一首詩{Enter}')
+
+    const refusal = await screen.findByRole('note', { name: '拒答' })
+    expect(refusal).toHaveTextContent('這個問題無法處理')
+    expect(refusal).toHaveTextContent(label)
+    expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    expect(screen.queryByText('查無資料')).not.toBeInTheDocument()
+    expect(screen.queryByText(/安全防護/)).not.toBeInTheDocument()
+  })
+
+  it('shows a clarifying question and keeps the original question ready to edit', async () => {
+    const ask = vi.fn(async () => ({
+      status: 'clarify' as const,
+      sql: null,
+      columns: [],
+      rows: [],
+      message: '「最近」是指多久以內？',
+      error_kind: null,
+      refusal_source: null,
+    }))
+    render(<AskPage ask={ask} />)
+    const input = screen.getByRole('textbox', { name: '問題' })
+
+    await userEvent.type(input, '最近熱門的店{Enter}')
+
+    expect(await screen.findByRole('note', { name: '需要補充' })).toHaveTextContent('「最近」是指多久以內？')
+    expect(input).toHaveValue('最近熱門的店')
+    expect(input).toHaveFocus()
+    expect(screen.queryByText('查無資料')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('styles refusal, clarify and errors differently', async () => {
+    const answers = [
+      { status: 'refused' as const, message: '拒答', refusal_source: 'model' as const },
+      { status: 'clarify' as const, message: '反問', refusal_source: null },
+      { status: 'error' as const, message: '錯誤', refusal_source: null },
+    ]
+    const classes: string[] = []
+    for (const a of answers) {
+      const ask = vi.fn(async () => ({ sql: null, columns: [], rows: [], error_kind: null, ...a }))
+      const { unmount } = render(<AskPage ask={ask} />)
+      await userEvent.type(screen.getByRole('textbox', { name: '問題' }), 'q{Enter}')
+      classes.push((await screen.findByText(a.message)).closest('[class]')?.className ?? '')
+      unmount()
+    }
+
+    expect(new Set(classes).size).toBe(3)
+  })
 })
