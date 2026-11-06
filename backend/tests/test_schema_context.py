@@ -34,3 +34,8 @@ def test_prompt_forbids_disguising_a_refusal_as_an_empty_query():
     # Seen with real Bedrock in ticket 2: "SELECT 1 WHERE FALSE" instead of refusing.
     for trick in ("WHERE FALSE", "LIMIT 0"):
         assert trick in SCHEMA_CONTEXT, trick
+
+
+def test_prediction_refusals_say_only_history_can_be_queried():
+    # Spec scenario: refusing a forecast explains that only historical data exists.
+    assert "只能查詢歷史資料" in SCHEMA_CONTEXT
