@@ -53,8 +53,11 @@ resource "aws_bedrock_guardrail" "input" {
 
 # The API pins a published version, never DRAFT, so edits go live only on purpose.
 # The description hashes the policy, so a policy change publishes a new version.
+# skip_destroy keeps the old version when a policy change publishes a new one, so the
+# running API (still pinned to the old number) keeps working until .env is updated.
 resource "aws_bedrock_guardrail_version" "current" {
   guardrail_arn = aws_bedrock_guardrail.input.guardrail_arn
+  skip_destroy  = true
   description = "policy ${substr(sha1(jsonencode([
     aws_bedrock_guardrail.input.content_policy_config,
     aws_bedrock_guardrail.input.topic_policy_config,
