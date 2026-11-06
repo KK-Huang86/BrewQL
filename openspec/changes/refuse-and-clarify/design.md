@@ -42,7 +42,21 @@ ticket 2 實測發現，模型遇到刪除資料、讀取系統表這類要求�
 - Guardrail 呼叫失敗回 HTTP 502、「輸入檢查暫時無法使用，請稍後再試」，與 Bedrock 模型失敗的訊息分開。
 
 ### D9. Terraform state 與權限
-state 留在本機並加入 `.gitignore`（含帳號 ID 等資訊）。`terraform apply` 以使用者自己的管理員 profile 執行；API 使用的 `brewql` IAM user 只增加 `bedrock:ApplyGuardrail` 權限。CI 每個 PR 都執行 `terraform fmt -check` 與 `terraform validate`（`init -backend=false`），不需要 AWS 憑證，也不加路徑條件，避免必要檢查被跳過而卡住 PR。
+state 留在本機並加入 `.gitignore`（含帳號 ID 等資訊）。
+
+IAM 依「使用防護」與「管理防護」分成兩個 user，原則是使用防護的身分不能修改防護：
+
+| IAM user | 權限 | 使用時機 |
+|---|---|---|
+| `brewql`（執行期） | `bedrock:InvokeModel`、`bedrock:ApplyGuardrail`（只限這一個 Guardrail 與 US guardrail profile） | API 每次提問 |
+| `brewql-deployer`（部署期） | Guardrail 的 Create／Update／Delete／Get／List／CreateVersion 與標籤操作 | 只在 `terraform apply` |
+
+- 執行期的金鑰最容易外洩；就算外洩，也只能拿 Guardrail 檢查文字，不能刪除或放寬它。
+- 兩個 user 都沒有 IAM 權限；policy 由擁有者在主控台掛上。
+- IAM user 不由 Terraform 建立，避免 access key 進入 state。
+- ticket 13 部署到 EC2 後，執行期改用 instance role（臨時憑證），權限內容不變。
+
+設定順序：建立 `brewql-deployer` 並掛上權限 → `terraform apply` 建立 Guardrail → 取得 `guardrail_id`、`guardrail_version` 填入 `.env` → 把 `apply_guardrail_policy_json` 掛到 `brewql`。CI 每個 PR 都執行 `terraform fmt -check` 與 `terraform validate`（`init -backend=false`），不需要 AWS 憑證，也不加路徑條件，避免必要檢查被跳過而卡住 PR。
 
 ## Risks / Trade-offs
 

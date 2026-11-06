@@ -17,6 +17,7 @@
   | 執行限制 | 外層 `LIMIT` 最多 1000；每個查詢 `SET LOCAL statement_timeout` 5 秒 | ✅ |
   | Bedrock Guardrails（輸入過濾） | | ticket 3 |
 
+- **IAM 依職責分開**：API 執行時用的 `brewql` 只能呼叫模型與套用 Guardrail；建立、修改 Guardrail 由只在部署時使用的 `brewql-deployer` 負責。使用防護的身分不能修改防護，金鑰外洩也無法關掉檢查（見 `openspec/changes/refuse-and-clarify/design.md` D9）。
 - **結構化輸出**：模型必須回傳符合 JSON schema 的 `{"sql": "..."}`；截斷、拒答、格式不符都不會執行任何查詢。
 - **不阻塞事件迴圈**：Bedrock SDK 是同步的，以 `asyncio.to_thread` 執行；資料庫用原生 async 的 asyncpg。
 - **以數據做決策**：後續 ticket 會用 golden set 量測正確率、延遲與成本，比較模型與 RAG 的效果。
@@ -73,6 +74,7 @@ curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
 ### Bedrock 憑證
 
 1. 建立只允許 `bedrock:InvokeModel` 的 IAM user（或使用 IAM Identity Center），以 `aws configure --profile brewql` 存入本機。
+   輸入防護（Bedrock Guardrails）另外需要部署用的 `brewql-deployer` 執行 `terraform apply`，再把輸出的 `apply_guardrail_policy_json` 掛到 `brewql`；未設定 `BEDROCK_GUARDRAIL_ID` 時跳過輸入檢查（僅限本機開發）。
 2. 在 Bedrock 模型目錄確認帳號可使用的 Claude 模型與 ID，填入 `.env`：
 
    ```bash
