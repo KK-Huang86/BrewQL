@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { AskError, type AskResponse } from './api/ask'
 
 type Props = { ask: (question: string) => Promise<AskResponse> }
@@ -8,6 +8,7 @@ export default function AskPage({ ask }: Props) {
   const [pending, setPending] = useState(false)
   const [answer, setAnswer] = useState<AskResponse | null>(null)
   const [failure, setFailure] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -18,7 +19,10 @@ export default function AskPage({ ask }: Props) {
     setAnswer(null)
     setFailure(null)
     try {
-      setAnswer(await ask(trimmed))
+      const result = await ask(trimmed)
+      setAnswer(result)
+      // The question stays in the box; focus it so the user can add what was asked for.
+      if (result.status === 'clarify') inputRef.current?.focus()
     } catch (error) {
       setFailure(error instanceof AskError ? error.message : '發生未預期的錯誤，請稍後再試')
     } finally {
@@ -31,7 +35,7 @@ export default function AskPage({ ask }: Props) {
       <form onSubmit={handleSubmit}>
         <label>
           問題
-          <input value={question} onChange={(e) => setQuestion(e.target.value)} />
+          <input ref={inputRef} value={question} onChange={(e) => setQuestion(e.target.value)} />
         </label>
         <button type="submit" disabled={pending}>
           送出
@@ -48,14 +52,27 @@ function Answer({ answer }: { answer: AskResponse }) {
   return (
     <section>
       {answer.sql && <pre>{answer.sql}</pre>}
-      {answer.status === 'error' && answer.error_kind === 'guardrail' ? (
+      {answer.status === 'refused' ? (
+        // A decision, not a failure: say who refused so users know whether rewording helps.
+        <div role="note" aria-label="拒答" className="refused">
+          <strong>拒答・{answer.refusal_source === 'input_guardrail' ? '輸入防護' : '模型判斷'}</strong>
+          <p>{answer.message}</p>
+        </div>
+      ) : answer.status === 'clarify' ? (
+        <div role="note" aria-label="需要補充" className="clarify">
+          <strong>需要補充</strong>
+          <p>{answer.message}</p>
+        </div>
+      ) : answer.status === 'error' && answer.error_kind === 'guardrail' ? (
         // Blocked on purpose, not broken: a distinct look so users don't just retry.
         <div role="alert" className="guardrail">
           <strong>安全防護</strong>
           <p>{answer.message}</p>
         </div>
       ) : answer.status === 'error' ? (
-        <p role="alert">{answer.message}</p>
+        <p role="alert" className="error">
+          {answer.message}
+        </p>
       ) : answer.rows.length === 0 ? (
         <p>查無資料</p>
       ) : (

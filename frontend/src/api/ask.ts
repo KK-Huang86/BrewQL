@@ -1,11 +1,13 @@
 export type AskResponse = {
-  status: 'ok' | 'error'
+  status: 'ok' | 'error' | 'refused' | 'clarify'
   sql: string | null
   columns: string[]
   rows: unknown[][]
   message: string | null
   /** Which step failed; only set when status is 'error'. */
   error_kind?: 'generation' | 'guardrail' | 'query' | null
+  /** Who refused; only set when status is 'refused'. */
+  refusal_source?: 'input_guardrail' | 'model' | null
 }
 
 /** A failed request; `message` is safe to show the user. */
