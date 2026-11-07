@@ -31,6 +31,7 @@ services:
       # Empty skips the input guardrail (startup warning); set both after terraform apply.
       BEDROCK_GUARDRAIL_ID: ${BEDROCK_GUARDRAIL_ID:-}
       BEDROCK_GUARDRAIL_VERSION: ${BEDROCK_GUARDRAIL_VERSION:-}
+      MAX_SQL_RETRIES: ${MAX_SQL_RETRIES:-2}
     volumes:
       # Local dev: reuse host AWS credentials read-only. On EC2 the instance role is used instead.
       - ${HOME}/.aws:/home/app/.aws:ro

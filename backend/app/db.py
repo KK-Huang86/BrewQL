@@ -9,6 +9,11 @@ import asyncpg
 class QueryError(Exception):
     """The database rejected the query; the message is raw detail for logs, not for users."""
 
+    def __init__(self, message: str, *, timed_out: bool = False):
+        super().__init__(message)
+        # A timeout is not retried: a rewrite likely runs just as long and costs another 5s.
+        self.timed_out = timed_out
+
 
 class DatabaseUnavailable(Exception):
     """Cannot reach or log in to the database; an outage, not a problem with the question."""
@@ -48,7 +53,8 @@ class PgExecutor:
                 columns = [a.name for a in stmt.get_attributes()]
                 records = await stmt.fetch()
         except asyncpg.PostgresError as e:
-            raise QueryError(f"{type(e).__name__}: {e}") from e
+            timed_out = isinstance(e, asyncpg.QueryCanceledError)
+            raise QueryError(f"{type(e).__name__}: {e}", timed_out=timed_out) from e
         return columns, [list(r.values()) for r in records]
 
     async def close(self) -> None:
