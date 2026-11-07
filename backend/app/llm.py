@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Literal, get_args
 
@@ -28,6 +29,45 @@ REPLY_SCHEMA = {
 }
 
 REFUSAL_MESSAGE = "模型拒絕回答這個問題"
+
+# Which step rejected an attempt; the pipeline reports it and feedback names it for the model.
+ErrorKind = Literal["generation", "guardrail", "query"]
+_FEEDBACK_LABELS: dict[str, str] = {
+    "generation": "回覆不符合格式",
+    "guardrail": "SQL 被 SQL 防護拒絕",
+    "query": "SQL 發生資料庫執行錯誤",
+}
+
+
+@dataclass(frozen=True)
+class FailedAttempt:
+    """One earlier try that did not produce a usable result; sql is None when none was produced."""
+
+    error_kind: ErrorKind
+    reason: str
+    sql: str | None = None
+
+
+def _feedback_text(attempt: FailedAttempt) -> str:
+    return f"上一次的{_FEEDBACK_LABELS[attempt.error_kind]}：{attempt.reason}\n請修正後依相同格式重新回覆。"
+
+
+def build_messages(question: str, feedback: Sequence[FailedAttempt] = ()) -> list[dict]:
+    """Replay failed attempts as turns: the model's SQL as its own reply, the reason as the user's next turn."""
+    turns: list[tuple[str, str]] = [("user", question)]
+    for attempt in feedback:
+        if attempt.sql is not None:
+            reply = json.dumps({"kind": "sql", "sql": attempt.sql, "message": ""}, ensure_ascii=False)
+            turns.append(("assistant", reply))
+        turns.append(("user", _feedback_text(attempt)))
+    # Without a model turn to replay, user texts end up adjacent; the API needs alternating roles.
+    messages: list[dict] = []
+    for role, text in turns:
+        if messages and messages[-1]["role"] == role:
+            messages[-1]["content"] += "\n\n" + text
+        else:
+            messages.append({"role": role, "content": text})
+    return messages
 
 
 # 3 attempts x 15s (+ short backoff) stays under nginx's 60s proxy_read_timeout.
@@ -67,7 +107,7 @@ class BedrockSqlGenerator:
         if effort:
             self._output_config["effort"] = effort
 
-    async def generate(self, question: str) -> Reply:
+    async def generate(self, question: str, feedback: Sequence[FailedAttempt] = ()) -> Reply:
         # The SDK call is synchronous; run it in a worker thread so the event loop stays free.
         try:
             message = await asyncio.to_thread(
@@ -75,7 +115,7 @@ class BedrockSqlGenerator:
                 model=self._model_id,
                 max_tokens=self._max_tokens,
                 system=SCHEMA_CONTEXT,
-                messages=[{"role": "user", "content": question}],
+                messages=build_messages(question, feedback),
                 output_config=self._output_config,
             )
         except Exception as e:
