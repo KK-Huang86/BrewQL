@@ -37,7 +37,8 @@ async def test_sends_question_with_schema_and_json_schema_and_returns_the_reply(
     assert result == Reply(kind="sql", sql="SELECT COUNT(*) FROM cafes")
     [call] = client.calls
     assert call["model"] == "anthropic.claude-haiku-5-5"
-    assert call["system"] == SCHEMA_CONTEXT
+    # The schema leads the system prompt; today's date follows it (see test_llm_today.py).
+    assert call["system"].startswith(SCHEMA_CONTEXT)
     assert call["messages"] == [{"role": "user", "content": "台北市有幾家咖啡店？"}]
     assert call["output_config"]["format"] == {"type": "json_schema", "schema": REPLY_SCHEMA}
 
