@@ -11,7 +11,7 @@ from app.main import create_app
 class ExplodingDependency:
     """Any use means the endpoint touched Bedrock or the database."""
 
-    async def generate(self, question):
+    async def generate(self, question, feedback=()):
         raise AssertionError("health check must not call the model")
 
     async def run(self, sql):
@@ -36,7 +36,7 @@ class FakeGenerator:
         self.reply = reply or Reply(kind="sql", sql=sql)
         self.exc = exc
 
-    async def generate(self, question):
+    async def generate(self, question, feedback=()):
         if self.exc:
             raise self.exc
         return self.reply
