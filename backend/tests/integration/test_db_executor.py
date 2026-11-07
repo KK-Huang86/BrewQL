@@ -83,3 +83,19 @@ async def test_each_query_gets_its_own_statement_timeout(reader_dsn):
         assert rows == [[200]]
     finally:
         await ex.close()
+
+
+async def test_timeout_is_marked_so_the_pipeline_does_not_retry_it(reader_dsn):
+    from app.db import PgExecutor
+
+    ex = PgExecutor(reader_dsn, statement_timeout_ms=300)
+    try:
+        with pytest.raises(QueryError) as timed_out:
+            await ex.run("SELECT pg_sleep(2)")
+        with pytest.raises(QueryError) as plain:
+            await ex.run("SELECT no_such_column FROM cafes")
+    finally:
+        await ex.close()
+
+    assert timed_out.value.timed_out is True
+    assert plain.value.timed_out is False
