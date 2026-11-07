@@ -29,6 +29,13 @@ def test_unknown_model_cost_is_unknown_not_zero():
     assert cost_usd(usage) is None
 
 
+def test_unreported_guardrail_usage_makes_cost_unknown():
+    # Zero units would understate the bill; the report flags unknown cost as incomplete.
+    usage = AskUsage(model_id=HAIKU_US, input_tokens=1000, output_tokens=10, guardrail=GuardrailUsage(reported=False))
+
+    assert cost_usd(usage) is None
+
+
 def test_nothing_used_costs_nothing():
     assert cost_usd(AskUsage()) == 0
 

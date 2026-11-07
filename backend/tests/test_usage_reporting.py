@@ -94,7 +94,8 @@ async def test_missing_usage_counts_zero_and_warns(caplog):
 
     verdict = await check({"action": "NONE", "outputs": [], "assessments": [{}]})
 
-    assert verdict.usage == GuardrailUsage(topic_units=0, content_units=0)
+    # Not reported, so the eval must treat this question's cost as unknown, not as zero units.
+    assert verdict.usage == GuardrailUsage(topic_units=0, content_units=0, reported=False)
     assert any(r.levelno == logging.WARNING and "usage" in r.getMessage() for r in caplog.records)
 
 
