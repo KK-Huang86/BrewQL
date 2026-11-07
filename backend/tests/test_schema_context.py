@@ -22,3 +22,20 @@ def test_schema_context_describes_every_cafes_column():
 def test_schema_context_lists_the_enum_values_the_model_must_use():
     for value in ("'yes'", "'maybe'", "'no'", "台北市", "新北市"):
         assert value in SCHEMA_CONTEXT
+
+
+def test_prompt_tells_the_model_when_to_refuse_and_when_to_clarify():
+    # The three cases from the spec: data changes, predictions, missing details.
+    for phrase in ("kind", "refuse", "clarify", "修改", "預測", "時間範圍"):
+        assert phrase in SCHEMA_CONTEXT, phrase
+
+
+def test_prompt_forbids_disguising_a_refusal_as_an_empty_query():
+    # Seen with real Bedrock in ticket 2: "SELECT 1 WHERE FALSE" instead of refusing.
+    for trick in ("WHERE FALSE", "LIMIT 0"):
+        assert trick in SCHEMA_CONTEXT, trick
+
+
+def test_prediction_refusals_say_only_history_can_be_queried():
+    # Spec scenario: refusing a forecast explains that only historical data exists.
+    assert "只能查詢歷史資料" in SCHEMA_CONTEXT

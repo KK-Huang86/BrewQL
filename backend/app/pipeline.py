@@ -5,7 +5,8 @@ from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from app.db import QueryError
-from app.llm import ReplyError
+from app.input_guard import GuardVerdict
+from app.llm import Reply, ReplyError
 from app.sql_guard import SqlGuardError, validate_sql
 
 log = logging.getLogger(__name__)
@@ -18,7 +19,11 @@ class InvalidQuestion(ValueError):
 
 
 class SqlGenerator(Protocol):
-    async def generate(self, question: str) -> str: ...
+    async def generate(self, question: str) -> Reply: ...
+
+
+class InputGuard(Protocol):
+    async def check(self, question: str) -> GuardVerdict: ...
 
 
 class QueryExecutor(Protocol):
@@ -28,27 +33,41 @@ class QueryExecutor(Protocol):
 
 @dataclass
 class AskResult:
-    status: Literal["ok", "error"]
+    status: Literal["ok", "error", "refused", "clarify"]
     sql: str | None = None
     columns: list[str] = field(default_factory=list)
     rows: list[list[Any]] = field(default_factory=list)
     message: str | None = None
     # Which step failed, so the UI, evals and retries can treat each differently.
     error_kind: Literal["generation", "guardrail", "query"] | None = None
+    # Who refused, so users can tell an input block from a model decision.
+    refusal_source: Literal["input_guardrail", "model"] | None = None
 
 
-async def ask(question: str, generator: SqlGenerator, executor: QueryExecutor) -> AskResult:
+async def ask(
+    question: str, generator: SqlGenerator, executor: QueryExecutor, *, input_guard: InputGuard | None = None
+) -> AskResult:
     question = question.strip()
     if not 1 <= len(question) <= MAX_QUESTION_CHARS:
         raise InvalidQuestion(f"問題需為 1~{MAX_QUESTION_CHARS} 字")
+    # First gate: a blocked question never reaches the model. Failures propagate (fail closed).
+    if input_guard is not None:
+        verdict = await input_guard.check(question)
+        if verdict.blocked:
+            return AskResult(status="refused", message=verdict.message, refusal_source="input_guardrail")
     try:
-        sql = await generator.generate(question)
+        reply = await generator.generate(question)
     except ReplyError as e:
         return AskResult(status="error", message=str(e), error_kind="generation")
+    # Refuse and clarify end here: no SQL exists, nothing reaches the database.
+    if reply.kind == "refuse":
+        return AskResult(status="refused", message=reply.message, refusal_source="model")
+    if reply.kind == "clarify":
+        return AskResult(status="clarify", message=reply.message)
     try:
-        sql = validate_sql(sql)
+        sql = validate_sql(reply.sql)
     except SqlGuardError as e:
-        return AskResult(status="error", sql=sql, message=str(e), error_kind="guardrail")
+        return AskResult(status="error", sql=reply.sql, message=str(e), error_kind="guardrail")
     try:
         columns, rows = await executor.run(sql)
     except QueryError as e:

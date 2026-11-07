@@ -29,8 +29,38 @@ Guardrail 已設定卻呼叫失敗時，寧可回傳錯誤也不跳過，避免�
 ### D5. Guardrail 用 Terraform 管理
 拒絕話題與強度是安全設定，需要版本控制與 review。Terraform 從這個 ticket 開始存在，ticket 13 再加入部署資源。
 
+### D6. Guardrail 使用 Standard 方案
+Classic 方案只支援英文、法文、西班牙文，中文的 prompt injection 可能偵測不到。內容過濾（含 prompt attack）與拒絕話題都設定 `tier_name = "STANDARD"`；Standard 方案必須搭配 cross-region 設定（`us.guardrail.v1:0` guardrail profile）。驗收時以中文的 prompt injection 實測。
+
+### D7. 不能用空結果敷衍
+ticket 2 實測發現，模型遇到刪除資料、讀取系統表這類要求時，會產生必定查不到資料的 SQL（`WHERE FALSE`、`WHERE 1 = 0`、`LIMIT 0`），畫面只顯示「查無資料」，使用者不知道其實是被拒絕了。system prompt 明確規定這類情況要回 `refuse`。不在 SQL 防護中偵測恆假條件：正常查詢也可能出現，誤擋的代價比較高；改由 ticket 5 的評估統計。
+
+### D8. 回應合約
+- 新增 `refusal_source`：`input_guardrail`、`model`，其餘情況為 `null`。
+- `refused`、`clarify` 一律回 HTTP 200，`sql=null`、`columns=[]`、`rows=[]`、`error_kind=null`。
+- 產生 SQL 的介面從回傳字串改成回傳三種結果之一，類型與欄位的一致性由解析回覆時檢查。
+- Guardrail 呼叫失敗回 HTTP 502、「輸入檢查暫時無法使用，請稍後再試」，與 Bedrock 模型失敗的訊息分開。
+
+### D9. Terraform state 與權限
+state 留在本機並加入 `.gitignore`（含帳號 ID 等資訊）。
+
+IAM 依「使用防護」與「管理防護」分成兩個 user，原則是使用防護的身分不能修改防護：
+
+| IAM user | 權限 | 使用時機 |
+|---|---|---|
+| `brewql`（執行期） | `bedrock:InvokeModel`、`bedrock:ApplyGuardrail`（只限這一個 Guardrail 與 US guardrail profile） | API 每次提問 |
+| `brewql-deployer`（部署期） | Guardrail 的 Create／Update／Delete／Get／List／CreateVersion 與標籤操作 | 只在 `terraform apply` |
+
+- 執行期的金鑰最容易外洩；就算外洩，也只能拿 Guardrail 檢查文字，不能刪除或放寬它。
+- 兩個 user 都沒有 IAM 權限；policy 由擁有者在主控台掛上。
+- IAM user 不由 Terraform 建立，避免 access key 進入 state。
+- ticket 13 部署到 EC2 後，執行期改用 instance role（臨時憑證），權限內容不變。
+
+設定順序：建立 `brewql-deployer` 並掛上權限 → `terraform apply` 建立 Guardrail → 取得 `guardrail_id`、`guardrail_version` 填入 `.env` → 把 `apply_guardrail_policy_json` 掛到 `brewql`。CI 每個 PR 都執行 `terraform fmt -check` 與 `terraform validate`（`init -backend=false`），不需要 AWS 憑證，也不加路徑條件，避免必要檢查被跳過而卡住 PR。
+
 ## Risks / Trade-offs
 
 - [Guardrail 誤擋正常的數據問題] → 評估（ticket 5）會統計拒答題以外被拒答的題數，必要時調整話題定義
 - [本機開發忘了設定 Guardrail 而沒發現] → 啟動警告；README 說明
 - [多一次 API 呼叫增加延遲] → Guardrail 通常為數百毫秒，記錄在呼叫 log
+- [Standard 方案仍漏掉某些中文攻擊] → SQL 產生模型與 SQL 防護仍會擋下；端到端驗證記錄實測結果

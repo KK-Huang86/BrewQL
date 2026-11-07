@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.db import PgExecutor
+from app.llm import Reply
 from app.main import create_app
 
 
@@ -16,7 +17,7 @@ class CompromisedModel:
         self.sql = sql
 
     async def generate(self, question):
-        return self.sql
+        return Reply(kind="sql", sql=self.sql)
 
 
 @pytest.mark.parametrize(

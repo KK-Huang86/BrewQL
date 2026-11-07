@@ -3,19 +3,31 @@
 import asyncio
 import json
 import logging
+from dataclasses import dataclass
+from typing import Literal, get_args
 
 from app.schema_context import SCHEMA_CONTEXT
 
 log = logging.getLogger(__name__)
 
+# The model's three possible decisions; the schema, the type and the parser all use this.
+ReplyKind = Literal["sql", "refuse", "clarify"]
+REPLY_KINDS: tuple[str, ...] = get_args(ReplyKind)
+
 # Structured-output schema: the API guarantees the reply text is JSON of this shape.
-# Ticket 3 extends it to sql / refuse / clarify.
+# All fields are required (structured outputs need that); unused ones are "".
 REPLY_SCHEMA = {
     "type": "object",
-    "properties": {"sql": {"type": "string", "description": "單一 PostgreSQL SELECT 查詢"}},
-    "required": ["sql"],
+    "properties": {
+        "kind": {"type": "string", "enum": list(REPLY_KINDS), "description": "回覆類型"},
+        "sql": {"type": "string", "description": "kind=sql 時的單一 PostgreSQL SELECT 查詢，其餘為空字串"},
+        "message": {"type": "string", "description": "kind=refuse 的原因或 kind=clarify 的反問，kind=sql 時為空字串"},
+    },
+    "required": ["kind", "sql", "message"],
     "additionalProperties": False,
 }
+
+REFUSAL_MESSAGE = "模型拒絕回答這個問題"
 
 
 # 3 attempts x 15s (+ short backoff) stays under nginx's 60s proxy_read_timeout.
@@ -31,7 +43,16 @@ def build_bedrock_client(*, aws_region: str):
 
 
 class ReplyError(ValueError):
-    """The model reply has no usable SQL; the message is safe to show users."""
+    """The model reply is unusable; the message is safe to show users."""
+
+
+@dataclass(frozen=True)
+class Reply:
+    """What the model decided: run this SQL, refuse, or ask the user to clarify."""
+
+    kind: ReplyKind
+    sql: str | None = None
+    message: str | None = None
 
 
 class BedrockSqlGenerator:
@@ -46,7 +67,7 @@ class BedrockSqlGenerator:
         if effort:
             self._output_config["effort"] = effort
 
-    async def generate(self, question: str) -> str:
+    async def generate(self, question: str) -> Reply:
         # The SDK call is synchronous; run it in a worker thread so the event loop stays free.
         try:
             message = await asyncio.to_thread(
@@ -82,13 +103,14 @@ class BedrockSqlGenerator:
         return parse_reply(message)
 
 
-def parse_reply(message) -> str:
-    """Extract the SQL from a structured-output reply."""
+def parse_reply(message) -> Reply:
+    """Turn a structured-output reply into a Reply, checking kind and content agree."""
     # A truncated reply may hold half a query; never run it.
     if message.stop_reason == "max_tokens":
         raise ReplyError("模型回覆超過長度上限，未產生完整 SQL")
+    # A safety refusal is a refuse; its content is not read.
     if message.stop_reason == "refusal":
-        raise ReplyError("模型拒絕回答這個問題")
+        return Reply(kind="refuse", message=REFUSAL_MESSAGE)
 
     # Structured outputs should guarantee the shape; still verify, never trust blindly.
     block = next((b for b in message.content if b.type == "text"), None)
@@ -96,10 +118,17 @@ def parse_reply(message) -> str:
         data = json.loads(block.text) if block else None
     except json.JSONDecodeError:
         data = None
-    sql = data.get("sql") if isinstance(data, dict) else None
-    if not isinstance(sql, str):
-        raise ReplyError("模型回覆格式不符，沒有 sql 欄位")
+    if not isinstance(data, dict) or data.get("kind") not in REPLY_KINDS:
+        raise ReplyError("模型回覆格式不符，沒有有效的回覆類型")
+    kind, sql, text = data["kind"], data.get("sql"), data.get("message")
+    if not isinstance(sql, str) or not isinstance(text, str):
+        raise ReplyError("模型回覆格式不符，sql 與 message 必須是字串")
 
-    if not sql.strip():
-        raise ReplyError("模型回覆的 SQL 是空的")
-    return sql
+    if kind == "sql":
+        if not sql.strip():
+            raise ReplyError("模型回覆的 SQL 是空的")
+        return Reply(kind="sql", sql=sql)
+    # Only kind=sql may carry SQL toward the executor.
+    if not text.strip():
+        raise ReplyError("模型回覆的拒答原因或反問是空的")
+    return Reply(kind=kind, message=text.strip())

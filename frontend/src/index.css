@@ -8,6 +8,10 @@
   --danger: #b42318;
   --guard: #8a5a00;
   --guard-bg: #fff6e0;
+  --refused: #6b4fa0;
+  --refused-bg: #f3effa;
+  --clarify: #1f6f8b;
+  --clarify-bg: #e9f5f9;
   font-family: system-ui, -apple-system, 'Noto Sans TC', sans-serif;
   color: var(--text);
   background: var(--bg);
@@ -30,3 +34,7 @@ th, td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
 th { background: #f1efe9; }
 .guardrail { color: var(--guard); background: var(--guard-bg); border-left: 4px solid var(--guard); border-radius: 8px; padding: 10px 14px; }
 .guardrail p { margin: 4px 0 0; }
+.refused, .clarify { border-left: 4px solid; border-radius: 8px; padding: 10px 14px; }
+.refused { color: var(--refused); background: var(--refused-bg); }
+.clarify { color: var(--clarify); background: var(--clarify-bg); }
+.refused p, .clarify p { margin: 4px 0 0; }

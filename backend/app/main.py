@@ -13,7 +13,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints, field_serializer
 
 from app.db import DatabaseUnavailable
-from app.pipeline import MAX_QUESTION_CHARS, QueryExecutor, SqlGenerator, ask
+from app.input_guard import InputGuardUnavailable
+from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
 
@@ -24,12 +25,13 @@ class AskRequest(BaseModel):
 
 
 class AskResponse(BaseModel):
-    status: Literal["ok", "error"]
+    status: Literal["ok", "error", "refused", "clarify"]
     sql: str | None
     columns: list[str]
     rows: list[list[Any]]
     message: str | None
     error_kind: Literal["generation", "guardrail", "query"] | None = None
+    refusal_source: Literal["input_guardrail", "model"] | None = None
 
     @field_serializer("rows")
     def _rows(self, rows: list[list[Any]]) -> list[list[Any]]:
@@ -43,7 +45,13 @@ def _error(status_code: int, message: str) -> JSONResponse:
     return JSONResponse(status_code=status_code, content=body.model_dump())
 
 
-def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins: list[str]) -> FastAPI:
+def create_app(
+    *,
+    generator: SqlGenerator,
+    executor: QueryExecutor,
+    cors_origins: list[str],
+    input_guard: InputGuard | None = None,
+) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
@@ -64,7 +72,10 @@ def create_app(*, generator: SqlGenerator, executor: QueryExecutor, cors_origins
     @app.post("/api/ask", response_model=AskResponse)
     async def ask_question(body: AskRequest):
         try:
-            result = await ask(body.question, generator, executor)
+            result = await ask(body.question, generator, executor, input_guard=input_guard)
+        except InputGuardUnavailable:
+            log.exception("input guardrail unavailable")
+            return _error(502, "輸入檢查暫時無法使用，請稍後再試")
         except DatabaseUnavailable:
             log.exception("database unavailable")
             return _error(503, "資料庫暫時無法使用，請稍後再試")
@@ -81,6 +92,7 @@ def build_app() -> FastAPI:
     """Wire real dependencies from settings. Nothing connects until the first question."""
     from app.config import Settings
     from app.db import PgExecutor
+    from app.input_guard import build_input_guard
     from app.llm import BedrockSqlGenerator, build_bedrock_client
     from app.logging_setup import configure_logging
 
@@ -91,6 +103,19 @@ def build_app() -> FastAPI:
         model_id=settings.bedrock_model_id,
         effort=settings.bedrock_effort,
     )
+    input_guard = None
+    if settings.bedrock_guardrail_id:
+        input_guard = build_input_guard(
+            aws_region=settings.aws_region,
+            guardrail_id=settings.bedrock_guardrail_id,
+            guardrail_version=settings.bedrock_guardrail_version,
+        )
+    else:
+        # Local development only; deployed environments must set it.
+        log.warning("BEDROCK_GUARDRAIL_ID not set: questions skip the input guardrail")
     return create_app(
-        generator=generator, executor=PgExecutor(settings.database_url), cors_origins=settings.cors_origins
+        generator=generator,
+        executor=PgExecutor(settings.database_url),
+        cors_origins=settings.cors_origins,
+        input_guard=input_guard,
     )

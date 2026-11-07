@@ -1,21 +1,23 @@
 import asyncio
+import json
 import logging
 import time
 from types import SimpleNamespace as NS
 
 import pytest
 
-from app.llm import REPLY_SCHEMA, BedrockSqlGenerator
+from app.llm import REPLY_SCHEMA, BedrockSqlGenerator, Reply
 from app.schema_context import SCHEMA_CONTEXT
 
 
 class FakeClient:
     """Stands in for anthropic.AnthropicBedrock: records calls, returns a canned reply."""
 
-    def __init__(self, sql="SELECT 1", stop_reason="end_turn"):
+    def __init__(self, sql="SELECT 1", stop_reason="end_turn", kind="sql", message=""):
         self.calls = []
+        body = json.dumps({"kind": kind, "sql": sql, "message": message}, ensure_ascii=False)
         self._reply = NS(
-            content=[NS(type="text", text=f'{{"sql": "{sql}"}}')],
+            content=[NS(type="text", text=body)],
             stop_reason=stop_reason,
             usage=NS(input_tokens=321, output_tokens=12),
         )
@@ -26,19 +28,24 @@ class FakeClient:
         return self._reply
 
 
-async def test_sends_question_with_schema_and_json_schema_and_returns_sql():
+async def test_sends_question_with_schema_and_json_schema_and_returns_the_reply():
     client = FakeClient(sql="SELECT COUNT(*) FROM cafes")
     gen = BedrockSqlGenerator(client, model_id="anthropic.claude-haiku-5-5")
 
-    sql = await gen.generate("台北市有幾家咖啡店？")
+    result = await gen.generate("台北市有幾家咖啡店？")
 
-    assert sql == "SELECT COUNT(*) FROM cafes"
+    assert result == Reply(kind="sql", sql="SELECT COUNT(*) FROM cafes")
     [call] = client.calls
     assert call["model"] == "anthropic.claude-haiku-5-5"
     assert call["system"] == SCHEMA_CONTEXT
     assert call["messages"] == [{"role": "user", "content": "台北市有幾家咖啡店？"}]
     assert call["output_config"]["format"] == {"type": "json_schema", "schema": REPLY_SCHEMA}
-    assert REPLY_SCHEMA["required"] == ["sql"]
+
+
+async def test_refusal_from_the_model_is_returned_not_raised():
+    gen = BedrockSqlGenerator(FakeClient(kind="refuse", sql="", message="不能修改資料"), model_id="m")
+
+    assert await gen.generate("刪除所有咖啡店資料") == Reply(kind="refuse", message="不能修改資料")
 
 
 async def test_logs_model_tokens_and_stop_reason(caplog):

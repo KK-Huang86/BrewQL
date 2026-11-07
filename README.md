@@ -7,7 +7,7 @@
 ## 設計重點
 
 - **模型看不到資料**：送給 Bedrock 的只有資料表說明和問題；SQL 在我們自己的資料庫執行，結果直接回到前端。
-- **防護分層**：真正的安全邊界是資料庫唯讀角色，SQL 驗證是第二道防線。
+- **防護分層**：問題先經輸入防護與模型判斷，產生的 SQL 再經 SQL 驗證與執行限制；真正的安全邊界是資料庫唯讀角色。任何一層被繞過，下一層仍然有效。
 
   | 層 | 做法 | 狀態 |
   |---|---|---|
@@ -15,9 +15,11 @@
   | SQL 驗證 | sqlglot 解析整棵語法樹：只允許單一 SELECT，CTE、`SELECT INTO` 中的寫入也會被擋 | ✅ |
   | 資料表白名單、敏感欄位、危險函式 | 只能查 `cafes`（CTE 依作用範圍判斷）；擋 `pg_catalog`、`line_user_id`、`pg_sleep`、`dblink` 等 | ✅ |
   | 執行限制 | 外層 `LIMIT` 最多 1000；每個查詢 `SET LOCAL statement_timeout` 5 秒 | ✅ |
-  | Bedrock Guardrails（輸入過濾） | | ticket 3 |
+  | Bedrock Guardrails（輸入防護） | 問題進入模型前檢查 prompt attack 與無關話題（Standard 方案，支援中文）；呼叫失敗回 502，不跳過檢查 | ✅ |
+  | 模型判斷 | 修改資料、預測未來、讀取未開放資料 → 拒答；缺少時間範圍或指標 → 反問；兩者都不執行 SQL | ✅ |
 
-- **結構化輸出**：模型必須回傳符合 JSON schema 的 `{"sql": "..."}`；截斷、拒答、格式不符都不會執行任何查詢。
+- **IAM 依職責分開**：API 執行時用的 `brewql` 只能呼叫模型與套用 Guardrail；建立、修改 Guardrail 由只在部署時使用的 `brewql-deployer` 負責。使用防護的身分不能修改防護，金鑰外洩也無法關掉檢查（見 `openspec/changes/refuse-and-clarify/design.md` D9）。
+- **結構化輸出**：模型必須回傳符合 JSON schema 的 `{"kind": "sql" | "refuse" | "clarify", "sql", "message"}`；只有 `kind=sql` 會執行查詢，截斷、格式不符、類型與內容不一致都不會執行。畫面會分別顯示拒答（並標示輸入防護或模型判斷）與反問。
 - **不阻塞事件迴圈**：Bedrock SDK 是同步的，以 `asyncio.to_thread` 執行；資料庫用原生 async 的 asyncpg。
 - **以數據做決策**：後續 ticket 會用 golden set 量測正確率、延遲與成本，比較模型與 RAG 的效果。
 
@@ -73,6 +75,7 @@ curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
 ### Bedrock 憑證
 
 1. 建立只允許 `bedrock:InvokeModel` 的 IAM user（或使用 IAM Identity Center），以 `aws configure --profile brewql` 存入本機。
+   輸入防護（Bedrock Guardrails）另外需要部署用的 `brewql-deployer` 執行 `terraform apply`，再把輸出的 `apply_guardrail_policy_json` 掛到 `brewql`；未設定 `BEDROCK_GUARDRAIL_ID` 時跳過輸入檢查（僅限本機開發）。
 2. 在 Bedrock 模型目錄確認帳號可使用的 Claude 模型與 ID，填入 `.env`：
 
    ```bash
@@ -116,7 +119,7 @@ npm --prefix frontend run build
 |---|---|---|
 | 1 | `ask-first-question` | 中文提問 → Bedrock 產生 SQL → 唯讀執行 → 表格 ✅ |
 | 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位 ✅ |
-| 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails |
+| 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails ✅ |
 | 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試 |
 | 5 | `eval-golden-set` | 以執行結果比對的正確率評估 |
 | 6–8 | 圖表與洞察 | 搜尋趨勢、行政區供需落差、收藏洞察 |
