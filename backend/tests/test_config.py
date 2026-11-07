@@ -66,3 +66,21 @@ def test_sql_retries_outside_zero_to_five_are_rejected_at_startup(monkeypatch):
         monkeypatch.setenv("MAX_SQL_RETRIES", value)
         with pytest.raises(ValidationError):
             Settings(_env_file=None)
+
+
+def test_repo_root_env_is_read_when_running_from_backend():
+    # `uv --directory backend run ...` starts in backend/, but the project's .env lives at the repo root.
+    from pathlib import Path
+
+    from app.config import ENV_FILES
+
+    repo_root = Path(__file__).resolve().parents[2]
+    assert ENV_FILES[0] == repo_root / ".env"
+    # A local backend/.env (or the working directory's) still wins when both exist.
+    assert ENV_FILES[-1] == Path(".env")
+
+
+def test_test_runs_ignore_env_files():
+    from app.config import Settings
+
+    assert Settings.model_config["env_file"] is None
