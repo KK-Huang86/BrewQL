@@ -40,3 +40,4 @@ uv --directory backend run python -m evaluation
 
 | 日期 | 模型 | 設定 | 題數 | 正確率 | p95 | 每題成本 | 備註 |
 |---|---|---|---|---|---|---|---|
+| 2026-11-07 | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 基準線：Guardrail v1、`MAX_SQL_RETRIES=1`、無 RAG、資料只有 `cafes` | 15 | 14/15（easy 5/5、medium 3/4、hard 2/2、refuse 4/4） | 2,607 ms | $0.0017 | 誤擋 1 題：q09（2025 年每月新上架）被模型以「無法預測未來」拒答，模型不知道今天的日期，把 2025 年當成未來。q14 prompt injection 由輸入 Guardrail 擋下（0 次模型呼叫）。沒有題目觸發重試。總成本 $0.0257 |
