@@ -24,7 +24,7 @@ Lightsail 無法掛 IAM role，只能在主機放 access key；EC2 instance prof
 單人使用，不建立 S3 backend；`.gitignore` 已排除 state。
 
 ### D6. 上線檢查
-公開前 MUST 確認：限流與每日上限生效、白名單以外的路徑（`/metrics`、`/health`、`/docs`、`/openapi.json`、`/api/audit`）都回 404、Alloy 以 `--profile observability` 啟動並在 Grafana Cloud 看得到資料。Grafana Cloud token 放在主機的 `.env`（第三方憑證無法用 IAM role 取代），檔案權限只限部署使用者讀取。
+公開前 MUST 確認：限流與每日上限生效、白名單以外的路徑（`/metrics`、`/health`、`/docs`、`/openapi.json`、`/api/audit`）都回 404、Alloy 以 `--profile observability` 啟動並在 Grafana Cloud 看得到資料、提問有寫入稽核紀錄。Grafana Cloud token 放在主機的 `.env`（第三方憑證無法用 IAM role 取代），檔案權限只限部署使用者讀取。
 
 ### D5. Bedrock 權限
 允許 `bedrock:InvokeModel` 與 `bedrock:InvokeModelWithResponseStream`，資源限定在 Anthropic Claude、Titan Embeddings 的模型與 inference profile。實際呼叫被拒時，依錯誤訊息補上缺少的動作並記錄。

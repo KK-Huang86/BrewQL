@@ -31,4 +31,4 @@
 
 - 新增：稽核資料表與角色（db/init）、後端稽核寫入與 JSON log、介面紀錄頁
 - 修改：nginx（公開網址擋下紀錄查詢）
-- 依賴 ticket：`refuse-and-clarify`（記錄拒答來源）、`self-correct-on-error`（記錄重試次數）；第二份紀錄依賴 `observe-with-grafana`
+- 依賴 ticket：`refuse-and-clarify`（記錄拒答來源）、`self-correct-on-error`（記錄重試次數）；第二份紀錄依賴 `observe-with-grafana`；`deploy-public-demo` 依賴本 ticket（公開前必須可稽核）
