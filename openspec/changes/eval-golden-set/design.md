@@ -43,10 +43,15 @@ YAML 好讀好改、可以寫註解；執行程式直接匯入後端的流程模
 token、Guardrail units 與耗時放在流程結果（`AskResult.usage`），供評估與之後的監控使用；`/api/ask` 回應不包含，避免把成本細節暴露給訪客。
 
 ### D11. 檔案位置
-- 測試集：`backend/eval/golden.yaml`
-- 執行：`uv --directory backend run python -m scripts.eval [--dry-run] [--only q01,q02]`
-- 每次報告：`backend/eval/reports/`（不進版控）
-- 評估紀錄：`backend/eval/RESULTS.md`（進版控，人工摘要）
+評估程式與資料放同一個套件 `backend/evaluation/`，與執行期的 `app/` 分開（評估是開發工具，不會進 API）：
+- 測試集：`backend/evaluation/golden.yaml`
+- 執行：`uv --directory backend run python -m evaluation [--dry-run] [--only q01,q02]`
+- 每次報告：`backend/evaluation/reports/`（不進版控）
+- 評估紀錄：`backend/evaluation/RESULTS.md`（進版控，人工摘要）
+- `pyyaml` 為 dev 依賴
+
+### D12. 測試集格式
+每題：`id`、`question`、`difficulty`（easy / medium / hard / refuse），加上 `sql`（參考 SQL，可選 `ordered: true`）或 `expect`（refused / clarify）二擇一。`refuse` 難度必須用 `expect`，其他難度必須用 `sql`。不認得的欄位視為錯誤，避免 `odered` 這類拼錯被默默忽略。
 
 ## Risks / Trade-offs
 
