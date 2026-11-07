@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 回應包含嘗試次數
-`POST /api/ask` 的 200 回應 SHALL 包含整數 `attempts`；502 回應的 `attempts` 為 0。
+`POST /api/ask` 的 200 回應 SHALL 包含整數 `attempts`；5xx 回應沒有完成的回答，`attempts` MUST 為 0（即使重試途中已呼叫過模型）。
 
 #### Scenario: 一般回應
 - **WHEN** 問題第一次就成功

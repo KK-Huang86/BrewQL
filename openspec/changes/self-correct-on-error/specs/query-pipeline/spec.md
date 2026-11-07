@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 有上限的自動修正
-當 SQL 被防護拒絕、資料庫執行失敗或模型回覆不合格式時，系統 SHALL 把先前的回覆與錯誤原因連同原問題回饋給模型重新產生，最多重試 `MAX_SQL_RETRIES` 次（預設 1，即最多 2 次嘗試）。每次產生的 SQL MUST 重新經過 SQL 防護；被防護拒絕的 SQL MUST NOT 被執行。用盡後 MUST 回傳 `status=error`、最後一次的 SQL、`error_kind` 與錯誤訊息。執行逾時、Bedrock 服務錯誤與輸入 Guardrail 無法使用 MUST NOT 觸發重試。結果 SHALL 包含 `attempts`（模型被呼叫的次數）。
+當 SQL 被防護拒絕、資料庫執行失敗或模型回覆不合格式時，系統 SHALL 把先前的回覆與錯誤原因連同原問題回饋給模型重新產生，最多重試 `MAX_SQL_RETRIES` 次（預設 1，即最多 2 次嘗試）。每次產生的 SQL MUST 重新經過 SQL 防護；被防護拒絕的 SQL MUST NOT 被執行。用盡後 MUST 回傳 `status=error`、最後一次的 SQL、`error_kind` 與錯誤訊息。執行逾時、Bedrock 服務錯誤與輸入 Guardrail 無法使用 MUST NOT 觸發重試。結果 SHALL 包含 `attempts`（完成這次回答所用的模型呼叫次數）。
 
 #### Scenario: 防護拒絕後修正成功
 - **WHEN** 第一次產生 `DELETE FROM cafes`，第二次產生合法 SQL
@@ -30,6 +30,10 @@
 #### Scenario: 服務錯誤不重試
 - **WHEN** 第一次呼叫 Bedrock 就發生服務錯誤
 - **THEN** 錯誤往外拋出，模型只被呼叫一次
+
+#### Scenario: 重試中發生服務錯誤
+- **WHEN** 第一次 SQL 被防護拒絕，重試時 Bedrock 發生服務錯誤
+- **THEN** 錯誤往外拋出，不再重試
 
 #### Scenario: 拒答不重試
 - **WHEN** 第一次回覆為拒答

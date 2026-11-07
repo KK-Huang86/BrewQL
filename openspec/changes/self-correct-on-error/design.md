@@ -11,7 +11,7 @@ ticket 1～3 完成後，一次提問的流程是：輸入 Guardrail → 模型�
 ## Decisions
 
 ### D1. 以多輪訊息回饋錯誤
-重試時送出 `[user: 問題, assistant: 上一次的回覆 JSON, user: 錯誤回饋]`，多次失敗就依序接下去。模型看得到自己寫了什麼，以及為什麼失敗，比把錯誤塞進單一 prompt 清楚。產生器介面改成 `generate(question, feedback=())`，`feedback` 為先前的失敗嘗試（SQL 或原始回覆、錯誤類型、原因）。回饋文字由系統產生，不含使用者輸入以外的新內容。
+重試時送出 `[user: 問題, assistant: 上一次的 SQL, user: 錯誤回饋]`，多次失敗就依序接下去。assistant 那一輪以模型相同的 JSON 格式重建（`{kind: sql, sql, message: ""}`），只保留 SQL。模型看得到自己寫了什麼，以及為什麼失敗，比把錯誤塞進單一 prompt 清楚。產生器介面改成 `generate(question, feedback=())`，`feedback` 為先前的失敗嘗試（SQL、錯誤類型、原因）。回覆不合格式時沒有可用的 SQL，只回饋原因、不重播原始文字：被截斷的回覆可能長達數千 token，重播只增加成本；原因併進 user 那一輪，保持角色交替。回饋文字由系統產生，不含使用者輸入以外的新內容。
 
 ### D2. 哪些錯誤會重試
 
@@ -19,7 +19,7 @@ ticket 1～3 完成後，一次提問的流程是：輸入 Guardrail → 模型�
 |---|---|---|
 | SQL 防護拒絕（`guardrail`） | 是 | 防護的完整訊息（含可用資料表） |
 | 資料庫執行錯誤（`query`） | 是 | Postgres 錯誤類型與訊息 |
-| 執行逾時（`statement_timeout`） | **否** | 再試一次又要等 5 秒，而且模型多半寫出一樣重的查詢 |
+| 執行逾時或被取消（`QueryCanceledError`，主要來自 `statement_timeout`） | **否** | 再試一次又要等 5 秒，而且模型多半寫出一樣重的查詢；其他取消一併不重試，只會少試、不會多試 |
 | 回覆格式錯誤或沒有 SQL（`generation`） | 是 | 「回覆不符合格式」與原因 |
 | 拒答、反問 | 否 | 這是模型的判斷，不是錯誤；在重試中出現也直接回傳 |
 | Bedrock 服務錯誤、輸入 Guardrail 無法使用 | 否 | 往外拋，維持原本的 502 |
@@ -30,7 +30,7 @@ ticket 1～3 完成後，一次提問的流程是：輸入 Guardrail → 模型�
 重試只是「再產生一次」，產生後一樣走 `validate_sql` 與唯讀執行。被拒絕的 SQL 永遠不會被執行，自動修正不是繞過防護的路徑。
 
 ### D4. 上限設定與 `attempts`
-`MAX_SQL_RETRIES`（預設 1，範圍 0～5）。預設只重試一次：一題最多呼叫模型 2 次，小錯通常一次就修好，再多次的效益低於成本。負數或超過 5 在啟動時就是設定錯誤，避免成本失控。`attempts` 為模型被呼叫的次數；被輸入 Guardrail 擋下時為 0。用盡時回傳最後一次的 `sql`、`error_kind` 與訊息。
+`MAX_SQL_RETRIES`（預設 1，範圍 0～5）。`ask()` 與 `create_app()` 的參數預設為 0，只有 `build_app()` 從設定傳入，測試或其他呼叫端不會在不知情下多花錢。預設只重試一次：一題最多呼叫模型 2 次，小錯通常一次就修好，再多次的效益低於成本。負數或超過 5 在啟動時就是設定錯誤，避免成本失控。`attempts` 為完成這次回答所用的模型呼叫次數；被輸入 Guardrail 擋下時為 0。重試途中發生 Bedrock 服務錯誤時錯誤往外拋，回 502，沒有完成的回答，`attempts` 為 0，先前失敗嘗試的結果不回傳（log 仍保留）。用盡時回傳最後一次的 `sql`、`error_kind` 與訊息。
 
 ### D5. 每次失敗留 log，不記問題原文
 `sql attempt failed attempt=N kind=… reason=… sql=…`，等級 warning。不記錄使用者問題（與 `observe-with-grafana` D4 一致）。token 已在每次 Bedrock 呼叫時記錄，重試的成本自然被算進去。
