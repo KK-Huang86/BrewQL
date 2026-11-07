@@ -16,7 +16,7 @@ class CompromisedModel:
     def __init__(self, sql):
         self.sql = sql
 
-    async def generate(self, question):
+    async def generate(self, question, feedback=()):
         return Reply(kind="sql", sql=self.sql)
 
 

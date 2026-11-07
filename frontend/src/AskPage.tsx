@@ -49,9 +49,12 @@ export default function AskPage({ ask }: Props) {
 }
 
 function Answer({ answer }: { answer: AskResponse }) {
+  const corrections = (answer.attempts ?? 1) - 1
   return (
     <section>
       {answer.sql && <pre>{answer.sql}</pre>}
+      {/* A corrected answer was not the model's first guess: worth a second look at the SQL. */}
+      {corrections > 0 && <p className="corrections">經過 {corrections} 次修正</p>}
       {answer.status === 'refused' ? (
         // A decision, not a failure: say who refused so users know whether rewording helps.
         <div role="note" aria-label="拒答" className="refused">

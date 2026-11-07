@@ -43,3 +43,26 @@ def test_guardrail_id_without_a_version_is_rejected_at_startup(monkeypatch):
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None)
+
+
+def test_sql_retries_default_to_one(monkeypatch):
+    # One retry fixes most small mistakes; a question costs at most two model calls.
+    monkeypatch.delenv("MAX_SQL_RETRIES", raising=False)
+    assert Settings(_env_file=None).max_sql_retries == 1
+
+
+def test_sql_retries_accept_the_bounds(monkeypatch):
+    for value in ("0", "5"):
+        monkeypatch.setenv("MAX_SQL_RETRIES", value)
+        assert Settings(_env_file=None).max_sql_retries == int(value)
+
+
+def test_sql_retries_outside_zero_to_five_are_rejected_at_startup(monkeypatch):
+    # Negative makes no sense; above 5 lets one question multiply model cost.
+    import pytest
+    from pydantic import ValidationError
+
+    for value in ("-1", "6"):
+        monkeypatch.setenv("MAX_SQL_RETRIES", value)
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)

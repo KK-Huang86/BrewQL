@@ -8,6 +8,8 @@ export type AskResponse = {
   error_kind?: 'generation' | 'guardrail' | 'query' | null
   /** Who refused; only set when status is 'refused'. */
   refusal_source?: 'input_guardrail' | 'model' | null
+  /** Model calls behind this answer; above 1 means it self-corrected. */
+  attempts?: number
 }
 
 /** A failed request; `message` is safe to show the user. */

@@ -11,7 +11,7 @@ from app.main import create_app
 class ExplodingDependency:
     """Any use means the endpoint touched Bedrock or the database."""
 
-    async def generate(self, question):
+    async def generate(self, question, feedback=()):
         raise AssertionError("health check must not call the model")
 
     async def run(self, sql):
@@ -36,7 +36,7 @@ class FakeGenerator:
         self.reply = reply or Reply(kind="sql", sql=sql)
         self.exc = exc
 
-    async def generate(self, question):
+    async def generate(self, question, feedback=()):
         if self.exc:
             raise self.exc
         return self.reply
@@ -67,6 +67,7 @@ def test_ask_returns_sql_columns_and_rows():
         "message": None,
         "error_kind": None,
         "refusal_source": None,
+        "attempts": 1,
     }
 
 
@@ -140,6 +141,7 @@ def test_bedrock_failure_body_keeps_the_response_contract():
         "message": "模型服務暫時無法使用，請稍後再試",
         "error_kind": None,
         "refusal_source": None,
+        "attempts": 0,
     }
 
 
@@ -204,6 +206,7 @@ def test_database_outage_is_503_with_its_own_message(caplog):
         "message": "資料庫暫時無法使用，請稍後再試",
         "error_kind": None,
         "refusal_source": None,
+        "attempts": 0,
     }
     assert "connection refused" not in response.text
     assert any("connection refused" in (r.exc_text or "") for r in caplog.records)
@@ -282,6 +285,7 @@ def test_refusal_is_200_with_reason_and_source():
         "message": "只能查詢歷史資料",
         "error_kind": None,
         "refusal_source": "model",
+        "attempts": 1,
     }
 
 
@@ -301,6 +305,7 @@ def test_clarify_is_200_with_the_question_back():
         "message": "「熱門」是指什麼指標？",
         "error_kind": None,
         "refusal_source": None,
+        "attempts": 1,
     }
 
 
@@ -333,6 +338,7 @@ def test_input_guard_outage_is_502_and_the_model_is_never_called(caplog):
         "message": "輸入檢查暫時無法使用，請稍後再試",
         "error_kind": None,
         "refusal_source": None,
+        "attempts": 0,
     }
     assert "AccessDenied" not in response.text
     assert len([r for r in caplog.records if r.exc_info]) == 1
@@ -359,6 +365,7 @@ def test_input_guard_block_is_200_refused_from_the_input_guardrail():
     assert body["status"] == "refused"
     assert body["refusal_source"] == "input_guardrail"
     assert body["message"] == "這個問題無法處理"
+    assert body["attempts"] == 0
 
 
 def test_production_app_warns_when_no_input_guardrail_is_configured(monkeypatch, capsys):
@@ -372,3 +379,53 @@ def test_production_app_warns_when_no_input_guardrail_is_configured(monkeypatch,
     # build_app installs the app's own stderr handler (no propagation), so read stderr.
     warnings = [line for line in capsys.readouterr().err.splitlines() if " WARNING " in line]
     assert any("GUARDRAIL" in line.upper() for line in warnings)
+
+
+class FixingGenerator:
+    """First reply is rejected by the SQL guard, the next one is valid."""
+
+    def __init__(self):
+        self.calls = 0
+
+    async def generate(self, question, feedback=()):
+        self.calls += 1
+        return Reply(kind="sql", sql="DELETE FROM cafes" if self.calls == 1 else "SELECT name FROM cafes")
+
+
+def test_configured_retries_let_the_model_fix_a_rejected_query():
+    gen = FixingGenerator()
+    app = create_app(generator=gen, executor=FakeExecutor(["name"], [["咖啡店"]]), cors_origins=[], max_sql_retries=1)
+
+    body = TestClient(app).post("/api/ask", json={"question": "q"}).json()
+
+    assert body["status"] == "ok"
+    assert body["attempts"] == 2
+    assert gen.calls == 2
+
+
+def test_without_configured_retries_the_first_failure_is_the_answer():
+    gen = FixingGenerator()
+
+    body = client_with(gen, ExplodingDependency()).post("/api/ask", json={"question": "q"}).json()
+
+    assert body["status"] == "error"
+    assert body["attempts"] == 1
+    assert gen.calls == 1
+
+
+def test_production_app_passes_max_sql_retries_from_settings(monkeypatch):
+    import app.main as main
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody:x@127.0.0.1:1/none")
+    monkeypatch.setenv("MAX_SQL_RETRIES", "3")
+    seen = {}
+    real_create_app = main.create_app
+
+    def spy(**kwargs):
+        seen.update(kwargs)
+        return real_create_app(**kwargs)
+
+    monkeypatch.setattr(main, "create_app", spy)
+    main.build_app()
+
+    assert seen["max_sql_retries"] == 3
