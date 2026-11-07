@@ -12,7 +12,7 @@
 - 超過限制回 HTTP 429，body 與既有回應合約同形（`message`：「請求太頻繁，請稍後再試」），附 `Retry-After`
 - 請求大小上限與 client 逾時，避免超大或極慢的請求佔住連線
 - 應用程式層的**全域每日提問上限**（可設定）：達到後回 429「今日提問次數已達上限」，不呼叫 Guardrail 與模型
-- 內部端點不經 nginx 對外：`/metrics`、`/health` 以外的管理用途端點（例如之後的稽核查詢）
+- nginx 以白名單轉發：只有明確列出的公開 API 會轉給 backend；`/metrics`、`/health`、`/docs`、`/openapi.json` 與管理用途端點（例如之後的稽核查詢）一律回 404
 
 ### Non-goals
 

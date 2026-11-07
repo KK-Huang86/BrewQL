@@ -41,8 +41,16 @@ nginx SHALL 拒絕超過 16 KB 的請求 body（HTTP 413），並 SHALL 在 10 �
 - **THEN** 回 HTTP 413，後端沒有收到
 
 ### Requirement: 內部端點不對外
-nginx MUST 只轉發 `/api/` 下的路徑；`/metrics` 與管理用途端點 MUST NOT 能從公開網址存取。
+nginx MUST 以白名單轉發：只有明確列出的公開 API 路徑會轉給 backend，其餘路徑 MUST NOT 轉發。`/metrics`、`/health`、`/docs`、`/openapi.json` 與管理用途端點（例如 `/api/audit`）MUST NOT 能從公開網址存取。
 
-#### Scenario: 請求 metrics
-- **WHEN** 從公開網址請求 `/metrics`
-- **THEN** 回 404
+#### Scenario: 請求內部端點
+- **WHEN** 從公開網址請求 `/metrics`、`/health`、`/docs`、`/openapi.json` 或 `/api/audit`
+- **THEN** 每個都回 404，後端沒有收到請求
+
+#### Scenario: 請求不在白名單的 API
+- **WHEN** 從公開網址請求 `/api/anything-new`
+- **THEN** 回 404，後端沒有收到請求
+
+#### Scenario: 公開 API 照常運作
+- **WHEN** 從公開網址送出 `POST /api/ask`
+- **THEN** 請求轉給 backend 並套用限流

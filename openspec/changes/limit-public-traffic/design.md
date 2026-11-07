@@ -34,11 +34,14 @@ EC2 直接對外，連線來源就是真實 IP。若之後前面加上 CloudFron
 ### D5. 請求大小與逾時
 `client_max_body_size 16k`（問題最多 1000 字，JSON 不會超過）；`client_body_timeout`、`client_header_timeout` 10 秒，降低慢速連線佔住 worker 的風險。
 
-### D6. 內部端點不對外
-nginx 只轉發明確列出的 `/api/` 路徑；`/metrics` 不在 `/api/` 之下，不會被轉發。之後若有管理用途的端點（例如稽核查詢），nginx MUST 以 `deny all` 擋下，管理者透過 SSH tunnel 直接連 backend。
+### D6. 白名單轉發，內部端點不對外
+nginx 只把明確列出的公開 API 轉給 backend（`location = /api/ask`，之後加上串流與 `/api/sql`），其餘 `/api/` 一律回 404。前端靜態檔由 nginx 自己提供；`/metrics`、`/health`、`/docs`、`/openapi.json` MUST 明確回 404，不能落到前端 SPA 的 fallback。管理用途端點（例如稽核查詢）不加進白名單，管理者透過 SSH tunnel 直接連 backend。
+- 為什麼不用黑名單（轉發整個 `/api/` 再 `deny` 特定路徑）：新增端點時忘了 `deny` 就會直接公開。白名單讓新端點預設不公開，要主動加入才會開放。
+- repo 是公開的，路徑名稱無法保密，所以不能靠路徑難猜來保護。
 
 ## Risks / Trade-offs
 
 - [多人共用同一個 IP（公司、學校 NAT）互相影響] → Demo 情境可接受；429 訊息說明稍後再試
 - [每日上限被惡意用光，正常面試官無法使用] → 告警通知（`observe-with-grafana`）；管理者可調高上限或重啟
+- [新增公開 API 忘了加進白名單，前端呼叫得到 404] → 本機 compose 也經過同一份 nginx 設定，開發時就會發現
 - [限流數值不合實際] → 評估與實測後調整，集中在一處設定

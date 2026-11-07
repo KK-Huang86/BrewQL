@@ -32,7 +32,7 @@ Alloy 是單一 collector，同時處理 log（Docker → Loki）與 metrics（�
 應用程式 log 與 metrics 只有結果與數值。問題原文只出現在 `record-audit-log` 的稽核事件（`event=ask_audit`），由該 ticket 決定保存方式。
 
 ### D5. `/metrics` 不對外
-`/metrics` 由 backend 提供，nginx 只轉發 `/api/`，backend port 只綁 127.0.0.1（本機）或不對外開放（部署），所以只有同一個 compose 網路裡的 Alloy 能抓取。
+`/metrics` 由 backend 提供，nginx 以白名單轉發、不包含 `/metrics`（`limit-public-traffic` D6），backend port 只綁 127.0.0.1（本機）或不對外開放（部署），所以只有同一個 compose 網路裡的 Alloy 能抓取。
 
 ### D6. Dashboard 與告警以程式碼保存
 匯出的 dashboard JSON 與告警規則存在 `observability/`，README 說明匯入步驟。比手動在 UI 點選更容易 review 與重建。

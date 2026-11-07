@@ -31,7 +31,7 @@
 
 #### Scenario: 訪客查詢紀錄
 - **WHEN** 從公開網址請求 `/api/audit`
-- **THEN** nginx 回 403 或 404，後端沒有收到請求
+- **THEN** nginx 回 404（不在白名單），後端沒有收到請求
 
 #### Scenario: 提問畫面提示
 - **WHEN** 開啟提問畫面

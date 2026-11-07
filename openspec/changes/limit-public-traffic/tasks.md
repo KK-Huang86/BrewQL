@@ -1,7 +1,7 @@
 ## 1. nginx
 
 - [ ] 1.1 `nginx.conf` 加入分級限流（`limit_req_zone`、`limit_conn_zone`）、429 JSON 回應與 `Retry-After`、請求大小與逾時；驗證：以 curl 迴圈實測 429、413，後端 log 沒有收到被擋的請求
-- [ ] 1.2 確認只轉發 `/api/`；驗證：經 nginx 請求 `/metrics` 回 404
+- [ ] 1.2 nginx 改成白名單轉發（`location = /api/ask`，其餘 `/api/` 回 404），`/metrics`、`/health`、`/docs`、`/openapi.json` 明確回 404；驗證：經 nginx 逐一請求這些路徑與 `/api/audit` 都回 404 且後端 log 沒有收到，`/api/ask` 照常回應
 
 ## 2. 後端
 
