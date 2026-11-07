@@ -2,6 +2,8 @@
 
 動機見 proposal.md。此時資料只有 `cafes`，題目先以咖啡店資料為主；之後每個加入資料的 ticket 都要補題目。
 
+ticket 3、4 之後，一次提問的完整流程是：輸入 Guardrail → 模型產生 `{kind, sql, message}` → SQL 防護 → 唯讀執行，失敗最多重試 1 次。評估要量的是這整套系統，所以執行時使用與正式環境相同的設定（輸入 Guardrail 開啟、`MAX_SQL_RETRIES=1`），並把設定記進報告。
+
 ## Goals / Non-Goals
 
 **Goals:** 可重複、便宜、結果可比較的評估；明細足以做錯誤分析。
@@ -25,11 +27,30 @@ YAML 好讀好改、可以寫註解；執行程式直接匯入後端的流程模
 ### D5. 依序執行，不平行
 避免觸發 Bedrock 限流，延遲數據也比較乾淨。15 題約 1～3 分鐘可接受。
 
-### D6. 模型單價放設定
-價格會變，不寫死在程式碼；設定檔註明來源為 Bedrock 官方價格頁與查詢日期。
+### D6. 單價集中在一張價目表
+`app/pricing.py` 以模型 ID 對應輸入／輸出每百萬 token 單價，另有 Guardrail 每 1,000 text units 單價，註明來源（Bedrock 官方價格頁）與查詢日期。價格變動只改這一處；`observe-with-grafana` 的成本估算沿用同一張表，評估與線上的成本算法一致。價目表沒有的模型，成本記為未知並在報告標示，不中斷評估。
+
+### D7. 成本包含 Guardrail
+每題都會呼叫 ApplyGuardrail，它依 text units 計費（1 unit = 最多 1,000 字元）。輸入 Guardrail 從 ApplyGuardrail 回應的 `usage` 讀取計費 units，流程把它和 token 一起回報；每題成本 = 模型 token 費用 + Guardrail 費用。被 Guardrail 擋下的題目沒有 token，但仍有 Guardrail 費用。
+
+### D8. 拒答題不區分來源，但記錄來源
+預期 `refused` 的題目，被輸入 Guardrail 擋下或被模型拒答都算正確；明細記錄 `refusal_source`，報告可以看出哪一層擋下。測試集包含一題 prompt injection，觀察 Guardrail 是否在模型之前擋下。
+
+### D9. 題目必須明確
+模型遇到模糊問題會反問（ticket 3），反問在一般題會被判錯。因此一般題要寫清楚範圍與條件（例如「台北市各行政區」而不是「各區」），讓錯誤反映 SQL 能力而不是題目本身。參考 SQL 由人撰寫，並以試跑確認可執行。
+
+### D10. 用量只給內部使用
+token、Guardrail units 與耗時放在流程結果（`AskResult.usage`），供評估與之後的監控使用；`/api/ask` 回應不包含，避免把成本細節暴露給訪客。
+
+### D11. 檔案位置
+- 測試集：`backend/eval/golden.yaml`
+- 執行：`uv --directory backend run python -m scripts.eval [--dry-run] [--only q01,q02]`
+- 每次報告：`backend/eval/reports/`（不進版控）
+- 評估紀錄：`backend/eval/RESULTS.md`（進版控，人工摘要）
 
 ## Risks / Trade-offs
 
-- [題目太簡單導致正確率虛高] → 刻意放 2 題困難題與 3 題拒答／反問題
+- [題目太簡單導致正確率虛高] → 刻意放 2 題困難題與 4 題拒答／反問題；資料只有一張表時「困難」有限，ticket 6～8 加資料時補上跨表題
+- [Guardrail 計費欄位與預期不同] → 以真實 ApplyGuardrail 回應確認 `usage` 欄位後才實作；讀不到時成本標示為不完整
 - [之後加的範例 SQL 和測試題重疊造成「洩題」] → ticket 9 的 spec 明訂禁止
 - [模型非確定性] → 報告記錄執行時間與設定；重要比較跑 2 次取平均
