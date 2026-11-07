@@ -120,12 +120,15 @@ npm --prefix frontend run build
 | 1 | `ask-first-question` | 中文提問 → Bedrock 產生 SQL → 唯讀執行 → 表格 ✅ |
 | 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位 ✅ |
 | 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails ✅ |
-| 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試 |
+| 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試（最多 1 次） ✅ |
 | 5 | `eval-golden-set` | 以執行結果比對的正確率評估 |
 | 6–8 | 圖表與洞察 | 搜尋趨勢、行政區供需落差、收藏洞察 |
+| — | `limit-public-traffic` | nginx 白名單轉發、依端點成本分級限流、全域每日提問上限 |
+| — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 |
+| — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 |
+| 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例 |
 | 10–12 | 編輯 SQL、步驟串流、模型比較報告 | |
-| — | `limit-public-traffic` | nginx 依端點成本分級限流、全域每日提問上限（部署前必須） |
-| — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 |
-| 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
-| — | `record-audit-log`、`import-real-cafes` | 稽核紀錄（DB + Grafana Loki）、匯入真實店家（選做） |
+| — | `import-real-cafes` | 匯入真實店家（選做） |
+
+執行順序依表格由上而下：先在本機完成評估與圖表，再補齊公開前必要的限流、監控與稽核後部署；之後的 ticket 完成時重新部署即可。

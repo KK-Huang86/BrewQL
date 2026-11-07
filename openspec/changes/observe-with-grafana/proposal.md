@@ -33,4 +33,4 @@
 - 新依賴：`prometheus-client`
 - 新設定：Grafana Cloud 的端點與 token（`.env`，同步 `.env.example`）
 - 成本：Grafana Cloud 免費方案（log 與 metrics 約保留 14 天）
-- 依賴 ticket：`refuse-and-clarify`（結果與拒答來源標籤）；建議在 `eval-golden-set` 之後、`deploy-public-demo` 之前，部署時直接帶上
+- 依賴 ticket：`refuse-and-clarify`（結果與拒答來源標籤）；建議在 `eval-golden-set` 之後（沿用其 token 回報）、`record-audit-log` 與 `deploy-public-demo` 之前，部署時直接帶上

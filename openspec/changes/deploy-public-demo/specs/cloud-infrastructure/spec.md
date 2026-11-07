@@ -41,7 +41,7 @@ SSH MUST 只開放給設定的管理者 IP；HTTP（80）SHALL 對外開放；�
 - **THEN** 設定的 email 收到通知
 
 ### Requirement: 公開前的保護
-部署到公開網址前，`public-access-limits` 的限流與全域每日上限 MUST 已生效，白名單以外的路徑（`/metrics`、`/health`、`/docs`、`/openapi.json`、`/api/audit`）MUST NOT 能從公開網址存取，可觀測性（Alloy）SHALL 已啟動。
+部署到公開網址前，`public-access-limits` 的限流與全域每日上限 MUST 已生效，白名單以外的路徑（`/metrics`、`/health`、`/docs`、`/openapi.json`、`/api/audit`）MUST NOT 能從公開網址存取，可觀測性（Alloy）SHALL 已啟動，每次提問 SHALL 已寫入稽核紀錄（`record-audit-log`）。
 
 #### Scenario: 上線檢查
 - **WHEN** 部署完成後從外部連續提問，並逐一請求 `/metrics`、`/health`、`/docs`、`/openapi.json`、`/api/audit`

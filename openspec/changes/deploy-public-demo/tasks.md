@@ -13,5 +13,5 @@
 ## 3. 實際部署
 
 - [ ] 3.1 `terraform apply`、部署（`docker compose --profile observability up -d --build`）、透過公開 IP 提問；驗證：成功回答，主機上無 AWS access key，Budgets 已建立
-- [ ] 3.2 上線檢查：從外部連續提問觸發 429、`/metrics`、`/health`、`/docs`、`/openapi.json`、`/api/audit` 都回 404、Grafana Cloud 看得到請求；驗證：記錄結果
+- [ ] 3.2 上線檢查：從外部連續提問觸發 429、`/metrics`、`/health`、`/docs`、`/openapi.json`、`/api/audit` 都回 404、Grafana Cloud 看得到請求、稽核表有這些提問；驗證：記錄結果
 - [ ] 3.3 `terraform destroy`；驗證：資源已刪除（面試前再重新 apply）

@@ -23,4 +23,4 @@
 
 - 修改：`infra/terraform/`；新增：README 部署章節
 - 成本：EC2 約 US$12／月（只在 Demo 期間開機），Bedrock 依用量
-- 依賴 ticket：`refuse-and-clarify`（已建立 Terraform 與 Guardrail）、`limit-public-traffic`（公開前必須有限流與每日上限）、`observe-with-grafana`（上線後的監控與告警）；之後每個 ticket 完成可重新部署
+- 依賴 ticket：`refuse-and-clarify`（已建立 Terraform 與 Guardrail）、`limit-public-traffic`（公開前必須有限流與每日上限）、`observe-with-grafana`（上線後的監控與告警）、`record-audit-log`（公開後陌生人的提問要可稽核）；建議在 ticket 6～8（圖表）之後，讓線上 Demo 有完整內容；之後每個 ticket 完成可重新部署
