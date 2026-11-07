@@ -45,9 +45,10 @@ def test_guardrail_id_without_a_version_is_rejected_at_startup(monkeypatch):
         Settings(_env_file=None)
 
 
-def test_sql_retries_default_to_two(monkeypatch):
+def test_sql_retries_default_to_one(monkeypatch):
+    # One retry fixes most small mistakes; a question costs at most two model calls.
     monkeypatch.delenv("MAX_SQL_RETRIES", raising=False)
-    assert Settings(_env_file=None).max_sql_retries == 2
+    assert Settings(_env_file=None).max_sql_retries == 1
 
 
 def test_sql_retries_accept_the_bounds(monkeypatch):
