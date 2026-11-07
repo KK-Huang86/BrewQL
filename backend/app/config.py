@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     bedrock_guardrail_id: str | None = None
     bedrock_guardrail_version: str | None = None
     # Extra model calls after a failed attempt; capped so one question cannot multiply cost.
-    max_sql_retries: int = Field(default=2, ge=0, le=5)
+    max_sql_retries: int = Field(default=1, ge=0, le=5)
 
     @field_validator("bedrock_effort", "bedrock_guardrail_id", "bedrock_guardrail_version", mode="before")
     @classmethod
