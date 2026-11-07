@@ -5,7 +5,8 @@
 ## What Changes
 
 - 在既有的 `infra/terraform/`（已有 Guardrail）加入：EC2（`t4g.small`）、IAM role 與 instance profile（只允許呼叫 Bedrock 模型）、Security Group、AWS Budgets
-- 主機以 docker compose 執行全部服務
+- 主機以 docker compose 執行全部服務，含 `observability` profile（Grafana Alloy）
+- 上線前確認 `limit-public-traffic` 的限流與每日上限生效
 - README：部署、重新部署、銷毀步驟與成本說明
 
 ## Capabilities
@@ -22,4 +23,4 @@
 
 - 修改：`infra/terraform/`；新增：README 部署章節
 - 成本：EC2 約 US$12／月（只在 Demo 期間開機），Bedrock 依用量
-- 依賴 ticket：`refuse-and-clarify`（已建立 Terraform 與 Guardrail；之後每個 ticket 完成可重新部署）
+- 依賴 ticket：`refuse-and-clarify`（已建立 Terraform 與 Guardrail）、`limit-public-traffic`（公開前必須有限流與每日上限）、`observe-with-grafana`（上線後的監控與告警）；之後每個 ticket 完成可重新部署
