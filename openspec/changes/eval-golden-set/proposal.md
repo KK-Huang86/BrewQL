@@ -18,8 +18,7 @@
 
 ### Modified Capabilities
 
-- `query-pipeline`: 回報每個問題的 token、Guardrail 用量與耗時。
-- `input-guardrails`: 檢查結果帶回 ApplyGuardrail 的計費 units。
+- `query-pipeline`: 回報每個問題的 token、Guardrail 用量（輸入 Guardrail 檢查結果帶回 ApplyGuardrail 的計費 units）與耗時，並讓模型知道今天的日期。
 
 ## Impact
 

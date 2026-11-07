@@ -64,12 +64,20 @@
 - **WHEN** 評估使用的模型不在價目表中
 - **THEN** 成本記為未知並在報告中標示，評估照常完成
 
+#### Scenario: Guardrail 回應缺少用量
+- **WHEN** 某題的 ApplyGuardrail 回應沒有 `usage`
+- **THEN** 該題成本記為未知，報告標示成本不完整，評估照常完成
+
 ### Requirement: 成本控制
 評估 SHALL 在開始前顯示題數與預估呼叫次數，並支援只跑部分題目與不呼叫模型的試跑（只驗證測試集與參考 SQL 可執行）。單題失敗（含服務錯誤）SHALL 記錄後繼續下一題，MUST NOT 中斷整體評估。
 
 #### Scenario: 試跑
 - **WHEN** 以試跑模式執行
 - **THEN** 不呼叫模型，回報每題參考 SQL 是否可執行
+
+#### Scenario: 未開啟輸入 Guardrail 時的預估
+- **WHEN** 評估時未設定輸入 Guardrail
+- **THEN** 預估的 Guardrail 檢查次數為 0
 
 #### Scenario: 單題服務錯誤
 - **WHEN** 第 3 題呼叫 Bedrock 時發生服務錯誤

@@ -19,7 +19,7 @@ ticket 3、4 之後，一次提問的完整流程是：輸入 Guardrail → 模�
 每列的值先標準化（數值四捨五入 2 位、日期轉字串），再把欄位順序正規化後比較列的多重集合。可能把極少數欄位對調的錯誤答案判為正確，但能避免大量「只是 alias 不同」的誤判；取捨記在報告說明。
 
 ### D3. 測試集放 YAML，執行程式放 backend
-YAML 好讀好改、可以寫註解；執行程式直接匯入後端的流程模組，評估的就是正式程式碼。
+YAML 好讀好改、可以寫註解；執行程式直接匯入後端的流程模組，評估的就是正式程式碼。API 與評估共用 `build_dependencies(settings)` 組裝產生器、執行器與輸入 Guardrail，兩邊不會各自組出不同的設定。
 
 ### D4. 結果不進版控，紀錄進版控
 每次執行的完整報告輸出到被忽略的目錄；重要的執行（基準、RAG 前後、模型比較）由人手動摘要到評估紀錄文件，作為面試時的數據來源。
@@ -45,7 +45,7 @@ token、Guardrail units 與耗時放在流程結果（`AskResult.usage`），供
 ### D11. 檔案位置
 評估程式與資料放同一個套件 `backend/evaluation/`，與執行期的 `app/` 分開（評估是開發工具，不會進 API）：
 - 測試集：`backend/evaluation/golden.yaml`
-- 執行：`uv --directory backend run python -m evaluation [--dry-run] [--only q01,q02]`
+- 執行：`uv --directory backend run python -m evaluation [--dry-run] [--only q01,q02] [--golden <檔案>]`；`--only` 指定不存在的題號時直接報錯，避免打錯字默默少跑
 - 每次報告：`backend/evaluation/reports/`（不進版控）
 - 評估紀錄：`backend/evaluation/RESULTS.md`（進版控，人工摘要）
 - `pyyaml` 為 dev 依賴
@@ -60,9 +60,13 @@ token、Guardrail units 與耗時放在流程結果（`AskResult.usage`），供
 - 之後的「最近 30 天」這類相對時間問題（ticket 6 起）也需要這個日期。
 - 驗證：修正後重跑完整評估，與基準線比較並記入評估紀錄。
 
+### D14. 設定也讀根目錄 `.env`
+評估在 compose 外執行（`uv --directory backend`），工作目錄是 `backend/`，原本讀不到根目錄的 `.env`。`Settings` 改為依序讀 repo 根目錄 `.env` 與目前目錄 `.env`（後者優先），compose 內行為不變。單元測試以 conftest 關閉 env 檔，不受開發者本機設定影響。
+
 ## Risks / Trade-offs
 
 - [題目太簡單導致正確率虛高] → 刻意放 2 題困難題與 4 題拒答／反問題；資料只有一張表時「困難」有限，ticket 6～8 加資料時補上跨表題
-- [Guardrail 計費欄位改變或讀不到] → 欄位已實測確認（tasks 1.1）；回應缺少 `usage` 時 units 記為 0 並在 log 警告，成本標示為不完整
+- [Guardrail 計費欄位改變或讀不到] → 欄位已實測確認（tasks 1.1）；回應缺少 `usage` 時 units 記為 0 並在 log 警告，該題成本記為未知，報告標示不完整
 - [之後加的範例 SQL 和測試題重疊造成「洩題」] → ticket 9 的 spec 明訂禁止
+- [服務錯誤的題目沒有成本] → `ask` 拋出例外時（例如 Guardrail 通過後 Bedrock 5xx）拿不到已花的用量，該題成本與耗時不列入統計；報告的服務錯誤數會顯示有幾題，暫不處理
 - [模型非確定性] → 報告記錄執行時間與設定；重要比較跑 2 次取平均
