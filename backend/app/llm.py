@@ -4,7 +4,7 @@ import asyncio
 import json
 import logging
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Literal, get_args
 
 from app.schema_context import SCHEMA_CONTEXT
@@ -98,8 +98,22 @@ def build_bedrock_client(*, aws_region: str):
     return AnthropicBedrock(aws_region=aws_region, timeout=BEDROCK_TIMEOUT_SECONDS, max_retries=BEDROCK_MAX_RETRIES)
 
 
+@dataclass(frozen=True)
+class ModelUsage:
+    """Tokens billed for one model call."""
+
+    model_id: str
+    input_tokens: int
+    output_tokens: int
+
+
 class ReplyError(ValueError):
     """The model reply is unusable; the message is safe to show users."""
+
+    def __init__(self, message: str, *, usage: ModelUsage | None = None):
+        super().__init__(message)
+        # An unusable reply was still a paid call.
+        self.usage = usage
 
 
 @dataclass(frozen=True)
@@ -109,6 +123,8 @@ class Reply:
     kind: ReplyKind
     sql: str | None = None
     message: str | None = None
+    # Billing detail, not part of the decision: two replies with the same answer are equal.
+    usage: ModelUsage | None = field(default=None, compare=False)
 
 
 class BedrockSqlGenerator:
@@ -156,7 +172,12 @@ class BedrockSqlGenerator:
                 "stop_reason": message.stop_reason,
             },
         )
-        return parse_reply(message)
+        usage = ModelUsage(self._model_id, message.usage.input_tokens, message.usage.output_tokens)
+        try:
+            reply = parse_reply(message)
+        except ReplyError as e:
+            raise ReplyError(str(e), usage=usage) from e
+        return replace(reply, usage=usage)
 
 
 def parse_reply(message) -> Reply:
