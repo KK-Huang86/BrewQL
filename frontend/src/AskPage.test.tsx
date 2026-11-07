@@ -222,4 +222,59 @@ describe('AskPage', () => {
 
     expect(new Set(classes).size).toBe(3)
   })
+
+  it.each([
+    [3, '經過 2 次修正'],
+    [2, '經過 1 次修正'],
+  ])('says how many corrections were needed when attempts is %i', async (attempts, text) => {
+    const ask = vi.fn(async () => ({
+      status: 'ok' as const,
+      sql: 'SELECT name FROM cafes',
+      columns: ['name'],
+      rows: [['咖啡店']],
+      message: null,
+      attempts,
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), 'q{Enter}')
+
+    expect(await screen.findByText(text)).toBeInTheDocument()
+    expect(screen.getByRole('table')).toBeInTheDocument()
+  })
+
+  it.each([1, 0, undefined])('shows no correction count when attempts is %s', async (attempts) => {
+    const ask = vi.fn(async () => ({
+      status: 'ok' as const,
+      sql: 'SELECT 1',
+      columns: ['n'],
+      rows: [[1]],
+      message: null,
+      attempts,
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), 'q{Enter}')
+
+    await screen.findByRole('table')
+    expect(screen.queryByText(/次修正/)).not.toBeInTheDocument()
+  })
+
+  it('still shows the correction count when retries ran out', async () => {
+    const ask = vi.fn(async () => ({
+      status: 'error' as const,
+      sql: 'DELETE FROM cafes',
+      columns: [],
+      rows: [],
+      message: '只允許 SELECT 查詢',
+      error_kind: 'guardrail' as const,
+      attempts: 2,
+    }))
+    render(<AskPage ask={ask} />)
+
+    await userEvent.type(screen.getByRole('textbox', { name: '問題' }), 'q{Enter}')
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('只允許 SELECT 查詢')
+    expect(screen.getByText('經過 1 次修正')).toBeInTheDocument()
+  })
 })
