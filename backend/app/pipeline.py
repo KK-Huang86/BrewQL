@@ -66,40 +66,52 @@ async def ask(
             return AskResult(status="refused", message=verdict.message, refusal_source="input_guardrail")
     feedback: list[FailedAttempt] = []
     while True:
-        result, failure = await _attempt(question, generator, executor, feedback)
+        result, failure, retryable = await _attempt(question, generator, executor, feedback)
         result.attempts = len(feedback) + 1
+        if failure is not None:
+            _log_failure(result.attempts, failure)
         # Stop on success, refuse/clarify, a failure not worth retrying, or the retry budget.
-        if failure is None or len(feedback) >= max_retries:
+        if failure is None or not retryable or len(feedback) >= max_retries:
             return result
         feedback.append(failure)
 
 
+def _log_failure(attempt: int, failure: FailedAttempt) -> None:
+    # Never the question: it may hold personal data, which only the audit log may keep.
+    log.warning(
+        "sql attempt failed attempt=%d kind=%s reason=%s sql=%s",
+        attempt,
+        failure.error_kind,
+        failure.reason,
+        failure.sql,
+        extra={"attempt": attempt, "error_kind": failure.error_kind, "reason": failure.reason, "sql": failure.sql},
+    )
+
+
 async def _attempt(
     question: str, generator: SqlGenerator, executor: QueryExecutor, feedback: Sequence[FailedAttempt]
-) -> tuple[AskResult, FailedAttempt | None]:
-    """One model call and, for SQL, guard + execution. The failure is set only when a retry may help."""
+) -> tuple[AskResult, FailedAttempt | None, bool]:
+    """One model call and, for SQL, guard + execution: (result, failure if any, whether a retry may help)."""
     try:
         reply = await generator.generate(question, feedback)
     except ReplyError as e:
         failure = FailedAttempt(error_kind="generation", reason=str(e))
-        return AskResult(status="error", message=str(e), error_kind="generation"), failure
+        return AskResult(status="error", message=str(e), error_kind="generation"), failure, True
     # Refuse and clarify end here: no SQL exists, nothing reaches the database.
     if reply.kind == "refuse":
-        return AskResult(status="refused", message=reply.message, refusal_source="model"), None
+        return AskResult(status="refused", message=reply.message, refusal_source="model"), None, False
     if reply.kind == "clarify":
-        return AskResult(status="clarify", message=reply.message), None
+        return AskResult(status="clarify", message=reply.message), None, False
     try:
         # Every attempt, retries included, passes the same guard: a fix is never a bypass.
         sql = validate_sql(reply.sql)
     except SqlGuardError as e:
         failure = FailedAttempt(error_kind="guardrail", reason=str(e), sql=reply.sql)
-        return AskResult(status="error", sql=reply.sql, message=str(e), error_kind="guardrail"), failure
+        return AskResult(status="error", sql=reply.sql, message=str(e), error_kind="guardrail"), failure, True
     try:
         columns, rows = await executor.run(sql)
     except QueryError as e:
-        log.warning("query failed sql=%s detail=%s", sql, e)
         result = AskResult(status="error", sql=sql, message="查詢執行失敗，請換個問法再試", error_kind="query")
         # A timed-out rewrite would likely run as long again; not worth another call.
-        failure = None if e.timed_out else FailedAttempt(error_kind="query", reason=str(e), sql=sql)
-        return result, failure
-    return AskResult(status="ok", sql=sql, columns=columns, rows=rows), None
+        return result, FailedAttempt(error_kind="query", reason=str(e), sql=sql), not e.timed_out
+    return AskResult(status="ok", sql=sql, columns=columns, rows=rows), None, False
