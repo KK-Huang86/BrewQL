@@ -4,7 +4,7 @@
   - 結果（2026-11-08，guardrail version 1）：`usage` 依政策分開計 units：`topicPolicyUnits`（denied topic）、`contentPolicyUnits`（content filter，含 PROMPT_ATTACK），其餘政策（word、PII、grounding、automated reasoning、image）都是 0。10 字與 15 字的問題各為 topic 1、content 1；1,500 字為 topic 2、content 2（1 unit = 最多 1,000 字元）。通過與擋下的計費相同
 - [x] 1.2 測試 + 實作：產生器回傳每次呼叫的 token 與模型 ID；輸入 Guardrail 回傳計費 units；驗證：測試由紅轉綠
 - [x] 1.3 測試 + 實作：流程累計 token（含多次嘗試）、Guardrail units 與耗時，放在 `AskResult.usage`，`/api/ask` 不回傳；驗證：測試由紅轉綠
-- [ ] 1.4 測試 + 實作：價目表與成本計算（模型 token、Guardrail units、未知模型）；驗證：測試由紅轉綠
+- [x] 1.4 測試 + 實作：價目表與成本計算（模型 token、Guardrail units、未知模型）；驗證：測試由紅轉綠
 
 ## 2. 測試集
 
