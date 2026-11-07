@@ -3,9 +3,11 @@
 import asyncio
 import json
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
+from datetime import UTC, date, datetime
 from typing import Literal, get_args
+from zoneinfo import ZoneInfo
 
 from app.schema_context import SCHEMA_CONTEXT
 
@@ -127,11 +129,34 @@ class Reply:
     usage: ModelUsage | None = field(default=None, compare=False)
 
 
+# Users are in Taiwan, so "today" is the Taipei date.
+LOCAL_TZ = ZoneInfo("Asia/Taipei")
+
+
+def build_system_prompt(today: date) -> str:
+    # Without a date the model judges "the future" by its training data and refuses past years
+    # (eval baseline, q09). The date changes daily, so it is added per call, not to the schema text.
+    return (
+        f"{SCHEMA_CONTEXT}\n\n## 今天日期\n\n"
+        f"今天是 {today.isoformat()}（台北時間）。早於今天的期間都是歷史資料，可以查詢；"
+        "只有要求推估今天以後的數值才算預測未來。\n"
+    )
+
+
 class BedrockSqlGenerator:
     """Generate SQL with Claude via an injected Bedrock client (anthropic.AnthropicBedrock)."""
 
-    def __init__(self, client, *, model_id: str, effort: str | None = "low", max_tokens: int = 4000):
+    def __init__(
+        self,
+        client,
+        *,
+        model_id: str,
+        effort: str | None = "low",
+        max_tokens: int = 4000,
+        now: Callable[[], datetime] = lambda: datetime.now(UTC),
+    ):
         self._client = client
+        self._now = now
         self._model_id = model_id
         self._max_tokens = max_tokens
         # Effort exists on Claude 4.6+/5.x only; None omits it for models like Haiku 4.5.
@@ -146,7 +171,7 @@ class BedrockSqlGenerator:
                 self._client.messages.create,
                 model=self._model_id,
                 max_tokens=self._max_tokens,
-                system=SCHEMA_CONTEXT,
+                system=build_system_prompt(self._now().astimezone(LOCAL_TZ).date()),
                 messages=build_messages(question, feedback),
                 output_config=self._output_config,
             )
