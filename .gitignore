@@ -53,3 +53,6 @@ openspec/.vector-search.db*
 # Claude Code local settings (shared .claude/commands and skills stay tracked)
 .claude/settings.local.json
 .drafts/
+
+# Evaluation runs (notable ones are summarised in backend/evaluation/RESULTS.md)
+backend/evaluation/reports/

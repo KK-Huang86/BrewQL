@@ -10,13 +10,17 @@ Needs the same settings as the API (AWS credentials, BEDROCK_*, DATABASE_URL as 
 import argparse
 import asyncio
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 from evaluation.golden import GoldenSetError, load_golden_set
 from evaluation.metrics import QuestionOutcome, summarize
+from evaluation.report import RunInfo, write_reports
 from evaluation.runner import dry_run, estimate, run_eval, select
 
 DEFAULT_GOLDEN = Path(__file__).resolve().parent / "golden.yaml"
+# Every run lands here, outside version control; notable runs are summarised in RESULTS.md by hand.
+REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -67,12 +71,23 @@ async def main(argv: list[str]) -> int:
                 max_retries=settings.max_sql_retries,
             )
 
+        started_at = datetime.now(UTC)
         outcomes = await run_eval(questions, ask=ask_one, reference_db=deps.executor, on_progress=_print_progress)
     finally:
         await deps.executor.close()
 
     summary = summarize(outcomes)
+    guardrail = f"{settings.bedrock_guardrail_id}:{settings.bedrock_guardrail_version}" if deps.input_guard else None
+    info = RunInfo(
+        started_at=started_at,
+        model_id=settings.bedrock_model_id,
+        guardrail=guardrail,
+        max_sql_retries=settings.max_sql_retries,
+        golden_file=str(args.golden),
+    )
+    json_path, md_path = write_reports(REPORTS_DIR, info, summary, outcomes)
     print(f"accuracy {summary.correct}/{summary.total}, p95 {summary.p95_ms} ms, cost ${summary.total_cost_usd}")
+    print(f"reports: {md_path} {json_path}")
     return 0
 
 
