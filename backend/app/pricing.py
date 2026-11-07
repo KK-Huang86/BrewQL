@@ -32,7 +32,9 @@ GUARDRAIL_CONTENT_PER_1K_UNITS = 0.15
 
 
 def cost_usd(usage: AskUsage) -> float | None:
-    """Dollars for one question, or None when tokens were used by a model missing from the table."""
+    """Dollars for one question, or None when a model is missing from the table or guardrail units are unknown."""
+    if not usage.guardrail.reported:
+        return None
     guardrail = (
         usage.guardrail.topic_units * GUARDRAIL_TOPIC_PER_1K_UNITS
         + usage.guardrail.content_units * GUARDRAIL_CONTENT_PER_1K_UNITS

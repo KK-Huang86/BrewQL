@@ -20,6 +20,8 @@ class GuardrailUsage:
 
     topic_units: int = 0
     content_units: int = 0
+    # False when the response carried no usage: the units are unknown, not zero.
+    reported: bool = True
 
 
 @dataclass(frozen=True)
@@ -78,7 +80,7 @@ def _usage(response: dict) -> GuardrailUsage:
     if not usage:
         # Keep answering, but the cost report would be short: make that visible.
         log.warning("input guardrail response has no usage; cost will be incomplete")
-        return GuardrailUsage()
+        return GuardrailUsage(reported=False)
     return GuardrailUsage(
         topic_units=int(usage.get("topicPolicyUnits", 0)), content_units=int(usage.get("contentPolicyUnits", 0))
     )

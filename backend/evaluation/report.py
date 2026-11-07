@@ -53,7 +53,7 @@ def _detail(o: QuestionOutcome) -> dict[str, Any]:
 
 
 def to_markdown(info: RunInfo, summary: Summary, outcomes: list[QuestionOutcome]) -> str:
-    cost_note = "" if summary.cost_complete else "（不完整：有模型不在價目表）"
+    cost_note = "" if summary.cost_complete else "（不完整：有題目成本未知，見逐題明細）"
     lines = [
         f"# 評估報告 {info.started_at.isoformat()}",
         "",
