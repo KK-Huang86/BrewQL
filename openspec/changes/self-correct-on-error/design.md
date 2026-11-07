@@ -30,7 +30,7 @@ ticket 1～3 完成後，一次提問的流程是：輸入 Guardrail → 模型�
 重試只是「再產生一次」，產生後一樣走 `validate_sql` 與唯讀執行。被拒絕的 SQL 永遠不會被執行，自動修正不是繞過防護的路徑。
 
 ### D4. 上限設定與 `attempts`
-`MAX_SQL_RETRIES`（預設 2，範圍 0～5）。負數或超過 5 在啟動時就是設定錯誤，避免成本失控。`attempts` 為模型被呼叫的次數；被輸入 Guardrail 擋下時為 0。用盡時回傳最後一次的 `sql`、`error_kind` 與訊息。
+`MAX_SQL_RETRIES`（預設 1，範圍 0～5）。預設只重試一次：一題最多呼叫模型 2 次，小錯通常一次就修好，再多次的效益低於成本。負數或超過 5 在啟動時就是設定錯誤，避免成本失控。`attempts` 為模型被呼叫的次數；被輸入 Guardrail 擋下時為 0。用盡時回傳最後一次的 `sql`、`error_kind` 與訊息。
 
 ### D5. 每次失敗留 log，不記問題原文
 `sql attempt failed attempt=N kind=… reason=… sql=…`，等級 warning。不記錄使用者問題（與 `observe-with-grafana` D4 一致）。token 已在每次 Bedrock 呼叫時記錄，重試的成本自然被算進去。
@@ -43,7 +43,7 @@ Postgres 錯誤訊息會原樣印出查詢裡的值（例如 `invalid input synt
 
 ## Risks / Trade-offs
 
-- [最壞情況成本與延遲變 3 倍] → 上限 2；逾時不重試；之後由 `observe-with-grafana` 觀察 attempts 分布
+- [最壞情況成本與延遲變 3 倍] → 預設只重試 1 次；逾時不重試；之後由 `observe-with-grafana` 觀察 attempts 分布
 - [資料庫錯誤訊息含查詢中的字面值] → 只送給模型與 log，不回給使用者；字面值來自模型產生的 SQL
 - [模型在重試時被錯誤訊息誘導寫出危險 SQL] → 回饋截斷並標明為資料（D6）；每次都重新過 SQL 防護與唯讀角色（D3）
 - [截斷後模型少了修正線索] → 第一行已含錯誤類型與主要訊息，300 字足夠

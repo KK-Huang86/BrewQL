@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 有上限的自動修正
-當 SQL 被防護拒絕、資料庫執行失敗或模型回覆不合格式時，系統 SHALL 把先前的回覆與錯誤原因連同原問題回饋給模型重新產生，最多重試 `MAX_SQL_RETRIES` 次（預設 2，即最多 3 次嘗試）。每次產生的 SQL MUST 重新經過 SQL 防護；被防護拒絕的 SQL MUST NOT 被執行。用盡後 MUST 回傳 `status=error`、最後一次的 SQL、`error_kind` 與錯誤訊息。執行逾時、Bedrock 服務錯誤與輸入 Guardrail 無法使用 MUST NOT 觸發重試。結果 SHALL 包含 `attempts`（模型被呼叫的次數）。
+當 SQL 被防護拒絕、資料庫執行失敗或模型回覆不合格式時，系統 SHALL 把先前的回覆與錯誤原因連同原問題回饋給模型重新產生，最多重試 `MAX_SQL_RETRIES` 次（預設 1，即最多 2 次嘗試）。每次產生的 SQL MUST 重新經過 SQL 防護；被防護拒絕的 SQL MUST NOT 被執行。用盡後 MUST 回傳 `status=error`、最後一次的 SQL、`error_kind` 與錯誤訊息。執行逾時、Bedrock 服務錯誤與輸入 Guardrail 無法使用 MUST NOT 觸發重試。結果 SHALL 包含 `attempts`（模型被呼叫的次數）。
 
 #### Scenario: 防護拒絕後修正成功
 - **WHEN** 第一次產生 `DELETE FROM cafes`，第二次產生合法 SQL
@@ -55,7 +55,11 @@
 - **THEN** 送給模型的原因最多 300 字
 
 ### Requirement: 重試上限設定
-`MAX_SQL_RETRIES` SHALL 為 0～5 的整數，預設 2；超出範圍 MUST 在啟動時視為設定錯誤。
+`MAX_SQL_RETRIES` SHALL 為 0～5 的整數，預設 1；超出範圍 MUST 在啟動時視為設定錯誤。
+
+#### Scenario: 預設值
+- **WHEN** 沒有設定 `MAX_SQL_RETRIES`
+- **THEN** 上限為 1，失敗後只重試一次
 
 #### Scenario: 負數
 - **WHEN** `MAX_SQL_RETRIES=-1`
