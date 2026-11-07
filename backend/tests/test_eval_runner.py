@@ -70,6 +70,13 @@ def test_estimate_shows_the_range_of_paid_calls_before_running():
     assert (plan.min_model_calls, plan.max_model_calls) == (3, 6)
 
 
+def test_estimate_counts_no_guardrail_checks_when_the_guardrail_is_off():
+    plan = estimate([COUNT, DISTRICTS, REFUSE], max_retries=1, guardrail=False)
+
+    assert plan.guardrail_checks == 0
+    assert (plan.min_model_calls, plan.max_model_calls) == (3, 6)
+
+
 async def test_answers_are_judged_against_the_reference_result():
     ask = FakeAsk({"台北市幾家": ok([[160]]), "新北市行政區": ok([["永和區"]])})
 
