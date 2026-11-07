@@ -32,6 +32,8 @@ class AskResponse(BaseModel):
     message: str | None
     error_kind: Literal["generation", "guardrail", "query"] | None = None
     refusal_source: Literal["input_guardrail", "model"] | None = None
+    # Model calls behind this answer; 0 when none finished (input block, 5xx).
+    attempts: int = 0
 
     @field_serializer("rows")
     def _rows(self, rows: list[list[Any]]) -> list[list[Any]]:
@@ -51,6 +53,7 @@ def create_app(
     executor: QueryExecutor,
     cors_origins: list[str],
     input_guard: InputGuard | None = None,
+    max_sql_retries: int = 0,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -72,7 +75,7 @@ def create_app(
     @app.post("/api/ask", response_model=AskResponse)
     async def ask_question(body: AskRequest):
         try:
-            result = await ask(body.question, generator, executor, input_guard=input_guard)
+            result = await ask(body.question, generator, executor, input_guard=input_guard, max_retries=max_sql_retries)
         except InputGuardUnavailable:
             log.exception("input guardrail unavailable")
             return _error(502, "輸入檢查暫時無法使用，請稍後再試")
@@ -118,4 +121,5 @@ def build_app() -> FastAPI:
         executor=PgExecutor(settings.database_url),
         cors_origins=settings.cors_origins,
         input_guard=input_guard,
+        max_sql_retries=settings.max_sql_retries,
     )
