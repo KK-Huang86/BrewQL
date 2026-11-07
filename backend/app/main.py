@@ -14,6 +14,7 @@ from pydantic import BaseModel, StringConstraints, field_serializer
 
 from app.db import DatabaseUnavailable
 from app.input_guard import InputGuardUnavailable
+from app.llm import ErrorKind
 from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class AskResponse(BaseModel):
     columns: list[str]
     rows: list[list[Any]]
     message: str | None
-    error_kind: Literal["generation", "guardrail", "query"] | None = None
+    error_kind: ErrorKind | None = None
     refusal_source: Literal["input_guardrail", "model"] | None = None
     # Model calls behind this answer; 0 when none finished (input block, 5xx).
     attempts: int = 0

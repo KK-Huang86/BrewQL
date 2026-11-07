@@ -32,7 +32,7 @@ REFUSAL_MESSAGE = "模型拒絕回答這個問題"
 
 # Which step rejected an attempt; the pipeline reports it and feedback names it for the model.
 ErrorKind = Literal["generation", "guardrail", "query"]
-_FEEDBACK_LABELS: dict[str, str] = {
+_FEEDBACK_LABELS: dict[ErrorKind, str] = {
     "generation": "回覆不符合格式",
     "guardrail": "SQL 被 SQL 防護拒絕",
     "query": "SQL 發生資料庫執行錯誤",
