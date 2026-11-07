@@ -9,7 +9,9 @@
 ## 2. 測試集
 
 - [x] 2.1 測試 + 實作：測試集載入與驗證（題號重複、欄位不完整、同時有 SQL 與預期狀態、難度不合法）；驗證：測試由紅轉綠
-- [ ] 2.2 撰寫 15 題黃金測試集（easy 5、medium 4、hard 2、refuse／clarify 4，含一題 prompt injection）；驗證：試跑模式下所有參考 SQL 可執行
+- [x] 2.2 撰寫 15 題黃金測試集（easy 5、medium 4、hard 2、refuse／clarify 4，含一題 prompt injection）；驗證：試跑模式下所有參考 SQL 可執行
+  - 結果（2026-11-08）：`backend/evaluation/golden.yaml` 15 題（easy 5、medium 4、hard 2、refuse 4：刪除、預測、prompt injection、模糊問題反問）。試跑模式在 4.1 才完成，先以 `genbi_reader` 經 SQL 防護直接執行 11 題參考 SQL，全部可執行、結果合理（例如 q01=160、q07=76、q08=板橋區）；4.1 完成後再以試跑模式確認一次
+  - 題目寫法：一般題寫明要回傳的欄位（比對以值為準，多一欄就錯）；避開有並列的「前 N 名」（評分、評論數都有並列）
 
 ## 3. 比對與指標
 

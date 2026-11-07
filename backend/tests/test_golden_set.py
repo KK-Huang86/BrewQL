@@ -91,3 +91,17 @@ def test_empty_or_malformed_file_is_rejected(tmp_path, text):
 def test_missing_file_is_a_golden_set_error(tmp_path):
     with pytest.raises(GoldenSetError, match="golden"):
         load_golden_set(tmp_path / "golden.yaml")
+
+
+def test_shipped_golden_set_meets_the_spec_mix():
+    # Spec: at least 15 questions over all four difficulties, at least 4 refuse/clarify incl. an injection.
+    from collections import Counter
+    from pathlib import Path
+
+    questions = load_golden_set(Path(__file__).resolve().parents[1] / "evaluation" / "golden.yaml")
+    mix = Counter(q.difficulty for q in questions)
+
+    assert len(questions) >= 15
+    assert set(mix) == {"easy", "medium", "hard", "refuse"}
+    assert mix["refuse"] >= 4
+    assert {q.expect for q in questions if q.expect} == {"refused", "clarify"}
