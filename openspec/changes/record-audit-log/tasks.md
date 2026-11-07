@@ -13,7 +13,7 @@
 
 - [ ] 3.1 測試 + 實作：提問紀錄頁；驗證：測試由紅轉綠
 
-## 4. CloudWatch（部署後）
+## 4. 管理者存取與第二份紀錄
 
-- [ ] 4.1 Terraform：CloudWatch log group（保存 30 天）、EC2 role 只允許 `logs:CreateLogStream`、`logs:PutLogEvents`；驗證：`terraform plan` 無刪除權限
-- [ ] 4.2 部署用 compose 設定 `awslogs` driver；驗證：Logs Insights 以 `event = "ask_audit"` 查到紀錄
+- [ ] 4.1 nginx 擋下 `/api/audit` 與紀錄頁；提問畫面加上記錄提示；驗證：經 nginx 請求回 403／404，經 SSH tunnel 直連 backend 可查看
+- [ ] 4.2 確認 Alloy 把 `event=ask_audit` 送到 Loki；驗證：Grafana 以 `event="ask_audit"` 查到紀錄
