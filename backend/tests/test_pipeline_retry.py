@@ -197,3 +197,50 @@ async def test_input_guardrail_block_means_zero_attempts():
 
     assert gen.calls == 0
     assert result.attempts == 0
+
+
+def attempt_logs(caplog):
+    return [r for r in caplog.records if r.name == "app.pipeline" and r.getMessage().startswith("sql attempt failed")]
+
+
+async def test_each_failed_attempt_is_logged_with_number_kind_reason_and_sql(caplog):
+    caplog.set_level("INFO", logger="app.pipeline")
+
+    await ask("台北有幾家店（私人問題）", ScriptedGenerator(BAD, GOOD), ScriptedExecutor(), max_retries=1)
+
+    [record] = attempt_logs(caplog)
+    assert record.levelname == "WARNING"
+    assert record.attempt == 1
+    assert record.error_kind == "guardrail"
+    assert record.sql == "DELETE FROM cafes"
+    assert "SELECT" in record.reason
+    # The question may hold personal data; only the audit log may keep it.
+    assert "私人問題" not in record.getMessage()
+    assert "私人問題" not in str(vars(record))
+
+
+async def test_every_attempt_is_logged_when_retries_run_out(caplog):
+    caplog.set_level("INFO", logger="app.pipeline")
+
+    await ask("q", ScriptedGenerator(BAD), ScriptedExecutor(), max_retries=1)
+
+    assert [r.attempt for r in attempt_logs(caplog)] == [1, 2]
+
+
+async def test_a_timeout_is_logged_even_though_it_is_not_retried(caplog):
+    caplog.set_level("INFO", logger="app.pipeline")
+    ex = ScriptedExecutor(QueryError("QueryCanceledError: canceling statement", timed_out=True))
+
+    await ask("q", ScriptedGenerator(GOOD), ex, max_retries=1)
+
+    [record] = attempt_logs(caplog)
+    assert record.error_kind == "query"
+    assert "QueryCanceled" in record.reason
+
+
+async def test_success_logs_no_failed_attempt(caplog):
+    caplog.set_level("INFO", logger="app.pipeline")
+
+    await ask("q", ScriptedGenerator(GOOD), ScriptedExecutor(), max_retries=1)
+
+    assert attempt_logs(caplog) == []
