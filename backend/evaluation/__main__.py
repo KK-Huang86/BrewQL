@@ -56,7 +56,7 @@ async def main(argv: list[str]) -> int:
                 print(f"{c.question.id} {'ok' if c.ok else 'FAIL'} {c.rows if c.ok else c.error}")
             return 0 if all(c.ok for c in checks) else 1
 
-        plan = estimate(questions, max_retries=settings.max_sql_retries)
+        plan = estimate(questions, max_retries=settings.max_sql_retries, guardrail=deps.input_guard is not None)
         print(
             f"{plan.questions} questions, model {settings.bedrock_model_id}: "
             f"{plan.guardrail_checks} guardrail checks, {plan.min_model_calls}-{plan.max_model_calls} model calls"

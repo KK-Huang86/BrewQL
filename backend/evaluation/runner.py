@@ -44,11 +44,16 @@ def select(questions: list[GoldenQuestion], only: set[str] | None) -> list[Golde
     return [q for q in questions if q.id in only]
 
 
-def estimate(questions: list[GoldenQuestion], *, max_retries: int) -> Estimate:
-    # Shown before a paid run: one model call per question when all goes well (a question the input
-    # guardrail blocks needs none), up to max_retries more each when answers need fixing.
+def estimate(questions: list[GoldenQuestion], *, max_retries: int, guardrail: bool = True) -> Estimate:
+    # Shown before a paid run: one guardrail check per question when the guardrail is on; one model
+    # call per question when nothing is blocked or retried, up to max_retries more each.
     n = len(questions)
-    return Estimate(questions=n, guardrail_checks=n, min_model_calls=n, max_model_calls=n * (max_retries + 1))
+    return Estimate(
+        questions=n,
+        guardrail_checks=n if guardrail else 0,
+        min_model_calls=n,
+        max_model_calls=n * (max_retries + 1),
+    )
 
 
 async def run_eval(
