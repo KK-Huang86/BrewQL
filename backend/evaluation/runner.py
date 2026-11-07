@@ -78,7 +78,7 @@ async def _run_one(question: GoldenQuestion, ask: AskFn, reference_db: Reference
     if question.sql is not None:
         # Reference first: it is free, and a broken one would make the paid answer unjudgeable.
         try:
-            _, reference_rows = await reference_db.run(validate_sql(question.sql))
+            reference_rows = await _run_reference(question.sql, reference_db)
         except Exception as e:
             return _failed(question, f"reference sql failed: {type(e).__name__}: {e}")
     try:
@@ -100,6 +100,12 @@ async def _run_one(question: GoldenQuestion, ask: AskFn, reference_db: Reference
     )
 
 
+async def _run_reference(sql: str, reference_db: ReferenceDb) -> list[list[Any]]:
+    # Reference SQL goes through the same guard as model SQL; no execution path skips it.
+    _, rows = await reference_db.run(validate_sql(sql))
+    return rows
+
+
 def _failed(question: GoldenQuestion, error: str) -> QuestionOutcome:
     return QuestionOutcome(
         question=question, correct=False, status=None, attempts=0, usage=None, cost_usd=None, error=error
@@ -113,7 +119,7 @@ async def dry_run(questions: list[GoldenQuestion], *, reference_db: ReferenceDb)
         if question.sql is None:
             continue
         try:
-            _, rows = await reference_db.run(validate_sql(question.sql))
+            rows = await _run_reference(question.sql, reference_db)
         except Exception as e:
             checks.append(ReferenceCheck(question=question, ok=False, error=f"{type(e).__name__}: {e}"))
             continue
