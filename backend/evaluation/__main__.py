@@ -1,0 +1,87 @@
+"""Evaluate the full pipeline against the golden set with real Bedrock and the demo database.
+
+    uv --directory backend run python -m evaluation --dry-run       # reference SQL only, no model calls
+    uv --directory backend run python -m evaluation --only q01,q12  # a subset
+    uv --directory backend run python -m evaluation                 # the full, paid run
+
+Needs the same settings as the API (AWS credentials, BEDROCK_*, DATABASE_URL as genbi_reader).
+"""
+
+import argparse
+import asyncio
+import sys
+from pathlib import Path
+
+from evaluation.golden import GoldenSetError, load_golden_set
+from evaluation.metrics import QuestionOutcome, summarize
+from evaluation.runner import dry_run, estimate, run_eval, select
+
+DEFAULT_GOLDEN = Path(__file__).resolve().parent / "golden.yaml"
+
+
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(prog="python -m evaluation", description=__doc__.splitlines()[0])
+    parser.add_argument("--dry-run", action="store_true", help="only check that reference SQL runs; no model calls")
+    parser.add_argument("--only", type=_ids, help="comma-separated question ids, e.g. q01,q12")
+    parser.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN, help="golden set YAML file")
+    return parser.parse_args(argv)
+
+
+def _ids(value: str) -> set[str]:
+    return {part.strip() for part in value.split(",") if part.strip()}
+
+
+async def main(argv: list[str]) -> int:
+    from app.config import Settings
+    from app.main import build_dependencies
+    from app.pipeline import ask
+
+    args = parse_args(argv)
+    try:
+        questions = select(load_golden_set(args.golden), args.only)
+    except (GoldenSetError, ValueError) as e:
+        print(f"golden set error: {e}", file=sys.stderr)
+        return 2
+
+    settings = Settings()
+    deps = build_dependencies(settings)
+    try:
+        if args.dry_run:
+            checks = await dry_run(questions, reference_db=deps.executor)
+            for c in checks:
+                print(f"{c.question.id} {'ok' if c.ok else 'FAIL'} {c.rows if c.ok else c.error}")
+            return 0 if all(c.ok for c in checks) else 1
+
+        plan = estimate(questions, max_retries=settings.max_sql_retries)
+        print(
+            f"{plan.questions} questions, model {settings.bedrock_model_id}: "
+            f"{plan.guardrail_checks} guardrail checks, {plan.min_model_calls}-{plan.max_model_calls} model calls"
+        )
+
+        async def ask_one(question: str):
+            return await ask(
+                question,
+                deps.generator,
+                deps.executor,
+                input_guard=deps.input_guard,
+                max_retries=settings.max_sql_retries,
+            )
+
+        outcomes = await run_eval(questions, ask=ask_one, reference_db=deps.executor, on_progress=_print_progress)
+    finally:
+        await deps.executor.close()
+
+    summary = summarize(outcomes)
+    print(f"accuracy {summary.correct}/{summary.total}, p95 {summary.p95_ms} ms, cost ${summary.total_cost_usd}")
+    return 0
+
+
+def _print_progress(outcome: QuestionOutcome) -> None:
+    mark = "ok " if outcome.correct else "NG "
+    detail = outcome.error or outcome.reason or ""
+    ms = outcome.usage.elapsed_ms if outcome.usage else "-"
+    print(f"{outcome.question.id} {mark} attempts={outcome.attempts} {ms}ms {detail}")
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main(sys.argv[1:])))
