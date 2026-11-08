@@ -84,3 +84,10 @@ def test_test_runs_ignore_env_files():
     from app.config import Settings
 
     assert Settings.model_config["env_file"] is None
+
+
+def test_db_port_defaults_to_the_brewql_local_port(monkeypatch):
+    # Other projects' Postgres often sits on 5432 locally; BrewQL publishes its db on 5434.
+    monkeypatch.delenv("DB_PORT", raising=False)
+
+    assert Settings().db_port == 5434
