@@ -5,7 +5,7 @@ import type { BarPoint } from './barData'
 type Props = { data: BarPoint[]; xKey: string; yKey: string }
 
 /** One value per category, e.g. searches or zero-result rate by district. */
-export function GapChart({ data, xKey, yKey }: Props) {
+export function CategoryChart({ data, xKey, yKey }: Props) {
   return (
     <figure role="img" aria-label={`長條圖：${yKey}（依 ${xKey}）`} className="chart">
       <ResponsiveContainer width="100%" height={320}>

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { AskError, type AskResponse, isBarChart, isLineChart, isNumberChart } from './api/ask'
-import { GapChart } from './charts/GapChart'
+import { CategoryChart } from './charts/CategoryChart'
 import { NumberCard } from './charts/NumberCard'
 import { TrendChart } from './charts/TrendChart'
 import { toBarData } from './charts/barData'
@@ -105,7 +105,7 @@ function Result({ answer }: { answer: AskResponse }) {
     if (points.length > 0) drawing = <TrendChart data={points} xKey={chart.x_key} yKey={chart.y_key} />
   } else if (isBarChart(chart)) {
     const bars = toBarData(answer.columns, answer.rows, chart)
-    if (bars.length > 0) drawing = <GapChart data={bars} xKey={chart.x_key} yKey={chart.y_key} />
+    if (bars.length > 0) drawing = <CategoryChart data={bars} xKey={chart.x_key} yKey={chart.y_key} />
   }
   if (!drawing) return <ResultTable answer={answer} />
   return (

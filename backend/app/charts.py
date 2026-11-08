@@ -1,6 +1,7 @@
 """Pick how to show a result from its shape alone: no model call, same input same chart.
 
-line (time + number) > bar (text + number, <= 30 rows) > number (one numeric cell) > table.
+Design D3: line (time + number) > bar (text + number, <= 30 rows) > number (one numeric cell) > table.
+The number card needs one column and the others two, so checking it first does not change the outcome.
 """
 
 import re
@@ -30,7 +31,6 @@ MAX_BARS = 30
 
 
 def choose_chart(columns: list[str], rows: list[list[Any]]) -> Chart:
-    # Order matters: month text is also text, so the line check runs before the bar check.
     if len(columns) == 1 and len(rows) == 1 and len(rows[0]) == 1 and _is_number(rows[0][0]):
         return Chart(type="number", value_key=columns[0])
     if len(columns) != 2 or not rows or any(len(row) != 2 for row in rows):
@@ -39,6 +39,7 @@ def choose_chart(columns: list[str], rows: list[list[Any]]) -> Chart:
     values = [y for _, y in rows if y is not None]
     if not values or not all(_is_number(y) for y in values):
         return TABLE
+    # Month text is also text, so the line check must run before the bar check.
     if all(_is_time(x) for x, _ in rows):
         return Chart(type="line", x_key=columns[0], y_key=columns[1])
     if len(rows) <= MAX_BARS and all(isinstance(x, str) for x, _ in rows):
