@@ -9,4 +9,4 @@
 
 ## 3. CI capability 檢查
 
-- [ ] 3.1 測試 + 實作：`tools/spec_check.py` 檢查 PR 動到的 change（已有 `specs/`、非 `skip_specs`）proposal 列出的 capability 都有 spec delta；驗證：測試由紅轉綠，現有 change 全部通過
+- [x] 3.1 測試 + 實作：`tools/spec_check.py` 檢查 PR 動到的 change（已有 `specs/`、非 `skip_specs`）proposal 列出的 capability 都有 spec delta；驗證：測試由紅轉綠，現有 change 全部通過

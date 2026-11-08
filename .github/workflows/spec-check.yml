@@ -1,6 +1,6 @@
 name: spec-check
 
-# Structural rule from CLAUDE.md: code changes must ship with an openspec/ change.
+# Structural rules: code changes ship with an openspec/ change, and proposals match their spec deltas.
 on:
   pull_request:
 
@@ -16,6 +16,6 @@ jobs:
           fetch-depth: 0
       - name: Test the checker
         run: python3 -m unittest discover -s tools
-      - name: Code changes come with spec changes
+      - name: Code changes come with spec changes; proposals match spec deltas
         run: |
           git diff --name-only "origin/${{ github.base_ref }}...HEAD" | python3 tools/spec_check.py
