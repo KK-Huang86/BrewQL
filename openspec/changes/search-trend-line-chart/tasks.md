@@ -7,7 +7,8 @@
 - [x] 1.3 唯讀角色授權與白名單加入新資料表與 view，schema 說明補欄位與時間用語定義；驗證：以唯讀角色可查詢、防護測試仍綠燈
   - 結果（2026-11-08，測試資料庫）：含整合測試 347 passed；`genbi_reader` 可查三個新物件，INSERT 被拒（read-only transaction）。防護測試原本用 `users` 當白名單外的例子，`users` 現在合法，改用 `line_accounts`（需求變更）
 
-- [ ] 1.4 Guardrail 拿掉 off-topic 拒絕話題、只保留 prompt attack（`infra/terraform/guardrail.tf`），以 `brewql-deployer` apply 後更新 `BEDROCK_GUARDRAIL_VERSION`；驗證：搜尋問題通過輸入檢查，「幫我寫一首詩」由模型拒答，prompt injection 仍由 Guardrail 擋下
+- [x] 1.4 Guardrail 拿掉 off-topic 拒絕話題、只保留 prompt attack（`infra/terraform/guardrail.tf`），以 `brewql-deployer` apply 後更新 `BEDROCK_GUARDRAIL_VERSION`；驗證：搜尋問題通過輸入檢查，「幫我寫一首詩」由模型拒答，prompt injection 仍由 Guardrail 擋下
+  - 結果（2026-11-08，Guardrail 版本 4）：「最近半年每個月不限時的搜尋量」通過，`chart=line`、7 個月；「幫我寫一首詩」`refused`／`refusal_source=model`；q14 的 prompt injection 仍 `refusal_source=input_guardrail`、0 次模型呼叫。版本 2、3（改拒絕話題定義）都仍擋下含「搜尋」的問題，見 design D6
 
 ## 2. 圖表選擇
 
@@ -23,5 +24,6 @@
 
 - [x] 4.1 黃金測試集加入 3 題趨勢題；驗證：試跑通過
   - 結果（2026-11-08，測試資料庫）：新增 q16 每月搜尋數、q17 每月不限時搜尋數（medium）、q18 每月工作友善比例（hard），都問全表、依月份排序，避開「最近半年」的邊界差異。試跑 14 題參考 SQL 全部 ok（q16～q18 各 7 個月）
-- [ ] 4.2 瀏覽器問「最近半年不限時的搜尋量趨勢」；驗證：折線圖看得到考試季高峰
+- [x] 4.2 瀏覽器問「最近半年不限時的搜尋量趨勢」；驗證：折線圖看得到考試季高峰
+  - 結果（2026-11-08，使用者在瀏覽器確認）：「最近半年每個月不限時的搜尋量」畫出 2026-05～2026-11 折線圖，6 月最高（3,628），7～10 月約 2,000～2,200；11 月只有 8 天資料。API 回應 `chart={type: line, x_key: month, y_key: searches}`
 - [ ] 4.3 跑完整評估；驗證：結果記入評估紀錄，與基準比較
