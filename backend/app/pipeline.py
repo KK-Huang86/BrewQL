@@ -1,13 +1,14 @@
 """Core flow: question -> SQL (model) -> guard -> read-only execution -> result, with bounded retries."""
 
 import logging
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
 from app.db import QueryError
-from app.input_guard import GuardVerdict
-from app.llm import ErrorKind, FailedAttempt, Reply, ReplyError
+from app.input_guard import GuardrailUsage, GuardVerdict
+from app.llm import ErrorKind, FailedAttempt, ModelUsage, Reply, ReplyError
 from app.sql_guard import SqlGuardError, validate_sql
 
 log = logging.getLogger(__name__)
@@ -33,6 +34,24 @@ class QueryExecutor(Protocol):
 
 
 @dataclass
+class AskUsage:
+    """What one question cost, over every attempt. Internal: evals and metrics, never the API."""
+
+    model_id: str | None = None
+    input_tokens: int = 0
+    output_tokens: int = 0
+    guardrail: GuardrailUsage = field(default_factory=GuardrailUsage)
+    elapsed_ms: int = 0
+
+    def add(self, call: ModelUsage | None) -> None:
+        if call is None:
+            return
+        self.model_id = call.model_id
+        self.input_tokens += call.input_tokens
+        self.output_tokens += call.output_tokens
+
+
+@dataclass
 class AskResult:
     status: Literal["ok", "error", "refused", "clarify"]
     sql: str | None = None
@@ -45,6 +64,8 @@ class AskResult:
     refusal_source: Literal["input_guardrail", "model"] | None = None
     # Model calls made for this question; 0 when the input guardrail blocked it first.
     attempts: int = 0
+    # Cost detail; left out of equality so results compare by answer alone.
+    usage: AskUsage = field(default_factory=AskUsage, compare=False)
 
 
 async def ask(
@@ -58,15 +79,32 @@ async def ask(
     question = question.strip()
     if not 1 <= len(question) <= MAX_QUESTION_CHARS:
         raise InvalidQuestion(f"問題需為 1~{MAX_QUESTION_CHARS} 字")
+    started = time.perf_counter()
+    usage = AskUsage()
+    result = await _answer(question, generator, executor, input_guard, max_retries, usage)
+    usage.elapsed_ms = int((time.perf_counter() - started) * 1000)
+    result.usage = usage
+    return result
+
+
+async def _answer(
+    question: str,
+    generator: SqlGenerator,
+    executor: QueryExecutor,
+    input_guard: InputGuard | None,
+    max_retries: int,
+    usage: AskUsage,
+) -> AskResult:
     # First gate: a blocked question never reaches the model. Failures propagate (fail closed).
     # Checked once: retries reuse the same question, so screening it again only adds cost.
     if input_guard is not None:
         verdict = await input_guard.check(question)
+        usage.guardrail = verdict.usage
         if verdict.blocked:
             return AskResult(status="refused", message=verdict.message, refusal_source="input_guardrail")
     feedback: list[FailedAttempt] = []
     while True:
-        result, failure, retryable = await _attempt(question, generator, executor, feedback)
+        result, failure, retryable = await _attempt(question, generator, executor, feedback, usage)
         result.attempts = len(feedback) + 1
         if failure is not None:
             _log_failure(result.attempts, failure)
@@ -89,14 +127,20 @@ def _log_failure(attempt: int, failure: FailedAttempt) -> None:
 
 
 async def _attempt(
-    question: str, generator: SqlGenerator, executor: QueryExecutor, feedback: Sequence[FailedAttempt]
+    question: str,
+    generator: SqlGenerator,
+    executor: QueryExecutor,
+    feedback: Sequence[FailedAttempt],
+    usage: AskUsage,
 ) -> tuple[AskResult, FailedAttempt | None, bool]:
     """One model call and, for SQL, guard + execution: (result, failure if any, whether a retry may help)."""
     try:
         reply = await generator.generate(question, feedback)
     except ReplyError as e:
+        usage.add(e.usage)  # an unusable reply was still billed
         failure = FailedAttempt(error_kind="generation", reason=str(e))
         return AskResult(status="error", message=str(e), error_kind="generation"), failure, True
+    usage.add(reply.usage)
     # Refuse and clarify end here: no SQL exists, nothing reaches the database.
     if reply.kind == "refuse":
         return AskResult(status="refused", message=reply.message, refusal_source="model"), None, False

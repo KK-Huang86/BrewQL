@@ -3,7 +3,7 @@
 import asyncio
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 
 log = logging.getLogger(__name__)
 
@@ -15,11 +15,23 @@ class InputGuardUnavailable(Exception):
 
 
 @dataclass(frozen=True)
+class GuardrailUsage:
+    """Billed text units per policy; denied topics and content filters are priced separately."""
+
+    topic_units: int = 0
+    content_units: int = 0
+    # False when the response carried no usage: the units are unknown, not zero.
+    reported: bool = True
+
+
+@dataclass(frozen=True)
 class GuardVerdict:
     blocked: bool
     message: str | None = None
     # Why it was blocked, e.g. ("prompt_attack",) or ("topic:off-topic",); for logs and evals.
     reasons: tuple[str, ...] = ()
+    # Billing detail, not part of the verdict: equal verdicts compare equal whatever they cost.
+    usage: GuardrailUsage = field(default_factory=GuardrailUsage, compare=False)
 
 
 class BedrockInputGuard:
@@ -41,7 +53,7 @@ class BedrockInputGuard:
                 source="INPUT",
                 content=[{"text": {"text": question}}],
             )
-            verdict = _verdict(response)
+            verdict = replace(_verdict(response), usage=_usage(response))
         except Exception as e:
             # Network, permission or an unreadable response: never treat as "passed".
             error, latency = f"{type(e).__name__}: {e}", _ms(start)
@@ -61,6 +73,17 @@ class BedrockInputGuard:
 
 def _ms(start: float) -> int:
     return int((time.perf_counter() - start) * 1000)
+
+
+def _usage(response: dict) -> GuardrailUsage:
+    usage = response.get("usage")
+    if not usage:
+        # Keep answering, but the cost report would be short: make that visible.
+        log.warning("input guardrail response has no usage; cost will be incomplete")
+        return GuardrailUsage(reported=False)
+    return GuardrailUsage(
+        topic_units=int(usage.get("topicPolicyUnits", 0)), content_units=int(usage.get("contentPolicyUnits", 0))
+    )
 
 
 def _verdict(response: dict) -> GuardVerdict:

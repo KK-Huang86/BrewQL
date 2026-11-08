@@ -2,12 +2,15 @@ import pytest
 
 from app.input_guard import BedrockInputGuard, GuardVerdict, InputGuardUnavailable
 
+# Real ApplyGuardrail responses always carry billed units (seen in eval-golden-set task 1.1).
+BILLED = {"topicPolicyUnits": 1, "contentPolicyUnits": 1}
+
 
 class FakeBedrockRuntime:
     """Stands in for boto3's bedrock-runtime client: records calls, returns a canned response."""
 
     def __init__(self, response=None, exc=None):
-        self.response = response or {"action": "NONE", "outputs": [], "assessments": [{}]}
+        self.response = response or {"action": "NONE", "outputs": [], "assessments": [{}], "usage": BILLED}
         self.exc, self.calls = exc, []
 
     def apply_guardrail(self, **kwargs):
@@ -27,6 +30,7 @@ def intervened(*, filters=(), topics=(), outputs=("這個問題無法處理",)):
                 "topicPolicy": {"topics": [{"name": n, "type": "DENY", "action": "BLOCKED"} for n in topics]},
             }
         ],
+        "usage": BILLED,
     }
 
 

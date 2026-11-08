@@ -3,7 +3,7 @@
 import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -92,16 +92,19 @@ def create_app(
     return app
 
 
-def build_app() -> FastAPI:
-    """Wire real dependencies from settings. Nothing connects until the first question."""
-    from app.config import Settings
+@dataclass(frozen=True)
+class Dependencies:
+    generator: SqlGenerator
+    executor: QueryExecutor
+    input_guard: InputGuard | None
+
+
+def build_dependencies(settings) -> Dependencies:
+    """Real Bedrock, guardrail and database clients from settings; shared by the API and the eval."""
     from app.db import PgExecutor
     from app.input_guard import build_input_guard
     from app.llm import BedrockSqlGenerator, build_bedrock_client
-    from app.logging_setup import configure_logging
 
-    configure_logging()
-    settings = Settings()
     generator = BedrockSqlGenerator(
         build_bedrock_client(aws_region=settings.aws_region),
         model_id=settings.bedrock_model_id,
@@ -117,10 +120,21 @@ def build_app() -> FastAPI:
     else:
         # Local development only; deployed environments must set it.
         log.warning("BEDROCK_GUARDRAIL_ID not set: questions skip the input guardrail")
+    return Dependencies(generator=generator, executor=PgExecutor(settings.database_url), input_guard=input_guard)
+
+
+def build_app() -> FastAPI:
+    """Wire real dependencies from settings. Nothing connects until the first question."""
+    from app.config import Settings
+    from app.logging_setup import configure_logging
+
+    configure_logging()
+    settings = Settings()
+    deps = build_dependencies(settings)
     return create_app(
-        generator=generator,
-        executor=PgExecutor(settings.database_url),
+        generator=deps.generator,
+        executor=deps.executor,
         cors_origins=settings.cors_origins,
-        input_guard=input_guard,
+        input_guard=deps.input_guard,
         max_sql_retries=settings.max_sql_retries,
     )

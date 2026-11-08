@@ -1,11 +1,18 @@
 """Runtime settings from environment variables (and .env in local development)."""
 
+from pathlib import Path
+
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# The project's .env sits at the repo root, while uv --directory backend runs from backend/.
+# Later files win, so a .env in the working directory overrides the root one. In the container
+# the root path does not exist and compose passes settings as environment variables instead.
+ENV_FILES = (Path(__file__).resolve().parents[2] / ".env", Path(".env"))
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=ENV_FILES, extra="ignore")
 
     aws_region: str = "us-east-1"
     bedrock_model_id: str = "anthropic.claude-haiku-5-5"
