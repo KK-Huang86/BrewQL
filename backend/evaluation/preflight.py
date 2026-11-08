@@ -3,7 +3,7 @@
 from urllib.parse import urlsplit
 
 READER = "genbi_reader"
-LOCAL_HOSTS = {"localhost", "127.0.0.1"}
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 POSTGRES_DEFAULT_PORT = 5432
 
 
@@ -18,7 +18,11 @@ def check_database_url(url: str, *, db_port: int) -> None:
         raise UnsafeDatabaseUrl("DATABASE_URL is missing or not a postgresql:// URL")
     if parts.username != READER:
         raise UnsafeDatabaseUrl(f"DATABASE_URL must connect as {READER}, not as {parts.username or '(no user)'}")
-    port = parts.port or POSTGRES_DEFAULT_PORT
+    try:
+        port = parts.port or POSTGRES_DEFAULT_PORT
+    except ValueError:
+        # urlsplit only parses the port on access; turn a crash into a clear refusal.
+        raise UnsafeDatabaseUrl("DATABASE_URL has a port that is not a number") from None
     if parts.hostname in LOCAL_HOSTS and port != db_port:
         # A local Postgres on another port belongs to some other project.
         raise UnsafeDatabaseUrl(f"DATABASE_URL uses local port {port}, but DB_PORT is {db_port}")
