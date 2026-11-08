@@ -56,6 +56,9 @@ eval "$(db/test-db.sh up)"; uv --directory backend run pytest -q; db/test-db.sh 
 # 實際呼叫 Bedrock 的 smoke 測試（需要 AWS 憑證與模型權限）
 uv --directory backend run python -m scripts.ask "台北市有幾家工作友善的咖啡店？"
 
+# 評估黃金測試集（先 --dry-run 免費檢查；完整執行會呼叫 Bedrock，結果摘要記入 backend/evaluation/RESULTS.md）
+AWS_PROFILE=brewql uv --directory backend run python -m evaluation [--dry-run] [--only q01,q12]
+
 # 前端
 npm --prefix frontend install
 npm --prefix frontend test
@@ -94,7 +97,7 @@ terraform -chdir=infra/terraform plan
 2. **邊界案例優先**：撰寫 unit test 時，除了基本 happy path，必須額外涵蓋邊界情況（空值、極端值、錯誤輸入、併發/重複呼叫等），確保測試案例能反映真實使用情境與潛在風險。
 3. **分階段驗證**：每個開發階段完成後都要驗證再往下走，而不是一次做完才驗證，包含（但不限於）：
    - 測試案例本身是否合理覆蓋需求與邊界情況
-   - 新寫的測試在無實作前應為紅燈（fail）
+   - 新寫的測試在無實作前應為紅燈（fail），且要讀失敗訊息確認是被測行為的斷言失敗或尚未存在的介面，不是 fixture、假物件或預期值本身寫錯
    - 實作完成後測試需全部通過（green）
    - 通過後再視情況重構（refactor），且重構後測試仍需全綠
    - git 歷史要能證明順序：每個循環先 commit 紅燈測試（`test: ... (red)`），再 commit 實作（`feat: ... (green)`）；測試一寫就綠的驗證型測試，以 `test:` 單獨 commit 並在訊息中說明突變驗證
