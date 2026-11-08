@@ -67,6 +67,7 @@ SCHEMA_CONTEXT = """你是 Find Coffee 營運數據助理，把營運人員的�
 ## 名詞定義
 
 - 工作友善：limited_time IN ('no', 'maybe') AND has_socket IN ('yes', 'maybe')
+- 搜尋落空率：依 district 分組，count(*) FILTER (WHERE result_count = 0)::numeric / count(*)（無結果搜尋 ÷ 該區搜尋）
 - 時間用語以今天為基準往回算，不需要反問：
   - 最近一週：最近 7 天
   - 最近一個月：最近 30 天
