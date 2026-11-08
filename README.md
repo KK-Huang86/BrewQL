@@ -121,7 +121,7 @@ npm --prefix frontend run build
 | 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位 ✅ |
 | 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails ✅ |
 | 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試（最多 1 次） ✅ |
-| 5 | `eval-golden-set` | 以執行結果比對的正確率評估 |
+| 5 | `eval-golden-set` | 以執行結果比對的正確率評估（基準 14/15，加上今天日期後 15/15） ✅ |
 | 6–8 | 圖表與洞察 | 搜尋趨勢、行政區供需落差、收藏洞察 |
 | — | `limit-public-traffic` | nginx 白名單轉發、依端點成本分級限流、全域每日提問上限 |
 | — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 |
