@@ -1,3 +1,16 @@
+/** How to draw the rows; the backend picks it from the result's shape. Unknown types show as a table. */
+export type ChartSpec = {
+  type: string
+  x_key?: string | null
+  y_key?: string | null
+}
+
+export type LineChartSpec = { type: 'line'; x_key: string; y_key: string }
+
+export function isLineChart(chart: ChartSpec | null | undefined): chart is LineChartSpec {
+  return chart?.type === 'line' && !!chart.x_key && !!chart.y_key
+}
+
 export type AskResponse = {
   status: 'ok' | 'error' | 'refused' | 'clarify'
   sql: string | null
@@ -10,6 +23,8 @@ export type AskResponse = {
   refusal_source?: 'input_guardrail' | 'model' | null
   /** Model calls behind this answer; above 1 means it self-corrected. */
   attempts?: number
+  /** Null unless status is 'ok'. */
+  chart?: ChartSpec | null
 }
 
 /** A failed request; `message` is safe to show the user. */

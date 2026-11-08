@@ -105,3 +105,14 @@ def test_shipped_golden_set_meets_the_spec_mix():
     assert set(mix) == {"easy", "medium", "hard", "refuse"}
     assert mix["refuse"] >= 4
     assert {q.expect for q in questions if q.expect} == {"refused", "clarify"}
+
+
+def test_shipped_golden_set_has_trend_questions():
+    # Spec (ticket 6): at least 3 questions on search_logs or v_daily_activity, at least 1 of them hard.
+    from pathlib import Path
+
+    questions = load_golden_set(Path(__file__).resolve().parents[1] / "evaluation" / "golden.yaml")
+    trends = [q for q in questions if q.sql and ("search_logs" in q.sql or "v_daily_activity" in q.sql)]
+
+    assert len(trends) >= 3
+    assert any(q.difficulty == "hard" for q in trends)

@@ -39,3 +39,21 @@ def test_prompt_forbids_disguising_a_refusal_as_an_empty_query():
 def test_prediction_refusals_say_only_history_can_be_queried():
     # Spec scenario: refusing a forecast explains that only historical data exists.
     assert "只能查詢歷史資料" in SCHEMA_CONTEXT
+
+
+def test_schema_context_describes_the_daily_activity_view():
+    assert "v_daily_activity" in SCHEMA_CONTEXT
+    for column in ("day", "searches", "new_users"):
+        assert f"- {column}：" in SCHEMA_CONTEXT, column
+
+
+def test_schema_context_explains_how_to_filter_searches_by_ticked_options():
+    # filters is JSONB with only the ticked options; the model needs the keys and the operator.
+    for text in ("no_time_limit", "has_socket", "pet_friendly", "filters @>"):
+        assert text in SCHEMA_CONTEXT, text
+
+
+def test_schema_context_defines_time_phrases():
+    # "最近半年" alone must not trigger a clarifying question: it has a fixed meaning.
+    for phrase in ("最近半年", "最近一個月", "最近一週"):
+        assert phrase in SCHEMA_CONTEXT, phrase

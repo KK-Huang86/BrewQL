@@ -28,3 +28,64 @@ FROM districts d, generate_series(1, d.cafe_n) g
 ORDER BY d.city, d.district, g;
 
 ANALYZE cafes;
+
+-- Members and searches. Appended after cafes so the shared seed leaves cafes unchanged.
+-- Dates count back from the day the database is built (design D1): "最近半年" always has data,
+-- and a rebuild gives the same shape shifted to the new build day.
+
+-- 2,000 members who joined over the last two years.
+INSERT INTO users (member_type, status, created_at)
+SELECT
+    CASE WHEN random() < 0.15 THEN 'premium' ELSE 'free' END,
+    CASE WHEN random() < 0.85 THEN 'active' ELSE 'inactive' END,
+    now() - random() * interval '730 days'
+FROM generate_series(1, 2000);
+
+-- About 50,000 searches over the last six calendar months. Exam season (May, Jun, Nov, Dec)
+-- makes "no time limit + sockets" searches far more likely (design D2). Each search belongs to
+-- a member who had already joined when it happened.
+WITH members AS (
+    SELECT array_agg(id ORDER BY created_at, id) AS ids FROM users
+),
+places AS (
+    SELECT array_agg(city ORDER BY city, district) AS cities,
+           array_agg(district ORDER BY city, district) AS districts,
+           array_agg(cafe_n ORDER BY city, district) AS supply
+    FROM districts
+),
+raw AS (
+    SELECT g,
+           -- A share of the exact span back to the same date six months ago (not a fixed 182 days).
+           now() - random() * (now() - (now() - interval '6 months')) AS at,
+           random() AS r_user,
+           1 + floor(random() * 10)::int AS place,
+           random() AS r_work, random() AS r_time, random() AS r_socket, random() AS r_pet,
+           random() AS r_query, random() AS r_result
+    FROM generate_series(1, 50000) g
+),
+shaped AS (
+    SELECT raw.*,
+           -- Members who joined by then, oldest first; pick one of them.
+           (SELECT count(*) FROM users u WHERE u.created_at <= raw.at) AS joined,
+           r_work < CASE WHEN extract(month FROM at) IN (5, 6, 11, 12) THEN 0.35 ELSE 0.12 END AS work_friendly
+    FROM raw
+)
+INSERT INTO search_logs (user_id, query_text, city, district, filters, result_count, created_at)
+SELECT
+    m.ids[1 + floor(s.r_user * s.joined)::int],
+    p.districts[s.place] || (ARRAY['咖啡廳', '讀書咖啡', '安靜咖啡', '不限時咖啡', '寵物友善咖啡'])[1 + floor(s.r_query * 5)::int],
+    p.cities[s.place],
+    p.districts[s.place],
+    jsonb_strip_nulls(jsonb_build_object(
+        'no_time_limit', CASE WHEN s.work_friendly OR s.r_time < 0.15 THEN true END,
+        'has_socket',    CASE WHEN s.work_friendly OR s.r_socket < 0.15 THEN true END,
+        'pet_friendly',  CASE WHEN s.r_pet < 0.10 THEN true END
+    )),
+    -- Fewer cafes in a district means fewer results; tuned further by later tickets.
+    floor(p.supply[s.place] * s.r_result * 0.6)::int,
+    s.at
+FROM shaped s, places p, members m
+ORDER BY s.g;
+
+ANALYZE users;
+ANALYZE search_logs;

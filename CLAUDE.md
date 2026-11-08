@@ -53,6 +53,9 @@ uvx pre-commit install
 # 整合測試用 Postgres（CI 同一組測試密碼；用完 down）
 eval "$(db/test-db.sh up)"; uv --directory backend run pytest -q; db/test-db.sh down
 
+# 模擬資料故事檢查（db/checks，每個檔案失敗時 RAISE）
+PSQL="docker exec -i brewql-test-db psql -U genbi_owner -d genbi" db/checks/run.sh
+
 # 實際呼叫 Bedrock 的 smoke 測試（需要 AWS 憑證與模型權限）
 uv --directory backend run python -m scripts.ask "台北市有幾家工作友善的咖啡店？"
 

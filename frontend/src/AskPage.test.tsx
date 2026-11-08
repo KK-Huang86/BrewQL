@@ -277,4 +277,51 @@ describe('AskPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('只允許 SELECT 查詢')
     expect(screen.getByText('經過 1 次修正')).toBeInTheDocument()
   })
+
+  describe('charts', () => {
+    const trend = {
+      status: 'ok' as const,
+      sql: 'SELECT month, searches FROM t',
+      columns: ['month', 'searches'],
+      rows: [
+        ['2026-06', 340],
+        ['2026-05', 120],
+      ],
+      message: null,
+    }
+
+    async function askFor(answer: AskResponse) {
+      render(<AskPage ask={vi.fn(async () => answer)} />)
+      await userEvent.type(screen.getByRole('textbox', { name: '問題' }), '最近半年每月搜尋量{Enter}')
+    }
+
+    it('draws a line chart instead of the table for a time series', async () => {
+      await askFor({ ...trend, chart: { type: 'line', x_key: 'month', y_key: 'searches' } })
+
+      expect(await screen.findByRole('img', { name: '折線圖：searches（依 month）' })).toBeInTheDocument()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+
+    it('opens the full table from 查看資料 under the chart', async () => {
+      await askFor({ ...trend, chart: { type: 'line', x_key: 'month', y_key: 'searches' } })
+
+      await userEvent.click(await screen.findByRole('button', { name: '查看資料' }))
+
+      const table = screen.getByRole('table')
+      expect(within(table).getAllByRole('row')).toHaveLength(3) // header + 2 rows
+      expect(screen.getByRole('img', { name: /折線圖/ })).toBeInTheDocument()
+    })
+
+    it.each([
+      ['an unknown chart type', { type: 'pie' }],
+      ['no chart at all', null],
+      ['a chart naming a missing column', { type: 'line', x_key: 'day', y_key: 'n' }],
+    ])('shows only the table for %s', async (_, chart) => {
+      await askFor({ ...trend, chart })
+
+      expect(await screen.findByRole('table')).toBeInTheDocument()
+      expect(screen.queryByRole('img')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '查看資料' })).not.toBeInTheDocument()
+    })
+  })
 })

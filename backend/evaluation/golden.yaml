@@ -4,7 +4,7 @@
 # - Answerable questions name the columns to return; results are compared by value, so an extra column is wrong.
 # - Avoid "top N" over values with ties (rating, user_ratings_total): several answers would be right.
 # - Questions are precise enough that a clarifying question would be a mistake.
-# - When ticket 6-8 add data, add questions here; never copy these into RAG examples (ticket 9).
+# - When tickets add data, add questions here; never copy these into RAG examples (ticket 9).
 
 # --- easy: one table, one filter or aggregate --------------------------------------------------
 - id: q01
@@ -81,6 +81,37 @@
     SELECT city, COUNT(*) FROM cafes
     WHERE user_ratings_total > (SELECT AVG(user_ratings_total) FROM cafes)
     GROUP BY city
+
+# --- trends: search_logs (ticket 6). Whole-table questions, so "最近半年" boundaries never matter.
+- id: q16
+  difficulty: medium
+  question: 每個月有幾次搜尋？列出月份（YYYY-MM 格式）與搜尋次數，依月份排序
+  ordered: true
+  sql: >-
+    SELECT to_char(created_at, 'YYYY-MM') AS month, COUNT(*) FROM search_logs
+    GROUP BY month ORDER BY month
+
+- id: q17
+  difficulty: medium
+  question: 每個月勾選不限時的搜尋有幾次？列出月份（YYYY-MM 格式）與次數，依月份排序
+  ordered: true
+  sql: >-
+    SELECT to_char(created_at, 'YYYY-MM') AS month, COUNT(*) FROM search_logs
+    WHERE filters @> '{"no_time_limit": true}'
+    GROUP BY month ORDER BY month
+
+- id: q18
+  difficulty: hard
+  question: >-
+    每個月工作友善的搜尋（同時勾選不限時與插座）佔當月搜尋的百分比是多少？
+    取到小數點後一位，列出月份（YYYY-MM 格式）與百分比，依月份排序
+  ordered: true
+  sql: >-
+    SELECT to_char(created_at, 'YYYY-MM') AS month,
+           ROUND(100.0 * COUNT(*) FILTER (
+             WHERE filters @> '{"no_time_limit": true, "has_socket": true}'
+           ) / COUNT(*), 1)
+    FROM search_logs GROUP BY month ORDER BY month
 
 # --- refuse / clarify: no SQL should run ------------------------------------------------------
 - id: q12

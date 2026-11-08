@@ -39,3 +39,8 @@ th { background: #f1efe9; }
 .refused { color: var(--refused); background: var(--refused-bg); }
 .clarify { color: var(--clarify); background: var(--clarify-bg); }
 .refused p, .clarify p { margin: 4px 0 0; }
+
+/* Charts span the result width; figure's default side margins would squeeze them. */
+.chart {
+  margin: 1rem 0;
+}

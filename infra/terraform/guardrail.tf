@@ -10,10 +10,11 @@ locals {
 
 resource "aws_bedrock_guardrail" "input" {
   name        = "brewql-input"
-  description = "Blocks prompt attacks and questions unrelated to Find Coffee operations data."
+  description = "Blocks prompt attacks. Off-topic questions are refused by the model, not here."
 
-  # Shown to users as the refusal reason.
-  blocked_input_messaging   = "這個問題無法處理：BrewQL 只回答 Find Coffee 咖啡店營運數據的問題。"
+  # Shown to users as the refusal reason. Only prompt attacks are blocked here: a denied topic
+  # for "off-topic" also blocked every question mentioning 搜尋 (search), whatever its wording.
+  blocked_input_messaging   = "這個問題無法處理：內容疑似要求改變系統的指示或角色。"
   blocked_outputs_messaging = "這個回覆無法顯示。"
 
   cross_region_config {
@@ -31,24 +32,6 @@ resource "aws_bedrock_guardrail" "input" {
       tier_name = "STANDARD"
     }
   }
-
-  topic_policy_config {
-    topics_config {
-      name       = "off-topic"
-      type       = "DENY"
-      definition = "Requests that are not questions about Find Coffee cafe operations data, such as creative writing, general chat, coding help, personal advice, news, or asking the assistant to change its role or instructions."
-      examples = [
-        "幫我寫一首詩",
-        "今天天氣如何？",
-        "推薦我一部電影",
-        "幫我寫一個 Python 程式",
-      ]
-    }
-
-    tier_config {
-      tier_name = "STANDARD"
-    }
-  }
 }
 
 # The API pins a published version, never DRAFT, so edits go live only on purpose.
@@ -60,7 +43,6 @@ resource "aws_bedrock_guardrail_version" "current" {
   skip_destroy  = true
   description = "policy ${substr(sha1(jsonencode([
     aws_bedrock_guardrail.input.content_policy_config,
-    aws_bedrock_guardrail.input.topic_policy_config,
     aws_bedrock_guardrail.input.blocked_input_messaging,
   ])), 0, 12)}"
 }

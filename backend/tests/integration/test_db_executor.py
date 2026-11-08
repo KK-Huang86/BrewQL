@@ -9,6 +9,19 @@ async def test_select_returns_columns_and_rows(executor):
     assert rows == [["台北市", 160], ["新北市", 40]]
 
 
+@pytest.mark.parametrize(
+    ("sql", "expected"),
+    [
+        ("SELECT count(*) FROM users", 2000),
+        ("SELECT count(*) > 45000 FROM search_logs", True),
+        ("SELECT count(*) > 150 FROM v_daily_activity", True),
+    ],
+)
+async def test_reader_can_query_members_searches_and_daily_activity(executor, sql, expected):
+    _, rows = await executor.run(sql)
+    assert rows == [[expected]]
+
+
 async def test_empty_result_still_has_column_names(executor):
     columns, rows = await executor.run("SELECT name, rating FROM cafes WHERE city = '高雄市'")
     assert columns == ["name", "rating"]

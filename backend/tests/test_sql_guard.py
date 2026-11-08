@@ -81,7 +81,7 @@ def test_writes_hidden_inside_a_select_are_rejected(sql):
         "SELECT name FROM cafes WHERE id IN (SELECT id FROM secret_table)",  # hidden in a subquery
         "SELECT * FROM other_schema.cafes",  # same name, different schema
         "SELECT * FROM genbi.public.cafes",  # three-part name
-        "SELECT c.name FROM cafes c JOIN users u ON u.id = c.id",
+        "SELECT c.name FROM cafes c JOIN line_accounts u ON u.id = c.id",
     ],
 )
 def test_tables_outside_the_allowlist_are_rejected_with_available_tables_listed(sql):
@@ -100,6 +100,19 @@ def test_tables_outside_the_allowlist_are_rejected_with_available_tables_listed(
     ],
 )
 def test_allowlisted_tables_ctes_and_public_schema_pass(sql):
+    validate_sql(sql)
+
+
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT count(*) FROM users",
+        "SELECT district, count(*) FROM search_logs GROUP BY district",
+        "SELECT day, searches FROM v_daily_activity",
+        "SELECT u.member_type, count(*) FROM search_logs s JOIN users u ON u.id = s.user_id GROUP BY 1",
+    ],
+)
+def test_members_searches_and_daily_activity_are_allowlisted(sql):
     validate_sql(sql)
 
 
