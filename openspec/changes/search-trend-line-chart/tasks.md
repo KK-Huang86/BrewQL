@@ -2,7 +2,8 @@
 
 - [x] 1.1 撰寫故事檢查 SQL `db/checks/`（規模、無 LINE 欄位、日期涵蓋最近半年、view 日期連續、考試季比例）；驗證：在目前資料庫執行全部 fail（紅燈）
   - 結果（2026-11-08，測試資料庫）：5 個檢查全部 FAIL，原因都是 `users`／`search_logs` 不存在；另以暫時的 `users.line_user_id` 確認 02 會報出識別欄位。CI 在 seed 後執行 `db/checks/run.sh`
-- [ ] 1.2 新增 `users`、`search_logs` schema 與模擬資料（考試季權重、固定種子）、`v_daily_activity`；驗證：1.1 全部 pass
+- [x] 1.2 新增 `users`、`search_logs` schema 與模擬資料（考試季權重、固定種子）、`v_daily_activity`；驗證：1.1 全部 pass
+  - 結果（2026-11-08，測試資料庫）：5 個故事檢查全部 pass；`cafes` 內容的 checksum 與修改前相同（共用種子，新資料接在後面）；重建兩次，會員、搜尋內容與相對時間完全相同。每月工作友善比例：5、6、11 月約 0.36，7～10 月約 0.14。既有的 `test_schema_context` 因新欄位尚未寫進 schema 說明而失敗，由 1.3 處理
 - [ ] 1.3 唯讀角色授權與白名單加入新資料表與 view，schema 說明補欄位與時間用語定義；驗證：以唯讀角色可查詢、防護測試仍綠燈
 
 ## 2. 圖表選擇
