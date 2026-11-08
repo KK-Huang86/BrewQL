@@ -81,7 +81,7 @@ def test_writes_hidden_inside_a_select_are_rejected(sql):
         "SELECT name FROM cafes WHERE id IN (SELECT id FROM secret_table)",  # hidden in a subquery
         "SELECT * FROM other_schema.cafes",  # same name, different schema
         "SELECT * FROM genbi.public.cafes",  # three-part name
-        "SELECT c.name FROM cafes c JOIN users u ON u.id = c.id",
+        "SELECT c.name FROM cafes c JOIN line_accounts u ON u.id = c.id",
     ],
 )
 def test_tables_outside_the_allowlist_are_rejected_with_available_tables_listed(sql):
