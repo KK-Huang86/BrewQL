@@ -25,6 +25,9 @@
 ### D5. 新資料表進白名單與唯讀角色
 `users`、`search_logs`、`v_daily_activity` 加入 SQL 防護白名單，`genbi_reader` 只授予 SELECT。schema 說明補欄位意義與時間用語（「最近半年」= 今天往回 6 個月）。
 
+### D6. Guardrail 的營運數據涵蓋會員與搜尋
+實測（4.2 前）「最近半年每個月不限時的搜尋量」被輸入 Guardrail 以 `topic:off-topic` 擋下：拒絕話題定義只寫「咖啡店營運數據」，搜尋紀錄被當成無關。定義改為明列咖啡店、會員與搜尋紀錄（含趨勢）。修改 policy 會發布新版本（舊版本保留），API 更新 `BEDROCK_GUARDRAIL_VERSION` 後才生效。
+
 ## Risks / Trade-offs
 
 - [模型用 `date_trunc` 回傳 timestamp 或用文字月份] → 兩者都畫成折線圖（D4）

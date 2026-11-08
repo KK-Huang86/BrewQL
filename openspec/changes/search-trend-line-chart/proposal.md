@@ -20,12 +20,13 @@ BI 的價值在「看出變化」。目前只有咖啡店主檔，問不出趨�
 ### Modified Capabilities
 
 - `demo-dataset`: 新增使用者、搜尋紀錄、每日活動 view 與考試季故事。
+- `input-guardrails`: 拒絕話題的「營運數據」涵蓋會員與搜尋紀錄。
 - `query-api`: `/api/ask` 回應加入 `chart`。
 - `query-web-ui`: 新增折線圖。
 - `evaluation`: 黃金測試集加入趨勢題。
 
 ## Impact
 
-- 修改：`db/init`、白名單設定、schema 說明、流程回應加入 `chart`、前端
+- 修改：`infra/terraform/guardrail.tf`（拒絕話題定義，需要以 `brewql-deployer` apply 並更新 `BEDROCK_GUARDRAIL_VERSION`）、`db/init`、白名單設定、schema 說明、流程回應加入 `chart`、前端
 - 新依賴：recharts
 - 依賴 ticket：`eval-golden-set`

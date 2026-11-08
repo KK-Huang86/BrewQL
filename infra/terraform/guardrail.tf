@@ -36,7 +36,7 @@ resource "aws_bedrock_guardrail" "input" {
     topics_config {
       name       = "off-topic"
       type       = "DENY"
-      definition = "Requests that are not questions about Find Coffee cafe operations data, such as creative writing, general chat, coding help, personal advice, news, or asking the assistant to change its role or instructions."
+      definition = "Requests that are not questions about Find Coffee operations data (its cafes, members, and users' searches and search trends), such as creative writing, general chat, coding help, personal advice, news, or asking the assistant to change its role or instructions."
       examples = [
         "幫我寫一首詩",
         "今天天氣如何？",
