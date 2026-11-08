@@ -49,12 +49,14 @@ def capability_gaps(paths: list[str], root: Path) -> dict[str, list[str]]:
 
 def _touched_changes(paths: list[str]) -> set[str]:
     names = set()
-    for p in paths:
-        p = p.strip()
-        if p.startswith(CHANGES_DIR):
-            name = p[len(CHANGES_DIR) :].split("/", 1)[0]
-            if name and name != "archive" and "/" in p[len(CHANGES_DIR) :]:
-                names.add(name)
+    for path in paths:
+        path = path.strip()
+        if not path.startswith(CHANGES_DIR):
+            continue
+        # "<name>/<file>"; a bare "openspec/changes/<name>" or the archive is not a change in progress.
+        name, sep, _ = path[len(CHANGES_DIR) :].partition("/")
+        if sep and name and name != "archive":
+            names.add(name)
     return names
 
 
@@ -78,7 +80,7 @@ def main(stdin: TextIO = sys.stdin, *, root: Path = Path("."), out: TextIO = sys
     print(message, file=out)
     gaps = capability_gaps(paths, root)
     for name, missing in gaps.items():
-        print(f"openspec/changes/{name}: proposal 列出的 capability 沒有 spec delta：{', '.join(missing)}", file=out)
+        print(f"{CHANGES_DIR}{name}: proposal 列出的 capability 沒有 spec delta：{', '.join(missing)}", file=out)
     return 0 if ok and not gaps else 1
 
 
