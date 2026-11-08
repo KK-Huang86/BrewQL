@@ -4,3 +4,9 @@ const formatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 export function formatNumber(value: number): string {
   return formatter.format(value)
 }
+
+/** Tooltip text: numbers formatted like the number card, anything else as is, missing as empty. */
+export function formatTooltipValue(value: unknown): string {
+  if (typeof value === 'number') return formatNumber(value)
+  return value == null ? '' : String(value)
+}

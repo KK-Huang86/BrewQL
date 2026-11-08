@@ -1,4 +1,5 @@
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { formatTooltipValue } from './format'
 import type { LinePoint } from './lineData'
 
 type Props = { data: LinePoint[]; xKey: string; yKey: string }
@@ -12,7 +13,7 @@ export function TrendChart({ data, xKey, yKey }: Props) {
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey={xKey} />
           <YAxis />
-          <Tooltip />
+          <Tooltip formatter={formatTooltipValue} />
           {/* connectNulls off: a missing value shows as a gap, not as a made-up line. */}
           <Line type="monotone" dataKey={yKey} stroke="#8a5a2b" strokeWidth={2} dot={false} />
         </LineChart>

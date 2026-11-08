@@ -1,4 +1,5 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { formatTooltipValue } from './format'
 import type { BarPoint } from './barData'
 
 type Props = { data: BarPoint[]; xKey: string; yKey: string }
@@ -13,7 +14,7 @@ export function GapChart({ data, xKey, yKey }: Props) {
           {/* interval 0: show every category name, the comparison is the point. */}
           <XAxis dataKey={xKey} interval={0} />
           <YAxis />
-          <Tooltip />
+          <Tooltip formatter={formatTooltipValue} />
           <Bar dataKey={yKey} fill="#8a5a2b" />
         </BarChart>
       </ResponsiveContainer>
