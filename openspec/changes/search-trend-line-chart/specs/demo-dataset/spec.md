@@ -11,6 +11,10 @@
 - **WHEN** 查詢 `users` 欄位清單
 - **THEN** 沒有 `line_user_id` 或其他可識別真人的欄位
 
+#### Scenario: 會員註冊後才搜尋
+- **WHEN** 合併 `search_logs` 與 `users`
+- **THEN** 沒有任何搜尋早於該會員的 `created_at`
+
 #### Scenario: 日期涵蓋最近半年
 - **WHEN** 在建庫當天查詢 `search_logs` 的最早與最晚 `created_at`
 - **THEN** 最晚不晚於當天，最早不早於 6 個月前
