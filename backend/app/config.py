@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # Empty string disables effort (models before Claude 4.6 reject it).
     bedrock_effort: str | None = "low"
     database_url: str = ""
+    # Port compose publishes the db on locally; 5432 is often taken by other projects. Eval checks it.
+    db_port: int = 5434
     cors_origins: list[str] = ["http://localhost:5173"]
     # Input guardrail; unset skips the check (local development only).
     bedrock_guardrail_id: str | None = None

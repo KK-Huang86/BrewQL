@@ -15,6 +15,7 @@ from pathlib import Path
 
 from evaluation.golden import GoldenSetError, load_golden_set
 from evaluation.metrics import QuestionOutcome, summarize
+from evaluation.preflight import UnsafeDatabaseUrl, check_database_url
 from evaluation.report import RunInfo, write_reports
 from evaluation.runner import dry_run, estimate, run_eval, select
 
@@ -48,6 +49,11 @@ async def main(argv: list[str]) -> int:
         return 2
 
     settings = Settings()
+    try:
+        check_database_url(settings.database_url, db_port=settings.db_port)
+    except UnsafeDatabaseUrl as e:
+        print(f"database settings error: {e}", file=sys.stderr)
+        return 2
     deps = build_dependencies(settings)
     try:
         if args.dry_run:
