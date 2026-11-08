@@ -323,5 +323,46 @@ describe('AskPage', () => {
       expect(screen.queryByRole('img')).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: '查看資料' })).not.toBeInTheDocument()
     })
+
+    const gap = {
+      ...trend,
+      sql: 'SELECT district, n FROM t',
+      columns: ['district', 'n'],
+      rows: [
+        ['內湖區', 30],
+        ['大安區', 20],
+      ],
+    }
+
+    it('draws a bar chart with 查看資料 for category comparisons', async () => {
+      await askFor({ ...gap, chart: { type: 'bar', x_key: 'district', y_key: 'n' } })
+
+      expect(await screen.findByRole('img', { name: '長條圖：n（依 district）' })).toBeInTheDocument()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+      await userEvent.click(screen.getByRole('button', { name: '查看資料' }))
+      expect(within(screen.getByRole('table')).getAllByRole('row')).toHaveLength(3)
+    })
+
+    const single = { ...trend, sql: 'SELECT count(*) FROM t', columns: ['count'], rows: [[12345]] }
+
+    it('shows a single number as a large card with its column name', async () => {
+      await askFor({ ...single, chart: { type: 'number', value_key: 'count' } })
+
+      const card = await screen.findByRole('figure', { name: 'count' })
+      expect(within(card).getByText('12,345')).toBeInTheDocument()
+      expect(screen.queryByRole('table')).not.toBeInTheDocument()
+    })
+
+    it.each([
+      ['a bar naming a missing column', gap, { type: 'bar', x_key: 'city', y_key: 'n' }],
+      ['a number card naming a missing column', single, { type: 'number', value_key: 'avg' }],
+      ['a number card over a text value', { ...single, rows: [['many']] }, { type: 'number', value_key: 'count' }],
+    ])('shows only the table for %s', async (_, answer, chart) => {
+      await askFor({ ...answer, chart })
+
+      expect(await screen.findByRole('table')).toBeInTheDocument()
+      expect(screen.queryByRole('img')).not.toBeInTheDocument()
+      expect(screen.queryByRole('figure')).not.toBeInTheDocument()
+    })
   })
 })
