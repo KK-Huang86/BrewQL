@@ -1,6 +1,7 @@
 ## 1. 資料
 
-- [ ] 1.1 故事檢查 SQL（`db/checks/`）加入落空率與搜尋量排名；驗證：在目前資料庫執行為 fail（紅燈）
+- [x] 1.1 故事檢查 SQL（`db/checks/`）加入落空率與搜尋量排名；驗證：在目前資料庫執行為 fail（紅燈）
+  - 結果（2026-11-08，測試資料庫）：`07_supply_gap.sql` FAIL「內湖區 search volume rank is 10」；落空率那半已經成立（內湖 54.6%，其他 4～17%），因為 ticket 6 的 `result_count` 依該區店數推算。前 6 個檢查仍 pass
 - [ ] 1.2 調整模擬資料的行政區權重與落空機率；驗證：1.1 pass，上一個 ticket 的 6 個檢查仍 pass，`cafes` checksum 不變
 - [ ] 1.3 schema 說明加入「搜尋落空率」定義；驗證：定義與檢查 SQL 的計算方式一致
 
