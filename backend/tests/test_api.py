@@ -446,7 +446,7 @@ def test_time_and_number_result_carries_a_line_chart():
 
     chart = client.post("/api/ask", json={"question": "最近半年每月搜尋量"}).json()["chart"]
 
-    assert chart == {"type": "line", "x_key": "month", "y_key": "searches"}
+    assert chart == {"type": "line", "x_key": "month", "y_key": "searches", "value_key": None}
 
 
 def test_failed_query_has_no_chart():
