@@ -103,6 +103,19 @@ def test_allowlisted_tables_ctes_and_public_schema_pass(sql):
     validate_sql(sql)
 
 
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT count(*) FROM users",
+        "SELECT district, count(*) FROM search_logs GROUP BY district",
+        "SELECT day, searches FROM v_daily_activity",
+        "SELECT u.member_type, count(*) FROM search_logs s JOIN users u ON u.id = s.user_id GROUP BY 1",
+    ],
+)
+def test_members_searches_and_daily_activity_are_allowlisted(sql):
+    validate_sql(sql)
+
+
 def test_allowlist_can_be_configured():
     with pytest.raises(SqlGuardError, match="可用的資料表：search_logs"):
         validate_sql("SELECT name FROM cafes", allowed_tables={"search_logs"})
