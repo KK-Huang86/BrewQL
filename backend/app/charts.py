@@ -1,12 +1,14 @@
 """Pick how to show a result from its shape alone (design D3): no model call, same input same chart."""
 
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Literal
 
 # Only these fixed text shapes count as time (design D4), e.g. to_char(created_at, 'YYYY-MM').
-TIME_TEXT_FORMATS = ("%Y-%m", "%Y-%m-%d")
+# The regex enforces zero padding (strptime accepts "2026-5"); strptime rejects "2026-13".
+TIME_TEXT_FORMATS = ((re.compile(r"\d{4}-\d{2}"), "%Y-%m"), (re.compile(r"\d{4}-\d{2}-\d{2}"), "%Y-%m-%d"))
 
 
 @dataclass(frozen=True)
@@ -36,7 +38,7 @@ def _is_time(value: Any) -> bool:
     if isinstance(value, date):
         return True
     if isinstance(value, str):
-        return any(_parses(value, f) for f in TIME_TEXT_FORMATS)
+        return any(shape.fullmatch(value) and _parses(value, fmt) for shape, fmt in TIME_TEXT_FORMATS)
     return False
 
 
