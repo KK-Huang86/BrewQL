@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { AskError, type AskResponse } from './api/ask'
+import { AskError, type AskResponse, isLineChart } from './api/ask'
 import { TrendChart } from './charts/TrendChart'
 import { toLineData } from './charts/lineData'
 
@@ -91,11 +91,11 @@ function Result({ answer }: { answer: AskResponse }) {
   const [showData, setShowData] = useState(false)
   const chart = answer.chart
   // Anything the page cannot draw (unknown type, missing column) falls back to the table.
-  const points = chart?.type === 'line' ? toLineData(answer.columns, answer.rows, chart) : []
-  if (!chart || points.length === 0) return <ResultTable answer={answer} />
+  const points = isLineChart(chart) ? toLineData(answer.columns, answer.rows, chart) : []
+  if (!isLineChart(chart) || points.length === 0) return <ResultTable answer={answer} />
   return (
     <>
-      <TrendChart data={points} xKey={chart.x_key!} yKey={chart.y_key!} />
+      <TrendChart data={points} xKey={chart.x_key} yKey={chart.y_key} />
       <button type="button" aria-expanded={showData} onClick={() => setShowData((v) => !v)}>
         查看資料
       </button>

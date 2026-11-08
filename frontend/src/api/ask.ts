@@ -5,6 +5,12 @@ export type ChartSpec = {
   y_key?: string | null
 }
 
+export type LineChartSpec = { type: 'line'; x_key: string; y_key: string }
+
+export function isLineChart(chart: ChartSpec | null | undefined): chart is LineChartSpec {
+  return chart?.type === 'line' && !!chart.x_key && !!chart.y_key
+}
+
 export type AskResponse = {
   status: 'ok' | 'error' | 'refused' | 'clarify'
   sql: string | null
