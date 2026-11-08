@@ -35,6 +35,8 @@ def test_iso_month_or_day_text_is_a_line(x):
         ["大安區", "信義區"],  # categories are not time
         ["2026-13", "2026-12"],  # not a real month
         ["2026/05", "2026/06"],  # not the ISO shape
+        ["2026-5", "2026-6"],  # ISO months are zero-padded
+        ["2026-05-1", "2026-05-2"],  # and so are days
         ["2026-05", "大安區"],  # one bad value is enough
         [date(2026, 5, 1), None],  # a missing time cannot be placed on the axis
     ],
