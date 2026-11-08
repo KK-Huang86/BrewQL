@@ -39,6 +39,16 @@ def test_missing_or_unreadable_url_is_refused(url):
         check_database_url(url, db_port=5434)
 
 
+def test_ipv6_loopback_is_local_too():
+    with pytest.raises(UnsafeDatabaseUrl, match="DB_PORT"):
+        check_database_url("postgresql://genbi_reader:pw@[::1]:5432/genbi", db_port=5434)
+
+
+def test_port_that_is_not_a_number_is_refused_not_a_crash():
+    with pytest.raises(UnsafeDatabaseUrl, match="DATABASE_URL"):
+        check_database_url("postgresql://genbi_reader:pw@127.0.0.1:abc/genbi", db_port=5434)
+
+
 def test_error_never_shows_the_password():
     with pytest.raises(UnsafeDatabaseUrl) as raised:
         check_database_url("postgresql://genbi_reader:s3cret@127.0.0.1:5432/genbi", db_port=5434)
