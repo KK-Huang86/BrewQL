@@ -5,7 +5,7 @@
 
 ## 2. 本機 commit 前檢查
 
-- [ ] 2.1 新增 `.pre-commit-config.yaml`（pre-commit-hooks 三項 + 後端 ruff check／format）並設定 ruff `known-first-party`；驗證：`uvx pre-commit run --all-files` 通過
+- [x] 2.1 新增 `.pre-commit-config.yaml`（pre-commit-hooks 三項 + 後端 ruff check／format）並設定 ruff `known-first-party`；驗證：`uvx pre-commit run --all-files` 通過
 
 ## 3. CI capability 檢查
 

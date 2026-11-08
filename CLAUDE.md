@@ -47,6 +47,9 @@ uv --directory backend sync --group dev
 uv --directory backend run pytest -q
 uv --directory backend run ruff check .
 
+# commit 前檢查（每個 clone 安裝一次）
+uvx pre-commit install
+
 # 整合測試用 Postgres（CI 同一組測試密碼；用完 down）
 eval "$(db/test-db.sh up)"; uv --directory backend run pytest -q; db/test-db.sh down
 
