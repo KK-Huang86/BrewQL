@@ -26,7 +26,7 @@
 `users`、`search_logs`、`v_daily_activity` 加入 SQL 防護白名單，`genbi_reader` 只授予 SELECT。schema 說明補欄位意義與時間用語（「最近半年」= 今天往回 6 個月）。
 
 ### D6. Guardrail 的營運數據涵蓋會員與搜尋
-實測（4.2 前）「最近半年每個月不限時的搜尋量」被輸入 Guardrail 以 `topic:off-topic` 擋下：拒絕話題定義只寫「咖啡店營運數據」，搜尋紀錄被當成無關。定義改為明列咖啡店、會員與搜尋紀錄（含趨勢）。修改 policy 會發布新版本（舊版本保留），API 更新 `BEDROCK_GUARDRAIL_VERSION` 後才生效。
+實測（4.2 前）「最近半年每個月不限時的搜尋量」被輸入 Guardrail 以 `topic:off-topic` 擋下：拒絕話題定義只寫「咖啡店營運數據」，搜尋紀錄被當成無關。第一次改為「不是 Find Coffee 營運數據（咖啡店、會員、搜尋）的請求」，版本 2 仍擋下：主題分類器不擅長「不是 X」這種否定定義。改為正面列舉要擋的類型（創作、閒聊、寫程式、個人建議、天氣新聞娛樂、要求改變角色或忽略指示）；不在列舉中的無關問題通過 Guardrail，由模型以 refuse 拒答，仍是兩層防護。修改 policy 會發布新版本（舊版本保留），API 更新 `BEDROCK_GUARDRAIL_VERSION` 後才生效。
 
 ## Risks / Trade-offs
 
