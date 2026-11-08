@@ -68,6 +68,7 @@ def test_ask_returns_sql_columns_and_rows():
         "error_kind": None,
         "refusal_source": None,
         "attempts": 1,
+        "chart": {"type": "table", "x_key": None, "y_key": None},
     }
 
 
@@ -142,6 +143,7 @@ def test_bedrock_failure_body_keeps_the_response_contract():
         "error_kind": None,
         "refusal_source": None,
         "attempts": 0,
+        "chart": None,
     }
 
 
@@ -207,6 +209,7 @@ def test_database_outage_is_503_with_its_own_message(caplog):
         "error_kind": None,
         "refusal_source": None,
         "attempts": 0,
+        "chart": None,
     }
     assert "connection refused" not in response.text
     assert any("connection refused" in (r.exc_text or "") for r in caplog.records)
@@ -286,6 +289,7 @@ def test_refusal_is_200_with_reason_and_source():
         "error_kind": None,
         "refusal_source": "model",
         "attempts": 1,
+        "chart": None,
     }
 
 
@@ -306,6 +310,7 @@ def test_clarify_is_200_with_the_question_back():
         "error_kind": None,
         "refusal_source": None,
         "attempts": 1,
+        "chart": None,
     }
 
 
@@ -339,6 +344,7 @@ def test_input_guard_outage_is_502_and_the_model_is_never_called(caplog):
         "error_kind": None,
         "refusal_source": None,
         "attempts": 0,
+        "chart": None,
     }
     assert "AccessDenied" not in response.text
     assert len([r for r in caplog.records if r.exc_info]) == 1
@@ -429,3 +435,21 @@ def test_production_app_passes_max_sql_retries_from_settings(monkeypatch):
     main.build_app()
 
     assert seen["max_sql_retries"] == 3
+
+
+def test_time_and_number_result_carries_a_line_chart():
+    client = client_with(
+        FakeGenerator(sql="SELECT day, searches FROM v_daily_activity"),
+        FakeExecutor(["month", "searches"], [["2026-05", 120], ["2026-06", 340]]),
+    )
+
+    chart = client.post("/api/ask", json={"question": "最近半年每月搜尋量"}).json()["chart"]
+
+    assert chart == {"type": "line", "x_key": "month", "y_key": "searches"}
+
+
+def test_failed_query_has_no_chart():
+    # A guard rejection is status=error: nothing ran, so there is nothing to draw.
+    client = client_with(FakeGenerator(sql="DELETE FROM cafes"), ExplodingDependency())
+
+    assert client.post("/api/ask", json={"question": "q"}).json()["chart"] is None
