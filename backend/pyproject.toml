@@ -33,3 +33,7 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC"]
+
+[tool.ruff.lint.isort]
+# Without this, ruff sorts a first-party module as third-party until its file exists (red tests).
+known-first-party = ["app", "evaluation", "scripts"]

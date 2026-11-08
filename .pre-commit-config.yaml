@@ -1,0 +1,24 @@
+# Fast checks before each commit; CI runs the same ruff checks plus the tests.
+# Install once per clone: uvx pre-commit install
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+  - repo: local
+    hooks:
+      # The project's own ruff (uv.lock), so local results match CI.
+      - id: ruff-check
+        name: ruff check (backend)
+        entry: uv --directory backend run ruff check .
+        language: system
+        files: ^backend/
+        pass_filenames: false
+      - id: ruff-format
+        name: ruff format --check (backend)
+        entry: uv --directory backend run ruff format --check .
+        language: system
+        files: ^backend/
+        pass_filenames: false
