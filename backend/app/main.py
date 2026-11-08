@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints, field_serializer
 
+from app.charts import Chart, choose_chart
 from app.db import DatabaseUnavailable
 from app.input_guard import InputGuardUnavailable
 from app.llm import ErrorKind
@@ -35,6 +36,8 @@ class AskResponse(BaseModel):
     refusal_source: Literal["input_guardrail", "model"] | None = None
     # Model calls behind this answer; 0 when none finished (input block, 5xx).
     attempts: int = 0
+    # How to draw the rows (result-visualization); null when there is no successful result.
+    chart: Chart | None = None
 
     @field_serializer("rows")
     def _rows(self, rows: list[list[Any]]) -> list[list[Any]]:
@@ -87,7 +90,8 @@ def create_app(
             # Bedrock/network failures: full detail goes to the log, a generic message to the client.
             log.exception("ask failed")
             return _error(502, "模型服務暫時無法使用，請稍後再試")
-        return AskResponse(**asdict(result))
+        chart = choose_chart(result.columns, result.rows) if result.status == "ok" else None
+        return AskResponse(**asdict(result), chart=chart)
 
     return app
 
