@@ -1,4 +1,5 @@
 -- Story: in exam months (May, Jun, Nov, Dec) more searches ask for no time limit plus sockets.
+-- The months are restated here on purpose: the check states the story independently of the seed.
 DO $$
 DECLARE
     exam_ratio  numeric;

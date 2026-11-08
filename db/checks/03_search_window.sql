@@ -12,7 +12,8 @@ BEGIN
         RAISE EXCEPTION 'searches in the future: latest is %', last_at;
     END IF;
     -- Checked relative to the latest row so the check still holds days after the build.
-    IF first_at < last_at - interval '6 months 1 day' THEN
+    -- Spec: no earlier than six months before the build (182 days would overshoot e.g. Sep-Mar).
+    IF first_at < last_at - interval '6 months' THEN
         RAISE EXCEPTION 'searches span more than six months: % to %', first_at, last_at;
     END IF;
     IF first_at > last_at - interval '5 months' THEN
