@@ -32,13 +32,15 @@
 
 ## 匯出檔現況（2026-11-08 檢查）
 
-本機匯出檔不進 repo，只記錄檢查結果：
+本機匯出檔（pgAdmin CSV，有標頭，空值寫成字串 `NULL`）不進 repo，只記錄檢查結果：
 
-- `cafe`：811 家，城市為臺北 429、新北 268、臺中 61、桃園 26（其餘地址為英文或格式不同）。
-  - 匯出沒有標頭，`opening_hours` 的 JSON 引號未正確跳脫，逗號把欄位切開，每列 27～53 欄不等；需改用 `\copy (...) TO ... CSV HEADER` 重新匯出。
-  - 地址同時有「臺北市」與「台北市」，匯入時需統一為示範資料使用的寫法。
-  - 約 90 家無法從地址解析行政區，改用經緯度對行政區界判斷。
-  - 含 Google Places 的照片 reference 與照片網址，依條款不匯入。
-- `cafe_nomad_cache`：與 `cafe` 檔案內容完全相同（md5 一致），需重新匯出。
-- `cafeattributevote`：902 筆屬性投票（`socket`、`limited_time`、`quiet`、`cheap` 等；值 yes/maybe/no/unknown；來源 google/cafenomad/user）。
-  - 來源為 user 的 136 筆帶有會員 id，屬於真實使用者行為，不匯入；只匯入 google 與 cafenomad 來源，或彙總後不含會員 id。
+- `cafes`（店家主表）：812 家、27 欄，格式正常。
+  - 地址同時有「臺北市」與「台北市」，匯入時統一寫法；部分英文地址無法解析行政區，改用經緯度對行政區界判斷。
+  - `has_socket`、`limited_time` 約一半為 NULL，`has_pet`、`pet_friendly` 幾乎全為 NULL；真實資料比示範資料稀疏，評估結果不可直接比較。
+  - `reviews`（Google 評論原文）、`photo_reference`、`photo_s3_url` 依 Google 條款不匯入；`view_count` 全為 0。
+- `cafe_cafeattributevote`（屬性投票）：902 筆、7 欄，`cafe_id` 全部對得到 `cafes`。
+  - 屬性 socket、limited_time、quiet、cheap、pet_friendly、has_pet；值 yes/maybe/no/unknown。
+  - 來源 google 650、cafenomad 116、user 136；user 來源帶 `user_id`，屬於真實使用者行為，只匯入不含 `user_id` 的彙總。
+- `cafe_nomad_cache`（Cafe Nomad 社群資料）：1,661 筆、21 欄，格式正常。
+  - 有 wifi、seat、quiet、tasty、cheap、music 評分與捷運站 `mrt`（約 1/3 有值）。
+  - 沒有對應 `cafes` 的 id，需以店名＋座標比對；授權需先確認。
