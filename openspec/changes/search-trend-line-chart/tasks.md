@@ -7,7 +7,7 @@
 - [x] 1.3 唯讀角色授權與白名單加入新資料表與 view，schema 說明補欄位與時間用語定義；驗證：以唯讀角色可查詢、防護測試仍綠燈
   - 結果（2026-11-08，測試資料庫）：含整合測試 347 passed；`genbi_reader` 可查三個新物件，INSERT 被拒（read-only transaction）。防護測試原本用 `users` 當白名單外的例子，`users` 現在合法，改用 `line_accounts`（需求變更）
 
-- [ ] 1.4 Guardrail 拒絕話題定義涵蓋會員與搜尋紀錄（`infra/terraform/guardrail.tf`），以 `brewql-deployer` apply 後更新 `BEDROCK_GUARDRAIL_VERSION`；驗證：搜尋趨勢問題通過輸入檢查，「幫我寫一首詩」仍被擋
+- [ ] 1.4 Guardrail 拿掉 off-topic 拒絕話題、只保留 prompt attack（`infra/terraform/guardrail.tf`），以 `brewql-deployer` apply 後更新 `BEDROCK_GUARDRAIL_VERSION`；驗證：搜尋問題通過輸入檢查，「幫我寫一首詩」由模型拒答，prompt injection 仍由 Guardrail 擋下
 
 ## 2. 圖表選擇
 

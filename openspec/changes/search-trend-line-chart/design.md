@@ -25,8 +25,10 @@
 ### D5. 新資料表進白名單與唯讀角色
 `users`、`search_logs`、`v_daily_activity` 加入 SQL 防護白名單，`genbi_reader` 只授予 SELECT。schema 說明補欄位意義與時間用語（「最近半年」= 今天往回 6 個月）。
 
-### D6. Guardrail 的營運數據涵蓋會員與搜尋
-實測（4.2 前）「最近半年每個月不限時的搜尋量」被輸入 Guardrail 以 `topic:off-topic` 擋下：拒絕話題定義只寫「咖啡店營運數據」，搜尋紀錄被當成無關。第一次改為「不是 Find Coffee 營運數據（咖啡店、會員、搜尋）的請求」，版本 2 仍擋下：主題分類器不擅長「不是 X」這種否定定義。改為正面列舉要擋的類型（創作、閒聊、寫程式、個人建議、天氣新聞娛樂、要求改變角色或忽略指示）；不在列舉中的無關問題通過 Guardrail，由模型以 refuse 拒答，仍是兩層防護。修改 policy 會發布新版本（舊版本保留），API 更新 `BEDROCK_GUARDRAIL_VERSION` 後才生效。
+### D6. 輸入 Guardrail 只擋 prompt attack
+實測（4.2 前）「最近半年每個月不限時的搜尋量」被輸入 Guardrail 以 `topic:off-topic` 擋下。改了兩次拒絕話題定義都無效：版本 2 改成「不是 Find Coffee 營運數據（咖啡店、會員、搜尋）的請求」，版本 3 改成正面列舉要擋的類型（創作、閒聊、寫程式…）。直接對版本 3 送 6 種問法，凡是含「搜尋」的都被擋（「每個月有幾次搜尋？」「大安區有幾次搜尋？」），不含的都通過，與定義用字無關。
+
+決定：拿掉 off-topic 拒絕話題，Guardrail 只保留 prompt attack 偵測（真正的安全價值在這裡）。寫詩、閒聊等無關問題由模型以 refuse 拒答（refuse-and-clarify 已有此規則），仍是兩層防護，只是拒答來源從 `input_guardrail` 變成 `model`。評估判斷拒答題不看來源（eval-golden-set D8），不受影響。附帶效果：每次檢查不再計 topic units，Guardrail 費用約減半。之後加資料表（收藏）也不會被主題分類器誤擋。
 
 ## Risks / Trade-offs
 
