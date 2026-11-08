@@ -68,7 +68,8 @@ def test_ask_returns_sql_columns_and_rows():
         "error_kind": None,
         "refusal_source": None,
         "attempts": 1,
-        "chart": {"type": "table", "x_key": None, "y_key": None},
+        # Ticket 7: city + count is now a bar; value_key is null for every chart but the number card.
+        "chart": {"type": "bar", "x_key": "city", "y_key": "n", "value_key": None},
     }
 
 
