@@ -61,7 +61,7 @@ docker compose up --build
 |---|---|
 | 網頁 | http://localhost:8080 |
 | API | http://localhost:8000（`GET /health`、`POST /api/ask`） |
-| 資料庫 | `localhost:${DB_PORT}`（預設 5432） |
+| 資料庫 | `localhost:${DB_PORT}`（預設 5434） |
 
 ```bash
 curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
@@ -69,7 +69,7 @@ curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
 # {"status":"ok","sql":"SELECT COUNT(*) ... WHERE city = '台北市'","columns":["count"],"rows":[[160]],...}
 ```
 
-- 本機已有 Postgres 佔用 5432 時，把 `.env` 的 `DB_PORT` 改成其他 port。
+- 資料庫預設發布在 5434，避開本機其他專案常用的 5432；要改就改 `.env` 的 `DB_PORT`，`DATABASE_URL` 的 port 也要一起改。
 - 重建示範資料庫：`docker compose down -v`（資料以固定種子產生，重建後完全相同）。
 
 ### Bedrock 憑證
