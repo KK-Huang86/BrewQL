@@ -131,5 +131,6 @@ npm --prefix frontend run build
 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例 |
 | 10–12 | 編輯 SQL、步驟串流、模型比較報告 | |
 | — | `import-real-cafes` | 匯入真實店家（選做） |
+| — | `import-open-data` | 加入行政區人口、YouBike 站點等公開資料，以行政區串接（考量中，排程待定） |
 
 執行順序依表格由上而下：先在本機完成評估與圖表，再補齊公開前必要的限流、監控與稽核後部署；之後的 ticket 完成時重新部署即可。
