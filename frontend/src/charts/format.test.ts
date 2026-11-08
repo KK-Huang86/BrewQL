@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatNumber } from './format'
+import { formatNumber, formatTooltipValue } from './format'
 
 describe('formatNumber', () => {
   it.each([
@@ -12,5 +12,17 @@ describe('formatNumber', () => {
     [0.005, '0.01'],
   ])('shows %s as %s (thousands separator, at most 2 decimals)', (value, text) => {
     expect(formatNumber(value)).toBe(text)
+  })
+})
+
+describe('formatTooltipValue', () => {
+  it.each([
+    [0.5401909068073348, '0.54'],
+    [8961, '8,961'],
+    ['內湖區', '內湖區'],
+    [null, ''],
+    [undefined, ''],
+  ])('shows %s as %s on chart tooltips', (value, text) => {
+    expect(formatTooltipValue(value)).toBe(text)
   })
 })
