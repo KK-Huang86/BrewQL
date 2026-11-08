@@ -27,7 +27,7 @@ retro（self-correct-on-error、eval-golden-set）找出三個可以自動擋下
 
 ## Impact
 
-- 修改：`backend/evaluation/`、`tools/spec_check.py`、`.github/workflows/spec-check.yml`、`backend/pyproject.toml`、`.env.example`、`docker-compose.yml`、README
-- 新增：`.pre-commit-config.yaml`
+- 修改：`backend/evaluation/`、`backend/app/config.py`（`db_port`，只有評估使用）、`CLAUDE.md`（安裝指令）、`tools/spec_check.py`、`.github/workflows/spec-check.yml`、`backend/pyproject.toml`、`.env.example`、`docker-compose.yml`、README
+- 新增：`.pre-commit-config.yaml`；第一次執行 end-of-file-fixer 時補上 `frontend/public/favicon.svg` 檔尾換行
 - 已經有 `.env` 的人：自己的 `DB_PORT` 與 `DATABASE_URL` 不受影響；沒設 `DB_PORT` 的人 compose 會改用 5434
 - pre-commit 需要各自安裝一次（`uvx pre-commit install`）

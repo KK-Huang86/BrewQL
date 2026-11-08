@@ -11,7 +11,7 @@ retro 的三個發現都是「人或 agent 會重複犯、程式能確定判斷�
 ## Decisions
 
 ### D1. 連線檢查放在評估，只看使用者與本機 port
-評估是唯一在 compose 外、以 `.env` 連資料庫的入口。只解析 URL，不連線：使用者不是 `genbi_reader` 就擋（避免用擁有者帳號）；主機是 `localhost`／`127.0.0.1` 時 port 必須等於 `DB_PORT`（未設定時為 5434，與 compose 預設相同）。其他主機（例如 CI 或遠端）不檢查 port。
+評估是唯一在 compose 外、以 `.env` 連資料庫的入口。只解析 URL，不連線：使用者不是 `genbi_reader` 就擋（避免用擁有者帳號）；主機是本機（`localhost`、`127.0.0.1`、`::1`）時 port 必須等於 `DB_PORT`（未設定時為 5434，與 compose 預設相同）；URL 沒寫 port 時視為 Postgres 預設的 5432。`DB_PORT` 放在 `Settings`，和評估讀 `.env` 的方式一致；API 不使用它。其他主機（例如 CI 或遠端）不檢查 port。
 
 ### D2. 本機預設 port 5434
 開發者本機常有其他 Postgres 佔 5432；BrewQL 固定用 5434，範本、compose 預設與文件一致，照範本填就不會撞到。
