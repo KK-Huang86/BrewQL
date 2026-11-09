@@ -7,7 +7,7 @@
 
 ## 2. 收集
 
-- [ ] 2.1 nginx JSON access log（D7）：容器測試確認每行可被 JSON 解析、429 有紀錄、`uri` 不含 query string；驗證：紅燈再綠燈
+- [x] 2.1 nginx JSON access log（D7）：容器測試確認每行可被 JSON 解析、429 有紀錄、`uri` 不含 query string；驗證：紅燈再綠燈
 - [ ] 2.2 Alloy（D1、D2、D8、D8a、D11）：所有 log 與指標帶 `project="brewql"`；`observability/alloy/config.alloy`、compose `observability` profile、Grafana Cloud 變數同步 `.env.example`（只列名稱）；CI 以 `alloy fmt` 檢查設定；驗證：不加 profile 時 `docker compose up` 與提問正常；使用者設定 `.env` 後加 profile，Grafana Cloud 查得到 backend 與 nginx 的 log 與 `brewql_*` 指標
 - [ ] 2.3 主機與容器資源（D8b）：Alloy 加 `prometheus.exporter.unix` 與 `prometheus.exporter.cadvisor`，唯讀掛載，relabel 只保留用到的指標；驗證：Grafana Cloud 查得到主機記憶體與檔案系統、`db`／`backend`／`frontend` 的 CPU 與記憶體，BrewQL 的 active series 少於 1,000
 - [ ] 2.4 Alloy 故障不影響服務（D2）：Grafana Cloud URL 設成無法連線時提問照常；驗證：記錄結果
