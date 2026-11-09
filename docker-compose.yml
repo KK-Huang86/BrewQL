@@ -32,6 +32,7 @@ services:
       BEDROCK_GUARDRAIL_ID: ${BEDROCK_GUARDRAIL_ID:-}
       BEDROCK_GUARDRAIL_VERSION: ${BEDROCK_GUARDRAIL_VERSION:-}
       MAX_SQL_RETRIES: ${MAX_SQL_RETRIES:-1}
+      DAILY_QUESTION_LIMIT: ${DAILY_QUESTION_LIMIT:-500}
     volumes:
       # Local dev: reuse host AWS credentials read-only. On EC2 the instance role is used instead.
       - ${HOME}/.aws:/home/app/.aws:ro
@@ -43,6 +44,11 @@ services:
 
   frontend:
     build: ./frontend
+    environment:
+      # Per-IP limits on /api/ask (limit-public-traffic D8); a bad value stops nginx.
+      ASK_RATE_PER_MINUTE: ${ASK_RATE_PER_MINUTE:-10}
+      ASK_RATE_BURST: ${ASK_RATE_BURST:-5}
+      MAX_CONNECTIONS_PER_IP: ${MAX_CONNECTIONS_PER_IP:-20}
     ports:
       - "127.0.0.1:8080:80"
     depends_on:

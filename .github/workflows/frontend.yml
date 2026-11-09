@@ -28,3 +28,7 @@ jobs:
       - run: npx oxlint
       - run: npm test
       - run: npm run build
+      # nginx behaviour (whitelist, rate limits, 429/413, timeouts) in throwaway containers;
+      # stdlib only, no Bedrock or database. See frontend/nginx-tests/test_nginx.py.
+      - name: nginx container tests
+        run: python3 -m unittest discover -s nginx-tests -v

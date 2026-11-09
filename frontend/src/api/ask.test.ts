@@ -35,6 +35,17 @@ describe('askQuestion', () => {
     await expect(askQuestion('q')).rejects.toThrow('模型服務暫時無法使用，請稍後再試')
   })
 
+  // limit-public-traffic: nginx (per IP, per minute) and the backend (whole site, per day)
+  // both answer 429 with the answer-shaped body; the user must see that message.
+  it.each([
+    ['nginx rate limit', '請求太頻繁，請稍後再試'],
+    ['daily question limit', '今日提問次數已達上限，請明天再試'],
+  ])('shows the server message on a 429 from the %s', async (_source, message) => {
+    mockFetch(async () => Response.json({ status: 'error', message }, { status: 429, headers: { 'Retry-After': '60' } }))
+
+    await expect(askQuestion('q')).rejects.toThrow(new AskError(message))
+  })
+
   it('turns a network failure into an error with a readable message', async () => {
     mockFetch(async () => {
       throw new TypeError('Failed to fetch')

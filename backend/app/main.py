@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, StringConstraints, field_serializer
 
 from app.charts import Chart, choose_chart
+from app.daily_limit import DailyQuestionLimit
 from app.db import DatabaseUnavailable
 from app.input_guard import InputGuardUnavailable
 from app.llm import ErrorKind
@@ -45,10 +46,11 @@ class AskResponse(BaseModel):
         return [[float(v) if isinstance(v, Decimal) else v for v in row] for row in rows]
 
 
-def _error(status_code: int, message: str) -> JSONResponse:
+def _error(status_code: int, message: str, *, retry_after: int | None = None) -> JSONResponse:
     # Same shape as a normal answer so the client never special-cases 5xx bodies.
     body = AskResponse(status="error", sql=None, columns=[], rows=[], message=message)
-    return JSONResponse(status_code=status_code, content=body.model_dump())
+    headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
+    return JSONResponse(status_code=status_code, content=body.model_dump(), headers=headers)
 
 
 def create_app(
@@ -58,6 +60,7 @@ def create_app(
     cors_origins: list[str],
     input_guard: InputGuard | None = None,
     max_sql_retries: int = 0,
+    daily_limit: DailyQuestionLimit | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -78,6 +81,11 @@ def create_app(
 
     @app.post("/api/ask", response_model=AskResponse)
     async def ask_question(body: AskRequest):
+        # Checked before the guardrail and the model so a question over the limit costs nothing.
+        # Invalid input is a 422 before this handler runs, so it never uses up the limit.
+        if daily_limit is not None and not daily_limit.try_acquire():
+            log.warning("daily question limit reached: %d/%d", daily_limit.count, daily_limit.limit)
+            return _error(429, "今日提問次數已達上限，請明天再試", retry_after=daily_limit.retry_after_seconds())
         try:
             result = await ask(body.question, generator, executor, input_guard=input_guard, max_retries=max_sql_retries)
         except InputGuardUnavailable:
@@ -141,4 +149,5 @@ def build_app() -> FastAPI:
         cors_origins=settings.cors_origins,
         input_guard=deps.input_guard,
         max_sql_retries=settings.max_sql_retries,
+        daily_limit=DailyQuestionLimit(settings.daily_question_limit),
     )
