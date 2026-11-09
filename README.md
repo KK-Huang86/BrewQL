@@ -93,6 +93,16 @@ curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
 
 憑證只存在本機 `~/.aws`，以唯讀方式掛進容器，不會進入 repo 或 image。
 
+## 監控
+
+backend 輸出 JSON log 與 Prometheus 指標（`/metrics` 只在 compose 網路內，nginx 對外回 404），由 Grafana Alloy 連同 nginx access log、主機與容器資源推送到 Grafana Cloud。Dashboard 與告警規則以程式碼存在 `observability/`，設定步驟見 [observability/README.md](observability/README.md)。
+
+![提問數、成功率、耗時、成本與結果分布](docs/images/grafana-overview.png)
+
+成本有兩個來源：應用程式依 `backend/app/pricing.py` 估算，並與 AWS CloudWatch `AWS/Bedrock` 的 token 數並排對帳。Grafana 以 Terraform 建立的唯讀 IAM role 讀取 CloudWatch，沒有 access key。
+
+![應用程式與 CloudWatch 的 token 總數對帳](docs/images/grafana-reconciliation.png)
+
 ## 開發
 
 ```bash

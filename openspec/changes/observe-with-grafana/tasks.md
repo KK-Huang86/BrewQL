@@ -32,4 +32,6 @@
 
 ## 5. 驗證
 
-- [ ] 5.1 實際提問各種類型（正常、拒答、反問、攔截、5xx、每日上限、nginx 限流），截圖 dashboard 放進 README；驗證：每個面板都有資料
+- [x] 5.1 實際提問各種類型（正常、拒答、反問、攔截、5xx、每日上限、nginx 限流），截圖 dashboard 放進 README；驗證：每個面板都有資料
+  - 結果：經 nginx 送出 ok 3、clarify 1、模型拒答 1、prompt attack 1、白名單外路徑 404 ×4、並發 30 次（24 次 429）；Guardrail 版本設錯時 2 題 502（`unavailable_guardrail`）；上限設 1 時 1 題 200、2 題 429。每個面板都有資料，沒觸發的錯誤種類顯示 0 而非 No data。截圖在 `docs/images/`，README 與 `observability/README.md` 引用。
+  - 對帳面板改為所選範圍的總數並排（原本每小時長條在短時間範圍幾乎畫不出來）。3 小時範圍 app input 19K、CloudWatch 22K：恢復設定重啟 backend 後在 Alloy 下一次抓取前就答題，新計數 3,157 已超過重啟前的值，Prometheus 看不出重置而少算約一題。屬 Prometheus 抓取間隔的已知限制，記在 `observability/README.md`，不改程式。
