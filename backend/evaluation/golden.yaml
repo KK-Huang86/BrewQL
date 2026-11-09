@@ -113,6 +113,37 @@
            ) / COUNT(*), 1)
     FROM search_logs GROUP BY month ORDER BY month
 
+# --- district comparison (ticket 7): search_logs grouped by district -----------------------------
+- id: q19
+  difficulty: medium
+  question: 各行政區的搜尋次數是多少？列出行政區與次數，由多到少排序
+  ordered: true
+  sql: >-
+    SELECT district, COUNT(*) AS n FROM search_logs
+    GROUP BY district ORDER BY n DESC
+
+- id: q20
+  difficulty: medium
+  question: >-
+    各行政區的搜尋落空率是多少？以 0 到 1 的比例表示、取到小數點後 3 位，
+    列出行政區與落空率，由高到低排序
+  ordered: true
+  sql: >-
+    SELECT district,
+           ROUND(COUNT(*) FILTER (WHERE result_count = 0)::numeric / COUNT(*), 3) AS rate
+    FROM search_logs GROUP BY district ORDER BY rate DESC
+
+- id: q21
+  difficulty: hard
+  question: 搜尋次數前 5 名的行政區中，搜尋落空率最高的是哪一區？只列出行政區名稱
+  sql: >-
+    WITH top5 AS (
+      SELECT district,
+             COUNT(*) FILTER (WHERE result_count = 0)::numeric / COUNT(*) AS rate
+      FROM search_logs GROUP BY district ORDER BY COUNT(*) DESC LIMIT 5
+    )
+    SELECT district FROM top5 ORDER BY rate DESC LIMIT 1
+
 # --- refuse / clarify: no SQL should run ------------------------------------------------------
 - id: q12
   difficulty: refuse

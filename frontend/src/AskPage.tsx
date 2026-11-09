@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react'
-import { AskError, type AskResponse, isLineChart } from './api/ask'
+import { AskError, type AskResponse, isBarChart, isLineChart, isNumberChart } from './api/ask'
+import { CategoryChart } from './charts/CategoryChart'
+import { NumberCard } from './charts/NumberCard'
 import { TrendChart } from './charts/TrendChart'
+import { toBarData } from './charts/barData'
 import { toLineData } from './charts/lineData'
 
 type Props = { ask: (question: string) => Promise<AskResponse> }
@@ -90,12 +93,24 @@ function Answer({ answer }: { answer: AskResponse }) {
 function Result({ answer }: { answer: AskResponse }) {
   const [showData, setShowData] = useState(false)
   const chart = answer.chart
-  // Anything the page cannot draw (unknown type, missing column) falls back to the table.
-  const points = isLineChart(chart) ? toLineData(answer.columns, answer.rows, chart) : []
-  if (!isLineChart(chart) || points.length === 0) return <ResultTable answer={answer} />
+  // Anything the page cannot draw (unknown type, missing column, non-number) falls back to the table.
+  if (isNumberChart(chart)) {
+    const value = answer.rows[0]?.[answer.columns.indexOf(chart.value_key)]
+    if (typeof value !== 'number') return <ResultTable answer={answer} />
+    return <NumberCard label={chart.value_key} value={value} />
+  }
+  let drawing: React.ReactNode = null
+  if (isLineChart(chart)) {
+    const points = toLineData(answer.columns, answer.rows, chart)
+    if (points.length > 0) drawing = <TrendChart data={points} xKey={chart.x_key} yKey={chart.y_key} />
+  } else if (isBarChart(chart)) {
+    const bars = toBarData(answer.columns, answer.rows, chart)
+    if (bars.length > 0) drawing = <CategoryChart data={bars} xKey={chart.x_key} yKey={chart.y_key} />
+  }
+  if (!drawing) return <ResultTable answer={answer} />
   return (
     <>
-      <TrendChart data={points} xKey={chart.x_key} yKey={chart.y_key} />
+      {drawing}
       <button type="button" aria-expanded={showData} onClick={() => setShowData((v) => !v)}>
         查看資料
       </button>

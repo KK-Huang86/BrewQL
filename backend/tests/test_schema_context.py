@@ -57,3 +57,20 @@ def test_schema_context_defines_time_phrases():
     # "最近半年" alone must not trigger a clarifying question: it has a fixed meaning.
     for phrase in ("最近半年", "最近一個月", "最近一週"):
         assert phrase in SCHEMA_CONTEXT, phrase
+
+
+def test_schema_context_defines_zero_result_rate_like_the_story_check():
+    # Design D2 / db/checks/07: zero-result searches ÷ searches in the district.
+    # numeric cast: integer division would turn every rate into 0.
+    lines = [line for line in SCHEMA_CONTEXT.splitlines() if "搜尋落空率" in line]
+    assert lines, "搜尋落空率 is not defined"
+    definition = lines[0]
+    for text in ("result_count = 0", "count(*)", "numeric", "district"):
+        assert text in definition, text
+
+
+def test_comparisons_return_one_category_and_one_measure():
+    # Seen with real Bedrock in ticket 7: "哪些行政區最常搜尋不到結果？" came back with four
+    # columns, so the page showed a table instead of a bar chart.
+    for text in ("比較或排名", "一個類別欄", "一個主要指標", "除非問題要求"):
+        assert text in SCHEMA_CONTEXT, text

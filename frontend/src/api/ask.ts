@@ -3,12 +3,24 @@ export type ChartSpec = {
   type: string
   x_key?: string | null
   y_key?: string | null
+  /** Only the number card uses it. */
+  value_key?: string | null
 }
 
 export type LineChartSpec = { type: 'line'; x_key: string; y_key: string }
+export type BarChartSpec = { type: 'bar'; x_key: string; y_key: string }
+export type NumberChartSpec = { type: 'number'; value_key: string }
 
 export function isLineChart(chart: ChartSpec | null | undefined): chart is LineChartSpec {
   return chart?.type === 'line' && !!chart.x_key && !!chart.y_key
+}
+
+export function isBarChart(chart: ChartSpec | null | undefined): chart is BarChartSpec {
+  return chart?.type === 'bar' && !!chart.x_key && !!chart.y_key
+}
+
+export function isNumberChart(chart: ChartSpec | null | undefined): chart is NumberChartSpec {
+  return chart?.type === 'number' && !!chart.value_key
 }
 
 export type AskResponse = {

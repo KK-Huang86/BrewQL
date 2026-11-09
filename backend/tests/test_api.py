@@ -68,7 +68,8 @@ def test_ask_returns_sql_columns_and_rows():
         "error_kind": None,
         "refusal_source": None,
         "attempts": 1,
-        "chart": {"type": "table", "x_key": None, "y_key": None},
+        # Ticket 7: city + count is now a bar; value_key is null for every chart but the number card.
+        "chart": {"type": "bar", "x_key": "city", "y_key": "n", "value_key": None},
     }
 
 
@@ -445,7 +446,7 @@ def test_time_and_number_result_carries_a_line_chart():
 
     chart = client.post("/api/ask", json={"question": "最近半年每月搜尋量"}).json()["chart"]
 
-    assert chart == {"type": "line", "x_key": "month", "y_key": "searches"}
+    assert chart == {"type": "line", "x_key": "month", "y_key": "searches", "value_key": None}
 
 
 def test_failed_query_has_no_chart():

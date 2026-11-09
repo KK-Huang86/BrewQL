@@ -116,3 +116,16 @@ def test_shipped_golden_set_has_trend_questions():
 
     assert len(trends) >= 3
     assert any(q.difficulty == "hard" for q in trends)
+
+
+def test_shipped_golden_set_has_district_comparison_questions():
+    # Spec (ticket 7): at least 3 questions comparing districts on search_logs,
+    # at least 1 on the zero-result rate and at least 1 of them hard.
+    from pathlib import Path
+
+    questions = load_golden_set(Path(__file__).resolve().parents[1] / "evaluation" / "golden.yaml")
+    districts = [q for q in questions if q.sql and "search_logs" in q.sql and "GROUP BY district" in q.sql]
+
+    assert len(districts) >= 3
+    assert any("result_count = 0" in q.sql for q in districts)
+    assert any(q.difficulty == "hard" for q in districts)
