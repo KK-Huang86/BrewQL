@@ -1,6 +1,6 @@
 ## 1. 後端
 
-- [ ] 1.1 JSON log（D6）：`app` logger 每行一個 JSON，含 `time`、`level`、`logger`、`message` 與 `extra` 欄位，無法序列化的值轉字串，例外帶 traceback；uvicorn access log 關閉；驗證：紅燈再綠燈
+- [x] 1.1 JSON log（D6）：`app` logger 每行一個 JSON，含 `time`、`level`、`logger`、`message` 與 `extra` 欄位，無法序列化的值轉字串，例外帶 traceback；uvicorn access log 關閉；驗證：紅燈再綠燈
 - [ ] 1.2 各階段耗時（D4）：`AskUsage` 記錄 `input_guard`、`model`、`db` 每次呼叫的耗時（重試各一筆、被 Guardrail 擋下時沒有 `model`），pipeline 不 import 指標套件；驗證：紅燈再綠燈
 - [ ] 1.3 `/metrics` 與提問指標（D3）：`brewql_ask_total`（含 5xx 的 `unavailable_*`）、`brewql_ask_seconds`、`brewql_stage_seconds`、`brewql_llm_tokens_total`、`brewql_guardrail_blocks_total`、`brewql_guardrail_units_total`；每個測試獨立 registry；驗證：紅燈再綠燈
 - [ ] 1.4 成本與每日上限指標（D3、D5）：`brewql_estimated_cost_usd_total` 用 `pricing.cost_usd`、不在單價表時只加 `brewql_unpriced_questions_total`；`brewql_daily_questions_used`、`brewql_daily_question_limit`、`brewql_daily_limit_hits_total`；驗證：紅燈再綠燈
