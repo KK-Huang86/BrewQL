@@ -74,3 +74,50 @@ def test_comparisons_return_one_category_and_one_measure():
     # columns, so the page showed a table instead of a bar chart.
     for text in ("比較或排名", "一個類別欄", "一個主要指標", "除非問題要求"):
         assert text in SCHEMA_CONTEXT, text
+
+
+def test_schema_context_describes_every_allowlisted_table():
+    # Spec (ticket 8): every table and view the guard allows has its own section.
+    from app.sql_guard import DEFAULT_ALLOWED_TABLES
+
+    missing = {t for t in DEFAULT_ALLOWED_TABLES if f" {t}：" not in SCHEMA_CONTEXT}
+    assert not missing, f"schema context has no section for: {missing}"
+
+
+def definition_of(term: str) -> str:
+    lines = [line for line in SCHEMA_CONTEXT.splitlines() if line.startswith(f"- {term}")]
+    assert lines, f"{term} is not defined"
+    return lines[0]
+
+
+def test_schema_context_defines_favorite_conversion_like_the_story_check():
+    # Design D3 / db/checks/08: favorites from an entry point ÷ views from it, as numeric.
+    definition = definition_of("收藏轉換率")
+    for text in ("favorites", "cafe_views", "source", "numeric"):
+        assert text in definition, text
+
+
+def test_schema_context_separates_active_users_from_account_status():
+    # Design D4: searched or viewed in the period (default 30 days), not users.status.
+    definition = definition_of("活躍使用者")
+    for text in ("search_logs", "cafe_views", "30 天", "status"):
+        assert text in definition, text
+
+
+def test_schema_context_defines_few_favorites_by_the_median():
+    # Design D4: with no threshold given, "few" means below the median favorite_count.
+    definition = definition_of("收藏很少")
+    for text in ("favorite_count", "percentile_cont(0.5)"):
+        assert text in definition, text
+
+
+def test_schema_context_prefers_the_cafe_profile_view():
+    # Spec: cafe attributes together with community ratings come from v_cafe_profile.
+    assert "優先使用 v_cafe_profile" in SCHEMA_CONTEXT
+
+
+def test_favorite_conversion_comes_with_a_sql_template_and_no_join():
+    # Seen with real Bedrock in ticket 8: the model joined cafe_views to favorites, so repeat
+    # views of one favorited cafe each counted as a conversion (18.1% instead of 11.5%).
+    for text in ("FROM favorites f WHERE f.source = v.source", "FROM cafe_views v", "不要 JOIN"):
+        assert text in SCHEMA_CONTEXT, text

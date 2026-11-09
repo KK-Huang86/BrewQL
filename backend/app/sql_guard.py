@@ -28,7 +28,19 @@ _FORBIDDEN_NODES = (
 
 
 # Tables the model may query. CTE names are allowed too; everything else is rejected.
-DEFAULT_ALLOWED_TABLES = frozenset({"cafes", "users", "search_logs", "v_daily_activity"})
+DEFAULT_ALLOWED_TABLES = frozenset(
+    {
+        "cafes",
+        "users",
+        "search_logs",
+        "cafe_views",
+        "favorites",
+        "cafe_nomad_cache",
+        "cafe_attribute_votes",
+        "v_daily_activity",
+        "v_cafe_profile",
+    }
+)
 
 
 # Most rows one query may return; protects the API, the browser and the model context.

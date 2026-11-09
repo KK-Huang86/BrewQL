@@ -129,3 +129,19 @@ def test_shipped_golden_set_has_district_comparison_questions():
     assert len(districts) >= 3
     assert any("result_count = 0" in q.sql for q in districts)
     assert any(q.difficulty == "hard" for q in districts)
+
+
+def test_shipped_golden_set_has_view_and_favorite_questions():
+    # Spec (ticket 8): at least 4 questions on views, favorites or community ratings; at least
+    # 1 uses both cafe_views and favorites (conversion), 1 uses v_cafe_profile and 1 is about
+    # active users.
+    from pathlib import Path
+
+    questions = load_golden_set(Path(__file__).resolve().parents[1] / "evaluation" / "golden.yaml")
+    new_tables = ("cafe_views", "favorites", "cafe_nomad_cache", "v_cafe_profile")
+    related = [q for q in questions if q.sql and any(t in q.sql for t in new_tables)]
+
+    assert len(related) >= 4
+    assert any("cafe_views" in q.sql and "favorites" in q.sql for q in related)
+    assert any("v_cafe_profile" in q.sql for q in related)
+    assert any("活躍使用者" in q.question for q in related)

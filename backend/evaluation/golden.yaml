@@ -144,6 +144,47 @@
     )
     SELECT district FROM top5 ORDER BY rate DESC LIMIT 1
 
+# --- views, favorites and community ratings (ticket 8) ------------------------------------------
+- id: q22
+  difficulty: hard
+  question: >-
+    從搜尋結果進入和從 LINE 選單進入，收藏轉換率各是多少？以 0 到 1 的比例表示、
+    取到小數點後 3 位，列出入口與轉換率
+  sql: >-
+    SELECT v.source,
+           ROUND((SELECT COUNT(*) FROM favorites f WHERE f.source = v.source)::numeric / COUNT(*), 3) AS rate
+    FROM cafe_views v WHERE v.source IN ('search', 'rich_menu') GROUP BY v.source
+
+- id: q23
+  difficulty: medium
+  question: Google 評分 4.7 以上、但收藏數低於所有店中位數的咖啡店有哪些？列出店名
+  sql: >-
+    SELECT name FROM cafes
+    WHERE rating >= 4.7
+      AND favorite_count < (SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY favorite_count) FROM cafes)
+
+- id: q24
+  difficulty: medium
+  question: 工作友善、而且 Cafe Nomad 網路評分 4 分以上的咖啡店有幾家？
+  sql: >-
+    SELECT COUNT(*) FROM v_cafe_profile
+    WHERE limited_time IN ('no', 'maybe') AND has_socket IN ('yes', 'maybe') AND wifi >= 4
+
+- id: q25
+  difficulty: medium
+  question: 最近 30 天有幾位活躍使用者？
+  sql: >-
+    SELECT COUNT(DISTINCT user_id) FROM (
+      SELECT user_id FROM search_logs WHERE created_at >= now() - interval '30 days'
+      UNION
+      SELECT user_id FROM cafe_views WHERE created_at >= now() - interval '30 days'
+    ) active
+
+- id: q26
+  difficulty: easy
+  question: 各個入口（搜尋結果、收藏清單、LINE 選單）的瀏覽次數各是多少？列出入口與次數
+  sql: SELECT source, COUNT(*) FROM cafe_views GROUP BY source
+
 # --- refuse / clarify: no SQL should run ------------------------------------------------------
 - id: q12
   difficulty: refuse

@@ -22,6 +22,22 @@ async def test_reader_can_query_members_searches_and_daily_activity(executor, sq
     assert rows == [[expected]]
 
 
+@pytest.mark.parametrize(
+    ("sql", "expected"),
+    [
+        ("SELECT count(*) > 0 FROM favorites", True),
+        ("SELECT count(*) > 150000 FROM cafe_views", True),
+        ("SELECT count(*) FROM cafe_nomad_cache", 140),
+        ("SELECT count(*) > 0 FROM cafe_attribute_votes", True),
+        ("SELECT count(*) FROM v_cafe_profile", 200),
+    ],
+)
+async def test_reader_can_query_views_favorites_and_community_ratings(executor, sql, expected):
+    # Spec (ticket 8): genbi_reader is granted SELECT on the new tables and view.
+    _, rows = await executor.run(sql)
+    assert rows == [[expected]]
+
+
 async def test_empty_result_still_has_column_names(executor):
     columns, rows = await executor.run("SELECT name, rating FROM cafes WHERE city = '高雄市'")
     assert columns == ["name", "rating"]
@@ -112,3 +128,13 @@ async def test_timeout_is_marked_so_the_pipeline_does_not_retry_it(reader_dsn):
 
     assert timed_out.value.timed_out is True
     assert plain.value.timed_out is False
+
+
+async def test_reader_can_select_from_every_allowlisted_table(executor):
+    # The guard allowlist and the GRANT in db/init/03_readonly_role.sh are kept by hand in two
+    # places; a table allowed by one but not the other would fail only on a real question.
+    from app.sql_guard import DEFAULT_ALLOWED_TABLES
+
+    for table in sorted(DEFAULT_ALLOWED_TABLES):
+        _, rows = await executor.run(f"SELECT count(*) > 0 FROM {table}")
+        assert rows == [[True]], table
