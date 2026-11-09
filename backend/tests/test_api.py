@@ -384,8 +384,10 @@ def test_production_app_warns_when_no_input_guardrail_is_configured(monkeypatch,
     build_app()
 
     # build_app installs the app's own stderr handler (no propagation), so read stderr.
-    warnings = [line for line in capsys.readouterr().err.splitlines() if " WARNING " in line]
-    assert any("GUARDRAIL" in line.upper() for line in warnings)
+    import json
+
+    lines = [json.loads(line) for line in capsys.readouterr().err.splitlines()]
+    assert any(line["level"] == "WARNING" and "GUARDRAIL" in line["message"].upper() for line in lines)
 
 
 class FixingGenerator:
