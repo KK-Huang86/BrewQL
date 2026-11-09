@@ -51,6 +51,8 @@ class AskUsage:
     input_tokens: int = 0
     output_tokens: int = 0
     guardrail: GuardrailUsage = field(default_factory=GuardrailUsage)
+    # Why the input guardrail blocked the question (fixed reason codes); empty when it passed.
+    guardrail_reasons: tuple[str, ...] = ()
     elapsed_ms: int = 0
     # One entry per call, in order; retries add their own model and db entries. Left out of
     # equality: timings differ on every run, while usage compares by what was billed.
@@ -124,6 +126,7 @@ async def _answer(
             verdict = await input_guard.check(question)
         usage.guardrail = verdict.usage
         if verdict.blocked:
+            usage.guardrail_reasons = verdict.reasons
             return AskResult(status="refused", message=verdict.message, refusal_source="input_guardrail")
     feedback: list[FailedAttempt] = []
     while True:
