@@ -26,7 +26,9 @@
 
 - [x] 4.1 查證 Grafana Cloud 免費方案能否以 assume role（external ID）連 CloudWatch（D5）；驗證：記錄結論與來源，決定走 data source 或本機對帳腳本
   - 結論（2026-11-10）：文件沒有寫明免費方案是否支援；實際在使用者的免費 stack 新增 CloudWatch data source 時，Authentication Provider 有「Grafana Assume Role」，並顯示 Grafana 的 AWS 帳號 ID 與 stack 專屬的 external ID。採用 CloudWatch data source（查詢時才讀，不佔 series 額度），不用 Cloud Provider 整合。來源：Grafana 文件〈CloudWatch data source: AWS authentication〉與 learning path〈Grafana Assume Role〉
-- [ ] 4.2 Terraform 唯讀 IAM role（只有 CloudWatch 讀取權限），依 4.1 的結論接上 Grafana Cloud 或對帳腳本；驗證：`terraform plan` 只新增該 role 與 policy；使用者 apply 後，一段時間內的 token 數兩邊一致
+- [x] 4.2 Terraform 唯讀 IAM role（只有 CloudWatch 讀取權限），依 4.1 的結論接上 Grafana Cloud 或對帳腳本；驗證：`terraform plan` 只新增該 role 與 policy；使用者 apply 後，一段時間內的 token 數兩邊一致
+  - 結果：`brewql-grafana-cloudwatch-read` 由 Grafana Cloud 以 Assume Role（Grafana 的 AWS 帳號 + stack external ID）取得，沒有 access key；`terraform plan` 只新增 role 與 inline policy。deployer 原本缺 `iam:CreateRole`，另加限定 `role/brewql-*` 的 inline policy 後 apply 成功。CloudWatch 資料來源 metrics 測試通過；logs 測試 AccessDenied 是預期（role 沒有 `logs:*`）。
+  - 對帳：backend 重啟後問 2 題，`/metrics` 為 input 6,306、output 89；Grafana Explore 查 `AWS/Bedrock` `InputTokenCount`／`OutputTokenCount`（Sum、period 300）同一格完全相同。dashboard 的 `increase([1h])` 長條會外推、且小時對齊與 CloudWatch 可能差一格，只會接近；精確對帳以原始計數與 CloudWatch Sum 比較。修正前較早的 3.1k 差距來自序列從 1 起跳被 `increase()` 漏算，已由預先建立 0 值序列修正。
 
 ## 5. 驗證
 
