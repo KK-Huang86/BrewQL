@@ -17,7 +17,8 @@
 
 ## 3. Dashboard 與告警
 
-- [ ] 3.1 Dashboard（D10）：結果分布、拒答來源、各階段 p50／p95、每日 token 與估算成本、成本不完整、Guardrail 原因、每日上限使用量、nginx 429／404、主機與容器資源，匯出 JSON 到 `observability/dashboards/`；驗證：從 JSON 匯入可重建
+- [x] 3.1 Dashboard（D10）：結果分布、拒答來源、各階段 p50／p95、每日 token 與估算成本、成本不完整、Guardrail 原因、每日上限使用量、nginx 429／404、主機與容器資源，匯出 JSON 到 `observability/dashboards/`；驗證：從 JSON 匯入可重建
+  - 結果（2026-11-09）：使用者從 JSON 匯入 Grafana Cloud，面板有資料。檢查時發現成功率顯示 100%（實際 2 題成功、2 題拒答）：有標籤的 counter 第一次事件才產生 series，`increase()` 看不到那次事件；改為啟動時把已知的標籤組合以 0 輸出後恢復正確
 - [ ] 3.2 告警（D10）：八條規則匯出 YAML 到 `observability/alerts/`；驗證：本機把 Guardrail 版本設錯，Guardrail 無法使用的告警觸發；連續提問觸發 nginx 429 告警；停掉 `backend` 容器觸發容器停止告警
 
 ## 4. 成本對帳

@@ -1,0 +1,80 @@
+# BrewQL alert rules on Grafana Cloud Prometheus (observe-with-grafana D10).
+# Prometheus rule format, checked in CI with promtool; imported into Grafana-managed alerting
+# (see observability/README.md). Grouped by env so local runs and the demo alert separately.
+groups:
+  - name: brewql
+    interval: 1m
+    rules:
+      - alert: BrewQLServiceErrors
+        # 5xx: Guardrail, Bedrock or the database unavailable. At least 5 questions, so one
+        # failure on a quiet night is not 100%.
+        expr: |
+          (
+            sum by (env) (increase(brewql_ask_total{project="brewql", error_kind=~"unavailable_.*"}[5m]))
+            / sum by (env) (increase(brewql_ask_total{project="brewql"}[5m]))
+          ) > 0.2
+          and sum by (env) (increase(brewql_ask_total{project="brewql"}[5m])) >= 5
+        labels:
+          severity: critical
+        annotations:
+          summary: "BrewQL：5 分鐘內超過 20% 的提問回 5xx"
+          description: "看 dashboard「錯誤種類」是 Guardrail、Bedrock 還是資料庫。"
+
+      - alert: BrewQLSlowAnswers
+        expr: |
+          histogram_quantile(0.95, sum by (le, env) (rate(brewql_ask_seconds_bucket{project="brewql"}[10m]))) > 10
+        labels:
+          severity: warning
+        annotations:
+          summary: "BrewQL：10 分鐘內 p95 總耗時超過 10 秒"
+          description: "看 dashboard「各階段 p95」是模型還是資料庫變慢。"
+
+      - alert: BrewQLGuardrailUnavailable
+        # Fail closed: every question is refused with 502 until the Guardrail works again.
+        expr: |
+          sum by (env) (increase(brewql_ask_total{project="brewql", error_kind="unavailable_guardrail"}[5m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "BrewQL：Bedrock Guardrail 無法使用，提問一律回 502"
+          description: "檢查 BEDROCK_GUARDRAIL_ID／VERSION 與 IAM 權限；backend log 有 input guardrail failed。"
+
+      - alert: BrewQLDailyLimitReached
+        expr: |
+          sum by (env) (increase(brewql_daily_limit_hits_total{project="brewql"}[5m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "BrewQL：今日提問上限已用完，之後的提問回 429"
+          description: "確認是正常流量還是濫用；上限由 DAILY_QUESTION_LIMIT 設定，台北午夜重置。"
+
+      - alert: BrewQLHostDiskFull
+        expr: |
+          max by (env, mountpoint) (1 - node_filesystem_avail_bytes{project="brewql"} / node_filesystem_size_bytes{project="brewql"}) > 0.85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "BrewQL：主機檔案系統使用率超過 85%"
+          description: "常見原因是 Docker image 與 log 累積：docker system df。"
+
+      - alert: BrewQLHostMemoryHigh
+        expr: |
+          max by (env) (1 - node_memory_MemAvailable_bytes{project="brewql"} / node_memory_MemTotal_bytes{project="brewql"}) > 0.9
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "BrewQL：主機記憶體使用率超過 90% 持續 10 分鐘"
+          description: "看 dashboard「容器記憶體」是哪個容器。"
+
+      - alert: BrewQLBackendDown
+        # Alloy is alive (it reports up) but cannot scrape the backend: the container stopped or hangs.
+        expr: |
+          max by (env) (up{project="brewql", service="backend"}) == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "BrewQL：backend 5 分鐘無法存取"
+          description: "docker compose ps；docker compose logs backend。"

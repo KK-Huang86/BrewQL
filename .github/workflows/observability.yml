@@ -22,3 +22,13 @@ jobs:
           docker run --rm -e GRAFANA_CLOUD_PROMETHEUS_URL=http://example.invalid \
             -e GRAFANA_CLOUD_LOKI_URL=http://example.invalid \
             -v "$PWD/observability/alloy:/cfg:ro" grafana/alloy:v1.14.0 validate /cfg/config.alloy
+
+  alert-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The Loki rules use LogQL, which promtool cannot parse; they are checked when imported.
+      - name: promtool check rules
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/observability/alerts:/a:ro" \
+            prom/prometheus:v2.53.0 check rules /a/brewql-prometheus.yml
