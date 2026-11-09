@@ -25,6 +25,6 @@ ticket 7、8 的 retro 找到三個執行層面的問題：
 
 ## Impact
 
-- 修改：`tools/spec_check.py`、`tools/test_spec_check.py`、`CLAUDE.md`
-- 新增：`CODING_STANDARDS.md`、`db/checks/mutate.sh`、`tools/test_mutate.py`
+- 修改：`tools/spec_check.py`、`CLAUDE.md`
+- 新增：`CODING_STANDARDS.md`、`db/checks/mutate.sh`、`tools/test_one_change_check.py`、`tools/test_mutate.py`
 - 不改變 API、資料或模型行為
