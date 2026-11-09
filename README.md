@@ -124,7 +124,7 @@ npm --prefix frontend run build
 | 5 | 5 | `eval-golden-set` | 以執行結果比對的正確率評估（基準 14/15，加上今天日期後 15/15） ✅ |
 | 6 | 6 | `search-trend-line-chart` | 模擬會員與搜尋紀錄、折線圖（評估 18/18） ✅ |
 | 7 | 7 | `district-gap-bar-chart` | 行政區供需落差、長條圖與數字卡（評估 21/21） ✅ |
-| 8 | 8 | `view-favorite-insights` | 瀏覽與收藏、收藏轉換率；RAG 前的最終評估基準 |
+| 8 | 8 | `view-favorite-insights` | 瀏覽、收藏與社群評分、收藏轉換率；RAG 前的最終評估基準（26/26） ✅ |
 | 9 | — | `limit-public-traffic` | nginx 白名單轉發、依端點成本分級限流、全域每日提問上限 |
 | 10 | — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 |
 | 11 | — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 |
