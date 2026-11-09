@@ -31,18 +31,29 @@ GUARDRAIL_TOPIC_PER_1K_UNITS = 0.15
 GUARDRAIL_CONTENT_PER_1K_UNITS = 0.15
 
 
-def cost_usd(usage: AskUsage) -> float | None:
-    """Dollars for one question, or None when a model is missing from the table or guardrail units are unknown."""
+def guardrail_cost_usd(usage: AskUsage) -> float | None:
+    """Guardrail dollars, or None when the response carried no units (unknown, not zero)."""
     if not usage.guardrail.reported:
         return None
-    guardrail = (
+    return (
         usage.guardrail.topic_units * GUARDRAIL_TOPIC_PER_1K_UNITS
         + usage.guardrail.content_units * GUARDRAIL_CONTENT_PER_1K_UNITS
     ) / 1000
+
+
+def model_cost_usd(usage: AskUsage) -> float | None:
+    """Model dollars, or None when tokens were billed by a model missing from the table."""
     if usage.input_tokens == 0 and usage.output_tokens == 0:
-        return guardrail
+        return 0.0
     price = MODEL_PRICES.get(usage.model_id or "")
     if price is None:
         return None
-    tokens = (usage.input_tokens * price.input_per_mtok + usage.output_tokens * price.output_per_mtok) / 1_000_000
-    return tokens + guardrail
+    return (usage.input_tokens * price.input_per_mtok + usage.output_tokens * price.output_per_mtok) / 1_000_000
+
+
+def cost_usd(usage: AskUsage) -> float | None:
+    """Dollars for one question, or None when a model is missing from the table or guardrail units are unknown."""
+    guardrail, model = guardrail_cost_usd(usage), model_cost_usd(usage)
+    if guardrail is None or model is None:
+        return None
+    return model + guardrail

@@ -65,7 +65,7 @@ def create_app(
     max_sql_retries: int = 0,
     daily_limit: DailyQuestionLimit | None = None,
 ) -> FastAPI:
-    metrics = AskMetrics()
+    metrics = AskMetrics(daily_limit)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -95,6 +95,7 @@ def create_app(
         # Invalid input is a 422 before this handler runs, so it never uses up the limit.
         if daily_limit is not None and not daily_limit.try_acquire():
             log.warning("daily question limit reached: %d/%d", daily_limit.count, daily_limit.limit)
+            metrics.record_daily_limit_hit()
             return _error(429, "今日提問次數已達上限，請明天再試", retry_after=daily_limit.retry_after_seconds())
         started = time.perf_counter()
         try:

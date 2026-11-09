@@ -7,9 +7,11 @@ configured model ID: never question text, SQL or an IP address.
 
 from typing import Literal
 
-from prometheus_client import CollectorRegistry, Counter, Histogram, generate_latest
+from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
 
+from app.daily_limit import DailyQuestionLimit
 from app.pipeline import AskResult
+from app.pricing import guardrail_cost_usd, model_cost_usd
 
 # Seconds; nginx gives up on the backend after 60.
 BUCKETS = (0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30)
@@ -19,7 +21,7 @@ Unavailable = Literal["unavailable_guardrail", "unavailable_model", "unavailable
 class AskMetrics:
     """One registry per app, so each test (and each app) counts on its own."""
 
-    def __init__(self) -> None:
+    def __init__(self, daily_limit: DailyQuestionLimit | None = None) -> None:
         self.registry = CollectorRegistry()
         r = self.registry
         self.asks = Counter(
@@ -34,6 +36,21 @@ class AskMetrics:
             "brewql_guardrail_blocks", "Questions blocked by the input guardrail", ["reason"], registry=r
         )
         self.guardrail_units = Counter("brewql_guardrail_units", "Guardrail text units billed", ["policy"], registry=r)
+        # Same prices as the eval (app/pricing.py); the dashboard never multiplies prices itself.
+        self.cost = Counter("brewql_estimated_cost_usd", "Estimated Bedrock cost", ["component"], registry=r)
+        self.unpriced = Counter(
+            "brewql_unpriced_questions", "Questions whose cost is unknown, so the cost total is low", registry=r
+        )
+        self.daily_limit_hits = None
+        if daily_limit is not None:
+            # Read at scrape time, so the dashboard shows 0 right after Taipei midnight.
+            Gauge("brewql_daily_questions_used", "Questions counted today", registry=r).set_function(
+                daily_limit.used_today
+            )
+            Gauge("brewql_daily_question_limit", "Questions allowed per Taipei day", registry=r).set(daily_limit.limit)
+            self.daily_limit_hits = Counter(
+                "brewql_daily_limit_hits", "Questions refused by the daily limit", registry=r
+            )
 
     def record(self, result: AskResult, seconds: float) -> None:
         usage = result.usage
@@ -48,11 +65,23 @@ class AskMetrics:
         self.guardrail_units.labels("content").inc(usage.guardrail.content_units)
         for reason in usage.guardrail_reasons:
             self.guardrail_blocks.labels(reason).inc()
+        # Each part counts when known; a question with any unknown part is flagged, never guessed.
+        model, guardrail = model_cost_usd(usage), guardrail_cost_usd(usage)
+        if model is not None:
+            self.cost.labels("model").inc(model)
+        if guardrail is not None:
+            self.cost.labels("guardrail").inc(guardrail)
+        if model is None or guardrail is None:
+            self.unpriced.inc()
 
     def record_unavailable(self, kind: Unavailable, seconds: float) -> None:
         """A 5xx: the pipeline raised, so only the outcome and total time are known."""
         self.asks.labels("error", "", kind).inc()
         self.ask_seconds.observe(seconds)
+
+    def record_daily_limit_hit(self) -> None:
+        if self.daily_limit_hits is not None:
+            self.daily_limit_hits.inc()
 
     def render(self) -> bytes:
         return generate_latest(self.registry)
