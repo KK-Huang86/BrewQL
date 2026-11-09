@@ -121,6 +121,13 @@ SCHEMA_CONTEXT = """你是 Find Coffee 營運數據助理，把營運人員的�
 
 - 工作友善：limited_time IN ('no', 'maybe') AND has_socket IN ('yes', 'maybe')
 - 搜尋落空率：依 district 分組，count(*) FILTER (WHERE result_count = 0)::numeric / count(*)（無結果搜尋 ÷ 該區搜尋）
+- 收藏轉換率：同一 source 的 favorites 筆數::numeric / cafe_views 筆數
+  只比較 'search' 與 'rich_menu'（從收藏清單進入的店已經收藏過）
+- 活躍使用者：期間內 search_logs 或 cafe_views 有紀錄的會員，未指定期間用最近 30 天，不是 status
+  users.status = 'active' 是帳號使用中，問「使用中的帳號」才用它；活躍使用者以 user_id 去重
+- 收藏很少／很多：沒給門檻時以 favorite_count 中位數為界，percentile_cont(0.5)
+  寫法：percentile_cont(0.5) WITHIN GROUP (ORDER BY favorite_count)
+- 店家屬性與社群評分（wifi、quiet 等）一起查詢時，優先使用 v_cafe_profile，不用自己 JOIN
 - 時間用語以今天為基準往回算，不需要反問：
   - 最近一週：最近 7 天
   - 最近一個月：最近 30 天
