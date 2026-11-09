@@ -114,3 +114,10 @@ def test_schema_context_defines_few_favorites_by_the_median():
 def test_schema_context_prefers_the_cafe_profile_view():
     # Spec: cafe attributes together with community ratings come from v_cafe_profile.
     assert "優先使用 v_cafe_profile" in SCHEMA_CONTEXT
+
+
+def test_favorite_conversion_comes_with_a_sql_template_and_no_join():
+    # Seen with real Bedrock in ticket 8: the model joined cafe_views to favorites, so repeat
+    # views of one favorited cafe each counted as a conversion (18.1% instead of 11.5%).
+    for text in ("FROM favorites f WHERE f.source = v.source", "FROM cafe_views v", "不要 JOIN"):
+        assert text in SCHEMA_CONTEXT, text
