@@ -1,6 +1,7 @@
 """Per-stage timings on AskUsage (observe-with-grafana D4): the pipeline measures, the API records metrics."""
 
 import asyncio
+from pathlib import Path
 
 from app.db import QueryError
 from app.input_guard import GuardVerdict
@@ -95,3 +96,9 @@ async def test_a_failed_model_reply_is_still_timed():
 
     assert (result.error_kind, stages(result)) == ("generation", ["model"])
     assert result.usage.stages[0].seconds >= DELAY
+
+
+def test_the_pipeline_does_not_depend_on_the_metrics_library():
+    # Evals and smoke scripts run the same pipeline; only the API handler may record metrics.
+    source = (Path(__file__).resolve().parents[1] / "app" / "pipeline.py").read_text()
+    assert "prometheus" not in source and "app.metrics" not in source
