@@ -19,6 +19,7 @@ import unittest
 import urllib.error
 import urllib.request
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 IMAGE = "nginx:1.27-alpine"
@@ -191,7 +192,13 @@ class WhitelistTest(NginxTestCase):
 
 
 def ask_n_times(n: int) -> list[int]:
-    return [harness.ask() for _ in range(n)]
+    """Send n questions at once, statuses sorted (200 before 429).
+
+    Sent in parallel so all land well inside one 6-second refill of the 10/minute rate; sent one by
+    one on a slow Docker host they spread past it and an extra question gets through.
+    """
+    with ThreadPoolExecutor(max_workers=n) as pool:
+        return sorted(pool.map(lambda _: harness.ask(), range(n)))
 
 
 class RateLimitTest(NginxTestCase):
