@@ -4,7 +4,7 @@
 
 ## 2. 突變工具
 
-- [ ] 2.1 `db/checks/mutate.sh`（D5）；驗證：先寫 `tools/test_mutate.py`（以假的 `$PSQL` 檢查送出的指令順序與兩種結果）紅燈，再綠燈；對 Demo 資料庫實跑一次 08 的突變
+- [x] 2.1 `db/checks/mutate.sh`（D5）；驗證：先寫 `tools/test_mutate.py`（以假的 `$PSQL` 檢查送出的指令順序與兩種結果）紅燈，再綠燈；對 Demo 資料庫實跑一次 08 的突變
 
 ## 3. 規則文件
 
