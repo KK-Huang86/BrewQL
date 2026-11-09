@@ -6,7 +6,8 @@
 #     db/checks/mutate.sh "UPDATE cafes SET favorite_count = favorite_count + 1 WHERE id = 1" 08_views_favorites.sql
 #
 # Prints "caught: <first ERROR line>" and exits 0 when the check fails, "NOT caught" and exits 1
-# when it still passes, and exits 2 on a usage error or when psql fails without a check error.
+# when it still passes. Exits 2 on a usage error, when the mutation itself fails (so a typo is
+# never read as caught), or when psql fails without a check error.
 set -uo pipefail
 
 usage() {
@@ -24,11 +25,18 @@ dir="$(cd "$(dirname "$0")" && pwd)"
 PSQL=${PSQL:-psql}
 # One session: the ROLLBACK undoes the mutation; if ON_ERROR_STOP ends the session early,
 # closing it rolls back the open transaction too.
-out=$({ echo "BEGIN;"; echo "$mutation;"; cat "$check"; echo "ROLLBACK;"; } \
+# The marker separates the mutation's output from the check's: only an ERROR after it counts.
+marker="mutate.sh: mutation applied"
+# The newline before ROLLBACK keeps it off a last line that is a comment without a newline.
+out=$({ printf 'BEGIN;\n%s;\n\\echo %s\n' "$mutation" "$marker"; cat "$check"; printf '\nROLLBACK;\n'; } \
       | $PSQL -X -q -v ON_ERROR_STOP=1 2>&1)
 status=$?
 
-error=$(grep -m1 'ERROR:' <<<"$out")
+if ! grep -qxF "$marker" <<<"$out"; then
+  echo "mutation or psql failed before the check ran: $(grep -m1 'ERROR:' <<<"$out" || echo "$out")" >&2
+  exit 2
+fi
+error=$(sed -n "/^${marker}\$/,\$p" <<<"$out" | grep -m1 'ERROR:')
 if [ -n "$error" ]; then
   echo "caught: $error"
   exit 0
