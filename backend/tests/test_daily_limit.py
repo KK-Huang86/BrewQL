@@ -71,3 +71,16 @@ def test_works_without_an_injected_clock():
     limiter = DailyQuestionLimit(1)
     assert limiter.try_acquire()
     assert 0 < limiter.retry_after_seconds() <= 24 * 60 * 60
+
+
+def test_used_today_drops_to_zero_at_taipei_midnight_without_a_new_question():
+    # The dashboard reads this at scrape time; yesterday's count must not linger until the next question.
+    clock = Clock(datetime(2026, 11, 9, 23, 0, tzinfo=TAIPEI))
+    limit = DailyQuestionLimit(5, now=clock)
+    limit.try_acquire()
+    limit.try_acquire()
+    assert limit.used_today() == 2
+
+    clock.at = datetime(2026, 11, 10, 0, 0, tzinfo=TAIPEI)
+
+    assert limit.used_today() == 0
