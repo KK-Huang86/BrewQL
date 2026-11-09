@@ -22,6 +22,22 @@ async def test_reader_can_query_members_searches_and_daily_activity(executor, sq
     assert rows == [[expected]]
 
 
+@pytest.mark.parametrize(
+    ("sql", "expected"),
+    [
+        ("SELECT count(*) > 0 FROM favorites", True),
+        ("SELECT count(*) > 150000 FROM cafe_views", True),
+        ("SELECT count(*) FROM cafe_nomad_cache", 140),
+        ("SELECT count(*) > 0 FROM cafe_attribute_votes", True),
+        ("SELECT count(*) FROM v_cafe_profile", 200),
+    ],
+)
+async def test_reader_can_query_views_favorites_and_community_ratings(executor, sql, expected):
+    # Spec (ticket 8): genbi_reader is granted SELECT on the new tables and view.
+    _, rows = await executor.run(sql)
+    assert rows == [[expected]]
+
+
 async def test_empty_result_still_has_column_names(executor):
     columns, rows = await executor.run("SELECT name, rating FROM cafes WHERE city = '高雄市'")
     assert columns == ["name", "rating"]

@@ -116,6 +116,21 @@ def test_members_searches_and_daily_activity_are_allowlisted(sql):
     validate_sql(sql)
 
 
+@pytest.mark.parametrize(
+    "sql",
+    [
+        "SELECT count(*) FROM favorites",
+        "SELECT source, count(*) FROM cafe_views GROUP BY source",
+        "SELECT name, wifi FROM v_cafe_profile WHERE wifi >= 4",
+        "SELECT c.name, n.quiet FROM cafes c JOIN cafe_nomad_cache n ON n.cafe_id = c.id",
+        "SELECT attribute, value, count(*) FROM cafe_attribute_votes GROUP BY 1, 2",
+    ],
+)
+def test_views_favorites_and_community_ratings_are_allowlisted(sql):
+    # Spec (ticket 8): the new tables and v_cafe_profile can be queried.
+    validate_sql(sql)
+
+
 def test_allowlist_can_be_configured():
     with pytest.raises(SqlGuardError, match="可用的資料表：search_logs"):
         validate_sql("SELECT name FROM cafes", allowed_tables={"search_logs"})
