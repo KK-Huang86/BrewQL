@@ -152,7 +152,8 @@ FROM (
 (SELECT array_agg(id ORDER BY id) AS ids, count(*) AS n FROM cafes) c
 ORDER BY g;
 
--- About 185,000 views from search results or the rich menu, from the first search to now.
+-- 185,000 views from search results or the rich menu, from the first search to now; revisits
+-- from the favorites list are added below, about 200,000 views in all.
 -- Cafes are picked by popularity: higher rating and more reviews mean more views (design D5).
 -- Five 4.7+ cafes with the fewest reviews get 5% of their weight: rated highly, rarely found.
 WITH members AS (

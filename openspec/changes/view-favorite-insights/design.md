@@ -27,9 +27,9 @@ ticket 6、7 已有會員、搜尋紀錄與行政區供需落差，但只看得�
 - 不建地址、電話、營業時間、評論、照片等欄位，問題用不到。
 
 ### D2. 瀏覽與收藏
-- `cafe_views`：`user_id`、`cafe_id`、`source`、`created_at`，約 200,000 筆。`source`：`search`（從搜尋結果點進）、`favorite`（從收藏清單點進）、`rich_menu`（從 LINE 選單點進）。
+- `cafe_views`：`user_id`、`cafe_id`、`source`、`created_at`，約 200,000 筆：先產生 185,000 筆從搜尋或選單進入的瀏覽，再為每筆收藏補 0～2 次從收藏清單回訪的瀏覽（約 16,000 筆）。`source`：`search`（從搜尋結果點進）、`favorite`（從收藏清單點進）、`rich_menu`（從 LINE 選單點進）。
 - `favorites`：`user_id`、`cafe_id`、`source`、`created_at`，`UNIQUE (user_id, cafe_id)`。`source` 是按下收藏時所在的入口，只有 `search` 或 `rich_menu`（從收藏清單進入的店已經收藏過）。
-- 時間規則與搜尋相同：會員註冊後才有瀏覽，日期在建庫日往回 6 個月內。每筆收藏都有一筆**更早**、同會員同店同來源的瀏覽。
+- 時間規則與搜尋相同：會員註冊後才有瀏覽，日期從第一筆搜尋到現在（搜尋本身落在建庫日往回 6 個月內，由檢查 03 確認）。每筆收藏都有一筆**更早**、同會員同店同來源的瀏覽。
 - `cafes.favorite_count`、`view_count` 由明細計算後寫回，與明細一致。
 
 ### D3. 收藏轉換率 = 該入口的收藏數 ÷ 該入口的瀏覽數
@@ -38,7 +38,9 @@ SELECT source,
        (SELECT count(*) FROM favorites f WHERE f.source = v.source)::numeric / count(*) AS rate
 FROM cafe_views v WHERE source IN ('search', 'rich_menu') GROUP BY source
 ```
-考慮過「瀏覽之後同會員同店有收藏才算轉換」的配對算法，比較精確，但需要多條件 JOIN 與時間比較，模型容易寫錯，故事檢查也難對齊。收藏帶 `source` 讓定義只剩兩個計數相除，仍需要兩張表（golden set 的 JOIN 題）。schema 說明、故事檢查、golden set 用同一個算法。
+考慮過「瀏覽之後同會員同店有收藏才算轉換」的配對算法，比較精確，但需要多條件 JOIN 與時間比較，模型容易寫錯，故事檢查也難對齊。收藏帶 `source` 讓定義只剩兩個計數相除，仍需要兩張表（golden set 的 q22）。schema 說明、故事檢查、golden set 用同一個算法。
+
+瀏覽器實測時，只有文字定義的情況下模型把 `cafe_views` JOIN `favorites`，同一店的多次瀏覽讓一筆收藏重複計算，搜尋轉換率算成 18.1%（應為 11.5%）。因此 schema 說明直接附上上面的 SQL 範本，並註明不要 JOIN 這兩張表，和 ticket 7 的搜尋落空率做法相同。
 
 ### D4. 名詞定義
 - 收藏轉換率：D3。
@@ -60,7 +62,7 @@ FROM cafe_views v WHERE source IN ('search', 'rich_menu') GROUP BY source
 
 ## Risks / Trade-offs
 
-- [20 萬筆瀏覽讓建庫變慢] → 用 `generate_series` 一次 INSERT，記錄初始化耗時；超過 30 秒再改寫法。
+- [20 萬筆瀏覽讓建庫變慢] → 用 `generate_series` 一次 INSERT，挑店與挑會員用 `width_bucket` 查累積權重；實測 `02_seed.sql` 約 18 秒（2026-11-09，本機 Docker），在 30 秒預算內。
 - [`favorites.source` 是示範資料自己加的欄位，真實表不一定有] → `import-real-cafes` 不匯入任何行為資料，收藏、瀏覽一律模擬，不衝突。
-- [schema 說明變長，每題 input tokens 增加約 40%] → 3.3 的評估記錄成本變化；這正是 ticket 9 RAG 要解決的問題，留作比較基準。
+- [schema 說明變長] → 實測每題 input tokens 從約 1,813 增加到約 3,050～3,180（多約 70%），每題成本多約 55%（見 `backend/evaluation/RESULTS.md`）；這正是 ticket 9 RAG 要解決的問題，留作比較基準。
 - [`v_daily_activity` 加欄位可能改變模型對趨勢題的寫法] → 3.3 完整評估確認 q16～q21 沒有退步。
