@@ -43,6 +43,11 @@ services:
 
   frontend:
     build: ./frontend
+    environment:
+      # Per-IP limits on /api/ask (limit-public-traffic D8); a bad value stops nginx.
+      ASK_RATE_PER_MINUTE: ${ASK_RATE_PER_MINUTE:-10}
+      ASK_RATE_BURST: ${ASK_RATE_BURST:-5}
+      MAX_CONNECTIONS_PER_IP: ${MAX_CONNECTIONS_PER_IP:-20}
     ports:
       - "127.0.0.1:8080:80"
     depends_on:
