@@ -36,7 +36,7 @@ server {
     }
 
     # Backend-internal paths must not fall through to the SPA (which would answer 200).
-    location ~ ^/(metrics|health|docs|openapi\.json)(/|$) {
+    location ~ ^/(metrics|health|docs|redoc|openapi\.json)(/|$) {
         return 404;
     }
 
@@ -47,6 +47,6 @@ server {
     location @too_many_requests {
         default_type application/json;
         add_header Retry-After 60 always;
-        return 429 '{"status":"error","sql":null,"columns":[],"rows":[],"message":"請求太頻繁，請稍後再試","error_kind":null,"refusal_source":null}';
+        return 429 '{"status":"error","sql":null,"columns":[],"rows":[],"message":"請求太頻繁，請稍後再試","error_kind":null,"refusal_source":null,"attempts":0,"chart":null}';
     }
 }
