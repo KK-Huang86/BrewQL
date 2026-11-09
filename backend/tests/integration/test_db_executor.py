@@ -128,3 +128,13 @@ async def test_timeout_is_marked_so_the_pipeline_does_not_retry_it(reader_dsn):
 
     assert timed_out.value.timed_out is True
     assert plain.value.timed_out is False
+
+
+async def test_reader_can_select_from_every_allowlisted_table(executor):
+    # The guard allowlist and the GRANT in db/init/03_readonly_role.sh are kept by hand in two
+    # places; a table allowed by one but not the other would fail only on a real question.
+    from app.sql_guard import DEFAULT_ALLOWED_TABLES
+
+    for table in sorted(DEFAULT_ALLOWED_TABLES):
+        _, rows = await executor.run(f"SELECT count(*) > 0 FROM {table}")
+        assert rows == [[True]], table
