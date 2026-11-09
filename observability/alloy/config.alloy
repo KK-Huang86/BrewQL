@@ -90,7 +90,7 @@ prometheus.relabel "containers" {
 
 	rule {
 		source_labels = ["__name__"]
-		regex         = "container_(cpu_usage_seconds_total|memory_(working_set|usage)_bytes|network_(receive|transmit)_bytes_total)"
+		regex         = "container_(cpu_usage_seconds_total|memory_working_set_bytes|network_(receive|transmit)_bytes_total)"
 		action        = "keep"
 	}
 
