@@ -125,7 +125,7 @@ npm --prefix frontend run build
 | 6 | 6 | `search-trend-line-chart` | 模擬會員與搜尋紀錄、折線圖（評估 18/18） ✅ |
 | 7 | 7 | `district-gap-bar-chart` | 行政區供需落差、長條圖與數字卡（評估 21/21） ✅ |
 | 8 | 8 | `view-favorite-insights` | 瀏覽、收藏與社群評分、收藏轉換率；RAG 前的最終評估基準（26/26） ✅ |
-| 9 | — | `limit-public-traffic` | nginx 白名單轉發、依端點成本分級限流、全域每日提問上限 |
+| 9 | — | `limit-public-traffic` | nginx 只轉發 `/api/ask`、每 IP 限流與連線上限、全域每日提問上限（皆為環境變數） ✅ |
 | 10 | — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 |
 | 11 | — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 |
 | 12 | 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
@@ -142,3 +142,4 @@ npm --prefix frontend run build
 - 先在本機完成評估與圖表，再補齊公開前必要的限流、監控與稽核後部署；之後的 ticket 完成時重新部署即可。
 - RAG 排在匯入真實與公開資料之前：資料表變多後 schema 說明與成本會持續上升，先有檢索才能證明資料增加而成本不暴增。
 - 模型比較報告放最後，等 RAG 與真實資料都完成，比較的面向最完整。
+- Prompt caching 列入考量：每題都帶約 3,000 tokens 相同的 schema 說明，快取這段前綴可降低輸入成本與延遲，且不會有答案過期問題（不同於答案快取）。待 `record-audit-log` 有實際重複率與 token 數據、RAG 定下 prompt 結構後評估，並先確認 Haiku 可快取的最短 prompt 長度。
