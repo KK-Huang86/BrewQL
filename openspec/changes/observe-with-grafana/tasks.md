@@ -24,7 +24,8 @@
 
 ## 4. 成本對帳
 
-- [ ] 4.1 查證 Grafana Cloud 免費方案能否以 assume role（external ID）連 CloudWatch（D5）；驗證：記錄結論與來源，決定走 data source 或本機對帳腳本
+- [x] 4.1 查證 Grafana Cloud 免費方案能否以 assume role（external ID）連 CloudWatch（D5）；驗證：記錄結論與來源，決定走 data source 或本機對帳腳本
+  - 結論（2026-11-10）：文件沒有寫明免費方案是否支援；實際在使用者的免費 stack 新增 CloudWatch data source 時，Authentication Provider 有「Grafana Assume Role」，並顯示 Grafana 的 AWS 帳號 ID 與 stack 專屬的 external ID。採用 CloudWatch data source（查詢時才讀，不佔 series 額度），不用 Cloud Provider 整合。來源：Grafana 文件〈CloudWatch data source: AWS authentication〉與 learning path〈Grafana Assume Role〉
 - [ ] 4.2 Terraform 唯讀 IAM role（只有 CloudWatch 讀取權限），依 4.1 的結論接上 Grafana Cloud 或對帳腳本；驗證：`terraform plan` 只新增該 role 與 policy；使用者 apply 後，一段時間內的 token 數兩邊一致
 
 ## 5. 驗證
