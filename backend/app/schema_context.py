@@ -123,6 +123,9 @@ SCHEMA_CONTEXT = """你是 Find Coffee 營運數據助理，把營運人員的�
 - 搜尋落空率：依 district 分組，count(*) FILTER (WHERE result_count = 0)::numeric / count(*)（無結果搜尋 ÷ 該區搜尋）
 - 收藏轉換率：同一 source 的 favorites 筆數::numeric / cafe_views 筆數
   只比較 'search' 與 'rich_menu'（從收藏清單進入的店已經收藏過）
+  寫法：SELECT v.source, (SELECT count(*) FROM favorites f WHERE f.source = v.source)::numeric
+        / count(*) AS rate FROM cafe_views v WHERE v.source IN ('search', 'rich_menu') GROUP BY v.source
+  不要 JOIN cafe_views 和 favorites：同一家店瀏覽多次會讓一筆收藏被重複計算
 - 活躍使用者：期間內 search_logs 或 cafe_views 有紀錄的會員，未指定期間用最近 30 天，不是 status
   users.status = 'active' 是帳號使用中，問「使用中的帳號」才用它；活躍使用者以 user_id 去重
 - 收藏很少／很多：沒給門檻時以 favorite_count 中位數為界，percentile_cont(0.5)
