@@ -16,4 +16,7 @@
 
 ## 4. 驗證
 
-- [ ] 4.1 本機 compose 實測：瀏覽器連續提問看到「請求太頻繁」、等待後恢復；`DAILY_QUESTION_LIMIT=3` 時第 4 題回「今日提問次數已達上限」且 backend log 沒有 Guardrail 呼叫；驗證：記錄結果
+- [x] 4.1 本機 compose 實測：瀏覽器連續提問看到「請求太頻繁」、等待後恢復；`DAILY_QUESTION_LIMIT=3` 時第 4 題回「今日提問次數已達上限」且 backend log 沒有 Guardrail 呼叫；驗證：記錄結果
+  - 結果（2026-11-09，`DAILY_QUESTION_LIMIT=3 docker compose up --build`，經 nginx `127.0.0.1:8080` 以 curl 送出）：前 3 題 200；第 4 題 429「今日提問次數已達上限，請明天再試」、`Retry-After: 23351`（17:30:49 台北到午夜）；backend log `WARNING daily question limit reached: 3/3`，整段只有 3 次 Guardrail 呼叫
+  - 接著連續 20 次：17 次 nginx 429「請求太頻繁，請稍後再試」、3 次通過 nginx 後由每日上限擋下；等 65 秒後請求再度通過 nginx（回每日上限訊息，證明 nginx 已放行）
+  - `/metrics`、`/health`、`/docs`、`/api/audit` 經 nginx 皆 404；畫面顯示 429 訊息與恢復按鈕由前端測試涵蓋（3.1），未用瀏覽器手動點擊
