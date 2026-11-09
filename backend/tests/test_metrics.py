@@ -257,3 +257,8 @@ def test_usage_reads_zero_after_taipei_midnight_before_anyone_asks():
 
     clock.now = datetime(2026, 11, 9, 16, 1, tzinfo=UTC)  # 00:01 the next Taipei day
     assert value(scrape(c), "brewql_daily_questions_used") == 0
+
+
+def test_without_a_daily_limit_there_are_no_daily_metrics():
+    m = scrape(client())
+    assert not any(name.startswith("brewql_daily") for name, _ in m)
