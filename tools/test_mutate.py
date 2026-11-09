@@ -11,6 +11,8 @@ import unittest
 from pathlib import Path
 
 MUTATE = Path(__file__).resolve().parents[1] / "db" / "checks" / "mutate.sh"
+# mutate.sh echoes this between the mutation and the check; only an ERROR after it is the check's.
+MARKER = "mutate.sh: mutation applied"
 
 FAKE_PSQL = """#!/bin/sh
 cat > "$RECORD"
@@ -23,13 +25,17 @@ class MutateTest(unittest.TestCase):
     # Spec (harden-workflow-checks): mutate a story check inside a transaction that always rolls back.
 
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp())
+        self._tmp = tempfile.TemporaryDirectory()
+        self.tmp = Path(self._tmp.name)
         self.psql = self.tmp / "psql"
         self.psql.write_text(FAKE_PSQL)
         self.psql.chmod(0o755)
         self.record = self.tmp / "sent.sql"
         self.check = self.tmp / "99_story.sql"
         self.check.write_text("DO $$ BEGIN RAISE EXCEPTION 'story broken'; END $$;\n")
+
+    def tearDown(self):
+        self._tmp.cleanup()
 
     def run_mutate(self, *args, out="", code=0):
         env = {**os.environ, "PSQL": str(self.psql), "RECORD": str(self.record),
@@ -39,27 +45,42 @@ class MutateTest(unittest.TestCase):
     def test_caught_mutation_prints_the_error_and_succeeds(self):
         result = self.run_mutate(
             "UPDATE cafes SET rating = 1", str(self.check),
-            out="BEGIN\nUPDATE 200\nERROR:  story broken\nCONTEXT:  line 1\n", code=3,
+            out=f"BEGIN\nUPDATE 200\n{MARKER}\nERROR:  story broken\nCONTEXT:  line 1\n", code=3,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(result.stdout.strip(), "caught: ERROR:  story broken")
 
     def test_uncaught_mutation_fails(self):
-        result = self.run_mutate("UPDATE cafes SET rating = 1", str(self.check), out="BEGIN\nDO\nROLLBACK\n")
+        result = self.run_mutate("UPDATE cafes SET rating = 1", str(self.check), out=f"BEGIN\n{MARKER}\nDO\nROLLBACK\n")
         self.assertEqual(result.returncode, 1)
         self.assertEqual(result.stdout.strip(), "NOT caught")
 
     def test_mutation_runs_inside_a_transaction_that_rolls_back(self):
-        self.run_mutate("DELETE FROM favorites", str(self.check), out="ERROR:  story broken\n", code=3)
+        self.run_mutate("DELETE FROM favorites", str(self.check), out=f"{MARKER}\nERROR:  story broken\n", code=3)
         sent = self.record.read_text()
         self.assertTrue(sent.lstrip().startswith("BEGIN;"), sent)
         self.assertTrue(sent.rstrip().endswith("ROLLBACK;"), sent)
-        self.assertLess(sent.index("DELETE FROM favorites"), sent.index("RAISE EXCEPTION"))
+        self.assertLess(sent.index("DELETE FROM favorites"), sent.index(MARKER))
+        self.assertLess(sent.index(MARKER), sent.index("RAISE EXCEPTION"))
+
+    def test_rollback_survives_a_check_ending_in_a_comment_without_newline(self):
+        self.check.write_text("SELECT 1; -- last line, no newline")
+        self.run_mutate("SELECT 1", str(self.check), out=f"{MARKER}\nERROR:  x\n", code=3)
+        self.assertIn("\nROLLBACK;", self.record.read_text())
+
+    def test_failed_mutation_is_not_reported_as_caught(self):
+        # Review finding: a typo in the mutation raised ERROR before the check ran and read as caught.
+        result = self.run_mutate("UPDATE cafes SET no_such_column = 1", str(self.check),
+                                 out='BEGIN\nERROR:  column "no_such_column" does not exist\n', code=3)
+        self.assertEqual(result.returncode, 2)
+        self.assertEqual(result.stdout, "")
+        self.assertIn("no_such_column", result.stderr)
 
     def test_check_name_resolves_inside_db_checks(self):
-        result = self.run_mutate("SELECT 1", "08_views_favorites.sql", out="ERROR:  x\n", code=3)
+        result = self.run_mutate("SELECT 1", "08_views_favorites.sql", out=f"{MARKER}\nERROR:  x\n", code=3)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("cafe_nomad_cache", self.record.read_text())
+        story = (MUTATE.parent / "08_views_favorites.sql").read_text()
+        self.assertIn(story.strip(), self.record.read_text())
 
     def test_psql_failure_without_a_check_error_is_not_a_verdict(self):
         # A refused connection must not read as "NOT caught" (or as caught).
