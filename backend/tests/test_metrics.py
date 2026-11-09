@@ -262,3 +262,79 @@ def test_usage_reads_zero_after_taipei_midnight_before_anyone_asks():
 def test_without_a_daily_limit_there_are_no_daily_metrics():
     m = scrape(client())
     assert not any(name.startswith("brewql_daily") for name, _ in m)
+
+
+# --- Series exist at 0 before the first event (dashboard bug found in task 3.1) ----------------
+# Prometheus' increase() needs two samples: a labelled series born at 1 by the first event never
+# shows that event, so the first refusal looked like a 100% success rate.
+
+OUTCOMES = [
+    ("ok", "", ""),
+    ("clarify", "", ""),
+    ("refused", "input_guardrail", ""),
+    ("refused", "model", ""),
+    *[
+        ("error", "", kind)
+        for kind in (
+            "generation",
+            "guardrail",
+            "query",
+            "unavailable_guardrail",
+            "unavailable_model",
+            "unavailable_db",
+        )
+    ],
+]
+
+
+def test_every_outcome_is_exported_at_zero_before_any_question():
+    m = scrape(client())
+
+    for status, source, kind in OUTCOMES:
+        assert (
+            ("brewql_ask_total", frozenset({"status": status, "refusal_source": source, "error_kind": kind}.items()))
+        ) in m, (
+            status,
+            source,
+            kind,
+        )
+        assert ask_total(m, status, source, kind) == 0
+
+
+def test_stages_cost_units_and_known_block_reasons_start_at_zero():
+    m = scrape(client())
+
+    for stage in ("input_guard", "model", "db"):
+        assert ("brewql_stage_seconds_count", frozenset({"stage": stage}.items())) in m, stage
+    for component in ("model", "guardrail"):
+        assert ("brewql_estimated_cost_usd_total", frozenset({"component": component}.items())) in m, component
+    for policy in ("topic", "content"):
+        assert ("brewql_guardrail_units_total", frozenset({"policy": policy}.items())) in m, policy
+    assert ("brewql_guardrail_blocks_total", frozenset({"reason": "prompt_attack"}.items())) in m
+
+
+def test_tokens_for_the_configured_model_start_at_zero():
+    app = create_app(generator=Generator(), executor=Executor(), cors_origins=[], model_id=MODEL)
+    m = scrape(TestClient(app))
+
+    for direction in ("input", "output"):
+        key = ("brewql_llm_tokens_total", frozenset({"model": MODEL, "direction": direction}.items()))
+        assert key in m and m[key] == 0, direction
+
+
+def test_production_app_passes_the_configured_model_id(monkeypatch):
+    import app.main as main
+
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody:x@127.0.0.1:1/none")
+    monkeypatch.setenv("BEDROCK_MODEL_ID", MODEL)
+    seen = {}
+    real_create_app = main.create_app
+
+    def spy(**kwargs):
+        seen.update(kwargs)
+        return real_create_app(**kwargs)
+
+    monkeypatch.setattr(main, "create_app", spy)
+    main.build_app()
+
+    assert seen["model_id"] == MODEL
