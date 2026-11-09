@@ -58,7 +58,7 @@ nginx 只把明確列出的公開 API 轉給 backend（`location = /api/ask`）�
 `ASK_RATE_PER_MINUTE`（預設 10）、`ASK_RATE_BURST`（預設 5）、`MAX_CONNECTIONS_PER_IP`（預設 20）。部署後調整只改 `.env` 再重啟，不需要重新 build image。
 - nginx 官方 image 啟動時會把 `/etc/nginx/templates/*.template` 以 `envsubst` 產生到 `conf.d/`，只替換有定義的環境變數，nginx 自己的 `$binary_remote_addr` 等不受影響。設定檔從 `frontend/nginx.conf` 改為 `frontend/nginx/default.conf.template`。
 - 預設值寫在 Dockerfile 的 `ENV`，compose 以 `${ASK_RATE_PER_MINUTE:-10}` 傳入，`.env.example` 列出三個變數。
-- 不合法的值（空字串、非數字、0）讓 nginx 啟動失敗（`nginx: [emerg]`），不會變成「沒有限流」：容器測試涵蓋。
+- 不合法的值讓 nginx 啟動失敗（`nginx: [emerg] invalid rate ...`），不會變成「沒有限流」：速率與連線數為 0、非數字、空字串；burst 為負數、非數字、空字串。burst 0 是合法的（不允許突發，照速率放行）。容器測試涵蓋。
 - 每日上限 `DAILY_QUESTION_LIMIT` 在後端（D3），兩者分開：nginx 管每個 IP 的頻率，後端管全站每日總量。
 
 ### D7. nginx 行為以容器測試驗證
