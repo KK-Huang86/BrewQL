@@ -1,9 +1,13 @@
 """/metrics and the question metrics recorded by /api/ask (observe-with-grafana D3)."""
 
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from prometheus_client.parser import text_string_to_metric_families
 
+import app.main as main
+from app.daily_limit import DailyQuestionLimit
 from app.db import DatabaseUnavailable, QueryError
 from app.input_guard import GuardrailUsage, GuardVerdict, InputGuardUnavailable
 from app.llm import ModelUsage, Reply
@@ -220,8 +224,6 @@ class Clock:
 
 
 def limited_client(limit, clock):
-    from app.daily_limit import DailyQuestionLimit
-
     app = create_app(
         generator=Generator(),
         executor=Executor(),
@@ -233,8 +235,6 @@ def limited_client(limit, clock):
 
 def test_the_daily_limit_shows_usage_limit_and_hits():
     # Spec scenario "每日上限": a question over the limit is a hit, never an answered question.
-    from datetime import UTC, datetime
-
     c = limited_client(2, Clock(datetime(2026, 11, 9, 4, 0, tzinfo=UTC)))
     statuses = [c.post("/api/ask", json={"question": QUESTION}).status_code for _ in range(3)]
     assert statuses == [200, 200, 429]
@@ -248,8 +248,6 @@ def test_the_daily_limit_shows_usage_limit_and_hits():
 
 
 def test_usage_reads_zero_after_taipei_midnight_before_anyone_asks():
-    from datetime import UTC, datetime
-
     clock = Clock(datetime(2026, 11, 9, 15, 59, tzinfo=UTC))  # 23:59 in Taipei
     c = limited_client(5, clock)
     c.post("/api/ask", json={"question": QUESTION})
@@ -323,8 +321,6 @@ def test_tokens_for_the_configured_model_start_at_zero():
 
 
 def test_production_app_passes_the_configured_model_id(monkeypatch):
-    import app.main as main
-
     monkeypatch.setenv("DATABASE_URL", "postgresql://nobody:x@127.0.0.1:1/none")
     monkeypatch.setenv("BEDROCK_MODEL_ID", MODEL)
     seen = {}

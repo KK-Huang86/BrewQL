@@ -10,6 +10,7 @@ from typing import Literal
 from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, generate_latest
 
 from app.daily_limit import DailyQuestionLimit
+from app.llm import ErrorKind
 from app.pipeline import AskResult
 from app.pricing import guardrail_cost_usd, model_cost_usd
 
@@ -24,9 +25,12 @@ OUTCOMES = (
     ("clarify", "", ""),
     ("refused", "input_guardrail", ""),
     ("refused", "model", ""),
-    *(("error", "", kind) for kind in ("generation", "guardrail", "query", *Unavailable.__args__)),
+    *(("error", "", kind) for kind in (*ErrorKind.__args__, *Unavailable.__args__)),
 )
 STAGES = ("input_guard", "model", "db")
+DIRECTIONS = ("input", "output")
+COST_COMPONENTS = ("model", "guardrail")
+GUARDRAIL_POLICIES = ("topic", "content")
 # The guardrail only has the prompt-attack filter today; other reasons appear on first use.
 KNOWN_BLOCK_REASONS = ("prompt_attack",)
 
@@ -71,14 +75,14 @@ class AskMetrics:
             self.asks.labels(*outcome)
         for stage in STAGES:
             self.stage_seconds.labels(stage)
-        for component in ("model", "guardrail"):
+        for component in COST_COMPONENTS:
             self.cost.labels(component)
-        for policy in ("topic", "content"):
+        for policy in GUARDRAIL_POLICIES:
             self.guardrail_units.labels(policy)
         for reason in KNOWN_BLOCK_REASONS:
             self.guardrail_blocks.labels(reason)
         if model_id:
-            for direction in ("input", "output"):
+            for direction in DIRECTIONS:
                 self.tokens.labels(model_id, direction)
 
     def record(self, result: AskResult, seconds: float) -> None:

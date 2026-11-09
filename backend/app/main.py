@@ -19,7 +19,7 @@ from app.daily_limit import DailyQuestionLimit
 from app.db import DatabaseUnavailable
 from app.input_guard import InputGuardUnavailable
 from app.llm import ErrorKind
-from app.metrics import AskMetrics
+from app.metrics import AskMetrics, Unavailable
 from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
@@ -54,6 +54,24 @@ def _error(status_code: int, message: str, *, retry_after: int | None = None) ->
     body = AskResponse(status="error", sql=None, columns=[], rows=[], message=message)
     headers = {"Retry-After": str(retry_after)} if retry_after is not None else None
     return JSONResponse(status_code=status_code, content=body.model_dump(), headers=headers)
+
+
+@dataclass(frozen=True)
+class _Outage:
+    kind: Unavailable
+    status_code: int
+    message: str
+    log_message: str
+
+
+def _outage(exc: Exception) -> _Outage:
+    """A dependency the pipeline could not reach: how it is counted, answered and logged."""
+    if isinstance(exc, InputGuardUnavailable):
+        return _Outage("unavailable_guardrail", 502, "輸入檢查暫時無法使用，請稍後再試", "input guardrail unavailable")
+    if isinstance(exc, DatabaseUnavailable):
+        return _Outage("unavailable_db", 503, "資料庫暫時無法使用，請稍後再試", "database unavailable")
+    # Bedrock/network failures: full detail goes to the log, a generic message to the client.
+    return _Outage("unavailable_model", 502, "模型服務暫時無法使用，請稍後再試", "ask failed")
 
 
 def create_app(
@@ -102,19 +120,11 @@ def create_app(
         started = time.perf_counter()
         try:
             result = await ask(body.question, generator, executor, input_guard=input_guard, max_retries=max_sql_retries)
-        except InputGuardUnavailable:
-            log.exception("input guardrail unavailable")
-            metrics.record_unavailable("unavailable_guardrail", time.perf_counter() - started)
-            return _error(502, "輸入檢查暫時無法使用，請稍後再試")
-        except DatabaseUnavailable:
-            log.exception("database unavailable")
-            metrics.record_unavailable("unavailable_db", time.perf_counter() - started)
-            return _error(503, "資料庫暫時無法使用，請稍後再試")
-        except Exception:
-            # Bedrock/network failures: full detail goes to the log, a generic message to the client.
-            log.exception("ask failed")
-            metrics.record_unavailable("unavailable_model", time.perf_counter() - started)
-            return _error(502, "模型服務暫時無法使用，請稍後再試")
+        except Exception as exc:
+            outage = _outage(exc)
+            log.exception(outage.log_message)
+            metrics.record_unavailable(outage.kind, time.perf_counter() - started)
+            return _error(outage.status_code, outage.message)
         metrics.record(result, time.perf_counter() - started)
         chart = choose_chart(result.columns, result.rows) if result.status == "ok" else None
         return AskResponse(**asdict(result), chart=chart)
