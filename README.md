@@ -115,22 +115,30 @@ npm --prefix frontend run build
 
 以垂直切分的 ticket 逐步完成，每個 ticket 對應 `openspec/changes/` 下的一個 change。
 
-| # | Change | 內容 |
-|---|---|---|
-| 1 | `ask-first-question` | 中文提問 → Bedrock 產生 SQL → 唯讀執行 → 表格 ✅ |
-| 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位 ✅ |
-| 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails ✅ |
-| 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試（最多 1 次） ✅ |
-| 5 | `eval-golden-set` | 以執行結果比對的正確率評估（基準 14/15，加上今天日期後 15/15） ✅ |
-| 6 | `search-trend-line-chart` | 模擬會員與搜尋紀錄、折線圖（評估 18/18） ✅ |
-| 7–8 | 圖表與洞察 | 行政區供需落差、收藏洞察 |
-| — | `limit-public-traffic` | nginx 白名單轉發、依端點成本分級限流、全域每日提問上限 |
-| — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 |
-| — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 |
-| 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
-| 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例 |
-| 10–12 | 編輯 SQL、步驟串流、模型比較報告 | |
-| — | `import-real-cafes` | 匯入真實店家（選做） |
-| — | `import-open-data` | 加入行政區人口、YouBike 站點等公開資料，以行政區串接（考量中，排程待定） |
+| 順序 | # | Change | 內容 |
+|---|---|---|---|
+| 1 | 1 | `ask-first-question` | 中文提問 → Bedrock 產生 SQL → 唯讀執行 → 表格 ✅ |
+| 2 | 2 | `block-unsafe-sql` | 白名單、LIMIT、逾時、危險函式與欄位 ✅ |
+| 3 | 3 | `refuse-and-clarify` | 拒答與反問、Bedrock Guardrails ✅ |
+| 4 | 4 | `self-correct-on-error` | SQL 錯誤時帶錯誤訊息重試（最多 1 次） ✅ |
+| 5 | 5 | `eval-golden-set` | 以執行結果比對的正確率評估（基準 14/15，加上今天日期後 15/15） ✅ |
+| 6 | 6 | `search-trend-line-chart` | 模擬會員與搜尋紀錄、折線圖（評估 18/18） ✅ |
+| 7 | 7 | `district-gap-bar-chart` | 行政區供需落差、長條圖與數字卡（評估 21/21） |
+| 8 | 8 | `view-favorite-insights` | 瀏覽與收藏、收藏轉換率；RAG 前的最終評估基準 |
+| 9 | — | `limit-public-traffic` | nginx 白名單轉發、依端點成本分級限流、全域每日提問上限 |
+| 10 | — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 |
+| 11 | — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 |
+| 12 | 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
+| 13 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例 |
+| 14 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票彙總、Cafe Nomad），與模擬資料兩種模式並存 |
+| 15 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接） |
+| 16 | — | `import-open-data` | 公開資料第二階段：YouBike 站點、捷運出入口與進出人次（距離預先計算） |
+| 17 | 10 | `edit-and-rerun-sql` | 編輯 SQL 後重新執行（同樣經過 SQL 防護） |
+| 18 | 11 | `show-definitions-and-steps` | 顯示本次使用的名詞定義；LangGraph 流程與 SSE 步驟串流 |
+| 19 | 12 | `model-comparison-report` | 模型比較報告：Haiku 與 Sonnet、錯誤分類與改善、prompt caching 成本優化 |
 
-執行順序依表格由上而下：先在本機完成評估與圖表，再補齊公開前必要的限流、監控與稽核後部署；之後的 ticket 完成時重新部署即可。
+依「順序」由上而下執行，`#` 是原始 ticket 編號（文件與程式註解中的「ticket 9」等指此編號）：
+
+- 先在本機完成評估與圖表，再補齊公開前必要的限流、監控與稽核後部署；之後的 ticket 完成時重新部署即可。
+- RAG 排在匯入真實與公開資料之前：資料表變多後 schema 說明與成本會持續上升，先有檢索才能證明資料增加而成本不暴增。
+- 模型比較報告放最後，等 RAG 與真實資料都完成，比較的面向最完整。
