@@ -20,7 +20,20 @@ import uuid
 from pathlib import Path
 
 IMAGE = "nginx:1.27-alpine"
-TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "nginx"
+FRONTEND = Path(__file__).resolve().parents[1]
+TEMPLATE_DIR = FRONTEND / "nginx"
+LIMIT_VARS = ("ASK_RATE_PER_MINUTE", "ASK_RATE_BURST", "MAX_CONNECTIONS_PER_IP")
+
+
+def image_defaults() -> dict[str, str]:
+    """The rate-limit defaults from the production Dockerfile's ENV lines (one source of truth)."""
+    defaults = {}
+    for line in (FRONTEND / "Dockerfile").read_text().splitlines():
+        if line.startswith("ENV "):
+            for pair in line[4:].split():
+                key, _, value = pair.partition("=")
+                defaults[key] = value
+    return {key: defaults[key] for key in LIMIT_VARS if key in defaults}
 
 FAKE_BACKEND_CONF = """
 server {
@@ -64,7 +77,8 @@ class NginxHarness:
     def start_nginx(self, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
         """Start the nginx under test; returns the docker result so a test can expect a failed start."""
         docker("rm", "-f", self.nginx, check=False)
-        env_args = [arg for key, value in (env or {}).items() for arg in ("-e", f"{key}={value}")]
+        merged = {**image_defaults(), **(env or {})}
+        env_args = [arg for key, value in merged.items() for arg in ("-e", f"{key}={value}")]
         docker(
             "run", "-d", "--name", self.nginx, "--network", self.network, "-p", "127.0.0.1::80", *env_args,
             "-v", f"{TEMPLATE_DIR}:/etc/nginx/templates:ro",
@@ -171,6 +185,78 @@ class WhitelistTest(NginxTestCase):
                 self.assertEqual(status, 404, body[:200])
                 self.assertNotIn(b"BrewQL test page", body)
                 self.assertEqual(harness.backend_hits(path), before)
+
+
+def ask_n_times(n: int) -> list[int]:
+    return [harness.ask() for _ in range(n)]
+
+
+class RateLimitTest(NginxTestCase):
+    # Spec: /api/ask defaults to 10 per minute per IP with a burst of 5, nodelay (design D1).
+
+    def test_defaults_come_from_the_image(self):
+        self.assertEqual(
+            image_defaults(), {"ASK_RATE_PER_MINUTE": "10", "ASK_RATE_BURST": "5", "MAX_CONNECTIONS_PER_IP": "20"}
+        )
+
+    def test_twenty_rapid_questions_let_six_through(self):
+        before = harness.backend_hits("/api/ask")
+        statuses = ask_n_times(20)
+        self.assertEqual(statuses, [200] * 6 + [429] * 14)
+        self.assertEqual(harness.backend_hits("/api/ask"), before + 6)
+
+    def test_429_has_the_answer_shape_and_retry_after(self):
+        ask_n_times(6)
+        status, headers, body = harness.request("POST", "/api/ask", b'{"question":"q"}')
+        self.assertEqual(status, 429)
+        self.assertEqual(headers.get("Content-Type"), "application/json")
+        self.assertEqual(headers.get("Retry-After"), "60")
+        self.assertEqual(
+            json.loads(body),
+            {
+                "status": "error",
+                "sql": None,
+                "columns": [],
+                "rows": [],
+                "message": "請求太頻繁，請稍後再試",
+                "error_kind": None,
+                "refusal_source": None,
+            },
+        )
+
+    def test_another_ip_is_not_limited(self):
+        ask_n_times(7)
+        self.assertEqual(harness.ask(), 429)
+        self.assertEqual(harness.ask_from_another_ip(), 200)
+
+    def test_pages_are_not_rate_limited(self):
+        ask_n_times(7)
+        self.assertEqual([harness.request("GET", "/")[0] for _ in range(20)], [200] * 20)
+
+
+class ConfiguredRateLimitTest(NginxTestCase):
+    # Spec: the limits come from environment variables (design D8).
+    env = {"ASK_RATE_BURST": "2"}
+
+    def test_a_smaller_burst_lets_three_through(self):
+        self.assertEqual(ask_n_times(10), [200] * 3 + [429] * 7)
+
+
+class InvalidLimitTest(unittest.TestCase):
+    # Spec: a bad value must stop nginx, never run it without a limit (design D8).
+
+    def test_bad_values_stop_nginx(self):
+        # A burst of 0 is valid (no burst); a rate or connection limit of 0 is not.
+        bad = {
+            "ASK_RATE_PER_MINUTE": ("0", "abc", ""),
+            "ASK_RATE_BURST": ("-1", "abc", ""),
+            "MAX_CONNECTIONS_PER_IP": ("0", "abc", ""),
+        }
+        for key, values in bad.items():
+            for value in values:
+                with self.subTest(key=key, value=value):
+                    harness.start_nginx({key: value})
+                    self.assertFalse(harness.nginx_running(), f"nginx started with {key}={value!r}")
 
 
 if __name__ == "__main__":
