@@ -65,8 +65,8 @@ nginx 以 `log_format ... escape=json` 輸出一行一個 JSON：時間、`remot
 - IP 會保存在 Grafana Cloud Loki（約 14 天）。這是辨識攻擊來源的必要資訊；不進指標標籤。
 
 ### D8. Alloy 收集 Docker log
-`discovery.docker` + `loki.source.docker` 讀取 Docker socket（唯讀掛載），只收這個 compose 專案的 `backend`、`frontend` 容器，以 `service` 標籤區分。JSON log 在 Alloy 端解析，`level` 轉成 Loki 標籤，其他欄位留在 log 內容中（避免高基數標籤）。
-- 風險：Docker socket 即使唯讀掛載，仍能讀取所有容器的設定與環境變數。只給 Alloy、Alloy 不對外開 port、image 固定版本。替代方案是掛載 `/var/lib/docker/containers`，但會失去容器名稱、只剩 ID。
+`discovery.docker` + `loki.source.docker` 讀取 Docker socket（唯讀掛載），只收有 `brewql.logs=true` 標籤的容器（只有這個 compose 檔的 `backend`、`frontend` 帶這個標籤），以 `service` 標籤區分。不另外以 compose 專案名稱過濾：專案名稱隨目錄名稱改變，標籤只出現在 repo 的 compose 檔，同一台主機只會有一份 BrewQL。JSON log 在 Alloy 端解析，`level` 轉成 Loki 標籤，其他欄位留在 log 內容中（避免高基數標籤）。
+- 風險：Docker socket 即使唯讀掛載，仍能讀取所有容器的設定與環境變數。只給 Alloy、image 固定版本；Alloy 的除錯介面 port 12345 只綁 `127.0.0.1`，不對外。替代方案是掛載 `/var/lib/docker/containers`，但會失去容器名稱、只剩 ID。
 
 ### D8a. 共用 Grafana Cloud stack：以 `project` 標籤區分
 Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他專案共用同一組 Loki、Prometheus 與額度。Alloy 對所有 log 與指標加上 external label `project="brewql"` 與 `env`（`BREWQL_ENV`，本機預設 `local`、部署為 `demo`），dashboard 與告警的查詢一律帶 `project="brewql"`，放在 `BrewQL` 資料夾。BrewQL 使用獨立的 access policy token，不沿用其他專案的 token，停用時可以單獨撤銷。
@@ -76,7 +76,7 @@ Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他�
 - **容器**：`prometheus.exporter.cadvisor`，讀 Docker socket、containerd socket 與 `/sys`、`/var/lib/docker` 唯讀，只保留有 `brewql.metrics=true` 標籤的容器（`db`、`backend`、`frontend`、`alloy`），以 `service` 標籤區分。
   - Docker 29 預設的 containerd image store（`overlayfs` driver）下，cAdvisor 要透過 containerd 找容器的檔案層：Alloy v1.10 的 cAdvisor 認不得這種儲存方式，所以 Alloy 固定為 v1.14.0 並掛載 `/run/containerd/containerd.sock`（實測 v1.10、v1.13 都抓不到容器）。
   - 網路卡只收 `eth|ens|enp|eno` 開頭的實體網卡；veth、bridge 與 tunnel 裝置只會增加 series。
-- 額度：免費方案的 active series 有上限，與其他專案共用（D8a）。以 relabel 只保留 dashboard 與告警用到的指標（CPU、記憶體、檔案系統、網路、容器 CPU／記憶體／網路），丟掉其餘；BrewQL 全部 series 目標在 1,000 以內。
+- 額度：免費方案的 active series 有上限，與其他專案共用（D8a）。以 relabel 只保留 dashboard 與告警用到的指標（主機 CPU、記憶體、負載、檔案系統、磁碟 I/O、網路；容器 CPU、working set 記憶體、網路），丟掉其餘；BrewQL 全部 series 目標在 1,000 以內。
 - 本機 Docker Desktop 上的「主機」是 Docker 的 Linux VM，不是 Mac 本身；主機數字要到部署的 EC2 才有意義，本機只驗證管線能通。
 - 不在 backend 加 Python process 指標：容器層已經看得到 backend 的 CPU 與記憶體。
 
@@ -94,7 +94,7 @@ Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他�
   - 5 分鐘內 nginx 429 超過 50 次（攻擊訊號）
   - 主機檔案系統使用率 > 85%
   - 主機記憶體使用率 > 90% 持續 10 分鐘
-  - `backend` 容器 5 分鐘內沒有任何 CPU 或記憶體資料（容器停了）
+  - `backend` 5 分鐘內抓不到 `/metrics`（`up == 0`）：容器停了、卡住或 `/metrics` 壞掉都會觸發。原本設計用 cAdvisor 的 CPU／記憶體資料消失判斷，但 cAdvisor 的 series 在容器停止後會保留一段時間（`storage_duration`），`up` 更直接，也涵蓋容器還在但服務沒回應的情況
 
 ### D11. 設定
 `.env`（同步 `.env.example`，不提供真實值）：
@@ -106,7 +106,7 @@ Alloy 設定檔以 `sys.env(...)` 讀取，token 不寫進設定檔。
 ### D12. 測試
 - 後端單元測試：JSON formatter 的輸出；pipeline 各階段耗時；以 `TestClient` 打 `/api/ask` 後讀 `/metrics` 文字，檢查計數與標籤（每個測試用獨立的 `CollectorRegistry`，避免測試間互相影響）。
 - nginx：沿用 `frontend/nginx-tests`，加一個測試確認 access log 是可解析的 JSON 且不含 query string。
-- Alloy：CI 以固定版本的 Alloy image 執行 `alloy fmt` 檢查設定語法。實際推送到 Grafana Cloud 是手動驗證（需要使用者的帳號），不進 CI。
+- Alloy：CI 以固定版本的 Alloy image 執行 `alloy fmt -t` 與 `alloy validate` 檢查設定語法與元件設定；告警規則以 `promtool check rules` 檢查（同一個 workflow），避免匯入 Grafana 時才發現規則寫錯。實際推送到 Grafana Cloud 是手動驗證（需要使用者的帳號），不進 CI。
 
 ## Risks / Trade-offs
 
