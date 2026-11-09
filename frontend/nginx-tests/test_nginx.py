@@ -177,6 +177,7 @@ class WhitelistTest(NginxTestCase):
             ("GET", "/health"),
             ("GET", "/docs"),
             ("GET", "/openapi.json"),
+            ("GET", "/redoc"),
             ("GET", "/api/audit"),
             ("POST", "/api/anything-new"),
             ("GET", "/api/"),
@@ -223,6 +224,8 @@ class RateLimitTest(NginxTestCase):
                 "message": "請求太頻繁，請稍後再試",
                 "error_kind": None,
                 "refusal_source": None,
+                "attempts": 0,
+                "chart": None,
             },
         )
 
