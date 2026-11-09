@@ -91,3 +91,19 @@ def test_db_port_defaults_to_the_brewql_local_port(monkeypatch):
     monkeypatch.delenv("DB_PORT", raising=False)
 
     assert Settings().db_port == 5434
+
+
+def test_daily_question_limit_defaults_to_500(monkeypatch):
+    monkeypatch.delenv("DAILY_QUESTION_LIMIT", raising=False)
+    assert Settings(_env_file=None).daily_question_limit == 500
+
+
+def test_daily_question_limit_that_is_not_positive_is_rejected_at_startup(monkeypatch):
+    # A bad value must stop the service, never run it without a limit.
+    import pytest
+    from pydantic import ValidationError
+
+    for value in ("0", "-1", "abc", ""):
+        monkeypatch.setenv("DAILY_QUESTION_LIMIT", value)
+        with pytest.raises(ValidationError):
+            Settings(_env_file=None)
