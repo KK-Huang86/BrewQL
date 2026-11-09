@@ -751,8 +751,8 @@
       "panels": []
     },
     {
-      "type": "timeseries",
-      "title": "每小時 input／output token：應用程式 vs CloudWatch",
+      "type": "bargauge",
+      "title": "input／output token 總數：應用程式 vs CloudWatch（所選範圍）",
       "id": 23,
       "datasource": {
         "type": "datasource",
@@ -764,16 +764,17 @@
         "x": 0,
         "y": 42
       },
-      "description": "同一小時兩邊應該一致。CloudWatch 是 AWS 端的事實來源，但也包含 eval 與 smoke 腳本的呼叫；應用程式只算 /api/ask。只看 env=demo 且沒跑 eval 時，差異代表有呼叫沒被記錄或單價表該對照實際帳單。",
+      "description": "所選時間範圍內的 token 總數，兩邊並排。兩邊都來自 Bedrock 回應的 usage，原始數字相同；應用程式由 Prometheus increase() 推算，會有小數與少量誤差，CloudWatch 約延遲數分鐘。CloudWatch 也包含 eval 與 smoke 腳本的呼叫，應用程式只算 /api/ask。只看 env=demo 且沒跑 eval 時，明顯差距代表有呼叫沒被記錄。",
       "targets": [
         {
           "datasource": {
             "type": "prometheus",
             "uid": "${prom}"
           },
-          "expr": "sum(increase(brewql_llm_tokens_total{project=\"brewql\", env=\"$env\", direction=\"input\"}[1h]))",
+          "expr": "sum(increase(brewql_llm_tokens_total{project=\"brewql\", env=\"$env\", direction=\"input\"}[$__range]))",
           "legendFormat": "app input",
-          "interval": "1h",
+          "instant": true,
+          "range": false,
           "refId": "A"
         },
         {
@@ -788,7 +789,7 @@
           },
           "matchExact": false,
           "statistic": "Sum",
-          "period": "3600",
+          "period": "300",
           "region": "us-east-1",
           "queryMode": "Metrics",
           "metricQueryType": 0,
@@ -803,9 +804,10 @@
             "type": "prometheus",
             "uid": "${prom}"
           },
-          "expr": "sum(increase(brewql_llm_tokens_total{project=\"brewql\", env=\"$env\", direction=\"output\"}[1h]))",
+          "expr": "sum(increase(brewql_llm_tokens_total{project=\"brewql\", env=\"$env\", direction=\"output\"}[$__range]))",
           "legendFormat": "app output",
-          "interval": "1h",
+          "instant": true,
+          "range": false,
           "refId": "C"
         },
         {
@@ -820,7 +822,7 @@
           },
           "matchExact": false,
           "statistic": "Sum",
-          "period": "3600",
+          "period": "300",
           "region": "us-east-1",
           "queryMode": "Metrics",
           "metricQueryType": 0,
@@ -834,14 +836,23 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 60
-          }
+          "decimals": 0,
+          "min": 0
         },
         "overrides": []
       },
-      "options": {}
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "showUnfilled": true
+      }
     },
     {
       "type": "stat",
@@ -870,7 +881,7 @@
           },
           "matchExact": false,
           "statistic": "Sum",
-          "period": "",
+          "period": "300",
           "region": "us-east-1",
           "queryMode": "Metrics",
           "metricQueryType": 0,
