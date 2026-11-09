@@ -543,3 +543,26 @@ def test_production_app_passes_the_daily_limit_from_settings(monkeypatch):
     main.build_app()
 
     assert seen["daily_limit"].limit == 7
+
+
+async def test_concurrent_questions_cannot_both_take_the_last_slot():
+    # The count is checked and taken with no await in between, so questions that arrive
+    # together while earlier ones are still waiting on the model never overshoot the limit.
+    import asyncio
+
+    import httpx
+
+    from app.daily_limit import DailyQuestionLimit
+
+    class SlowGenerator(FakeGenerator):
+        async def generate(self, question, feedback=()):
+            await asyncio.sleep(0.05)  # every request is in flight at the same time
+            return await super().generate(question, feedback)
+
+    daily = DailyQuestionLimit(3, now=lambda: TAIPEI_NOON)
+    app = create_app(generator=SlowGenerator(), executor=FakeExecutor(["n"], [[1]]), cors_origins=[], daily_limit=daily)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        responses = await asyncio.gather(*(client.post("/api/ask", json={"question": "q"}) for _ in range(10)))
+
+    assert sorted(r.status_code for r in responses) == [200] * 3 + [429] * 7
+    assert daily.count == 3

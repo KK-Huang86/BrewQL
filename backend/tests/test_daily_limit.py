@@ -66,6 +66,8 @@ def test_limit_must_be_a_positive_integer(bad):
         DailyQuestionLimit(bad)
 
 
-def test_default_clock_is_taipei_time():
-    # No clock injected: the day boundary is still Taipei's, so a fresh limiter allows a question.
-    assert DailyQuestionLimit(1).try_acquire()
+def test_works_without_an_injected_clock():
+    # Production passes no clock; the default one must give a usable limiter and a Retry-After.
+    limiter = DailyQuestionLimit(1)
+    assert limiter.try_acquire()
+    assert 0 < limiter.retry_after_seconds() <= 24 * 60 * 60
