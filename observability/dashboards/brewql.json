@@ -29,6 +29,12 @@
         "regex": ".*-logs$"
       },
       {
+        "type": "datasource",
+        "name": "cw",
+        "label": "CloudWatch",
+        "query": "cloudwatch"
+      },
+      {
         "type": "query",
         "name": "env",
         "label": "環境",
@@ -733,7 +739,7 @@
     },
     {
       "type": "row",
-      "title": "主機與容器資源",
+      "title": "成本對帳（應用程式 vs AWS CloudWatch）",
       "id": 22,
       "collapsed": false,
       "gridPos": {
@@ -746,8 +752,169 @@
     },
     {
       "type": "timeseries",
-      "title": "主機 CPU 使用率",
+      "title": "每小時 input／output token：應用程式 vs CloudWatch",
       "id": 23,
+      "datasource": {
+        "type": "datasource",
+        "uid": "-- Mixed --"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 16,
+        "x": 0,
+        "y": 42
+      },
+      "description": "同一小時兩邊應該一致。CloudWatch 是 AWS 端的事實來源，但也包含 eval 與 smoke 腳本的呼叫；應用程式只算 /api/ask。只看 env=demo 且沒跑 eval 時，差異代表有呼叫沒被記錄或單價表該對照實際帳單。",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum(increase(brewql_llm_tokens_total{project=\"brewql\", env=\"$env\", direction=\"input\"}[1h]))",
+          "legendFormat": "app input",
+          "interval": "1h",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "${cw}"
+          },
+          "namespace": "AWS/Bedrock",
+          "metricName": "InputTokenCount",
+          "dimensions": {
+            "ModelId": "*"
+          },
+          "matchExact": false,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-east-1",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "CloudWatch input",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "expr": "sum(increase(brewql_llm_tokens_total{project=\"brewql\", env=\"$env\", direction=\"output\"}[1h]))",
+          "legendFormat": "app output",
+          "interval": "1h",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "${cw}"
+          },
+          "namespace": "AWS/Bedrock",
+          "metricName": "OutputTokenCount",
+          "dimensions": {
+            "ModelId": "*"
+          },
+          "matchExact": false,
+          "statistic": "Sum",
+          "period": "3600",
+          "region": "us-east-1",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "CloudWatch output",
+          "refId": "D"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60
+          }
+        },
+        "overrides": []
+      },
+      "options": {}
+    },
+    {
+      "type": "stat",
+      "title": "CloudWatch 呼叫次數（所選範圍）",
+      "id": 24,
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "${cw}"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 42
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "${cw}"
+          },
+          "namespace": "AWS/Bedrock",
+          "metricName": "Invocations",
+          "dimensions": {
+            "ModelId": "*"
+          },
+          "matchExact": false,
+          "statistic": "Sum",
+          "period": "",
+          "region": "us-east-1",
+          "queryMode": "Metrics",
+          "metricQueryType": 0,
+          "metricEditorMode": 0,
+          "id": "",
+          "expression": "",
+          "label": "invocations",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "sum"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "description": "AWS/Bedrock Invocations；應用程式每題約 1 次模型呼叫（重試時 2 次）"
+    },
+    {
+      "type": "row",
+      "title": "主機與容器資源",
+      "id": 25,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 51
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "主機 CPU 使用率",
+      "id": 26,
       "datasource": {
         "type": "prometheus",
         "uid": "${prom}"
@@ -756,7 +923,7 @@
         "h": 8,
         "w": 6,
         "x": 0,
-        "y": 42
+        "y": 52
       },
       "targets": [
         {
@@ -780,7 +947,7 @@
     {
       "type": "timeseries",
       "title": "主機記憶體使用率",
-      "id": 24,
+      "id": 27,
       "datasource": {
         "type": "prometheus",
         "uid": "${prom}"
@@ -789,7 +956,7 @@
         "h": 8,
         "w": 6,
         "x": 6,
-        "y": 42
+        "y": 52
       },
       "targets": [
         {
@@ -813,7 +980,7 @@
     {
       "type": "timeseries",
       "title": "主機檔案系統使用率",
-      "id": 25,
+      "id": 28,
       "datasource": {
         "type": "prometheus",
         "uid": "${prom}"
@@ -822,7 +989,7 @@
         "h": 8,
         "w": 6,
         "x": 12,
-        "y": 42
+        "y": 52
       },
       "targets": [
         {
@@ -846,7 +1013,7 @@
     {
       "type": "timeseries",
       "title": "主機負載",
-      "id": 26,
+      "id": 29,
       "datasource": {
         "type": "prometheus",
         "uid": "${prom}"
@@ -855,7 +1022,7 @@
         "h": 8,
         "w": 6,
         "x": 18,
-        "y": 42
+        "y": 52
       },
       "targets": [
         {
@@ -888,7 +1055,7 @@
     {
       "type": "timeseries",
       "title": "容器 CPU（核數）",
-      "id": 27,
+      "id": 30,
       "datasource": {
         "type": "prometheus",
         "uid": "${prom}"
@@ -897,7 +1064,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 50
+        "y": 60
       },
       "targets": [
         {
@@ -921,7 +1088,7 @@
     {
       "type": "timeseries",
       "title": "容器記憶體（working set）",
-      "id": 28,
+      "id": 31,
       "datasource": {
         "type": "prometheus",
         "uid": "${prom}"
@@ -930,7 +1097,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 50
+        "y": 60
       },
       "targets": [
         {
@@ -954,20 +1121,20 @@
     {
       "type": "row",
       "title": "Backend 警告與錯誤 log",
-      "id": 29,
+      "id": 32,
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 58
+        "y": 68
       },
       "panels": []
     },
     {
       "type": "logs",
       "title": "WARNING / ERROR",
-      "id": 30,
+      "id": 33,
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
@@ -976,7 +1143,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 59
+        "y": 69
       },
       "targets": [
         {
