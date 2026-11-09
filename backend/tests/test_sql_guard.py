@@ -85,7 +85,8 @@ def test_writes_hidden_inside_a_select_are_rejected(sql):
     ],
 )
 def test_tables_outside_the_allowlist_are_rejected_with_available_tables_listed(sql):
-    with pytest.raises(SqlGuardError, match="可用的資料表：cafes"):
+    # The list is sorted; ticket 8's cafe_* tables sort before cafes, so look anywhere in it.
+    with pytest.raises(SqlGuardError, match=r"可用的資料表：.*\bcafes\b"):
         validate_sql(sql)
 
 

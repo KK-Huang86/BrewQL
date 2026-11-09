@@ -2,7 +2,7 @@
 
 - [x] 1.1 故事檢查 `08_views_favorites.sql`：計數一致、收藏不重複、收藏前有瀏覽、投票無 `user_id`、沒有社群評分的店在 `v_cafe_profile`、每日加總一致、轉換率、高評分低收藏；驗證：紅燈，失敗原因是資料表或 view 不存在
 - [x] 1.2 `cafes` 加計數欄位；新增四張資料表、模擬資料、`v_cafe_profile`，擴充 `v_daily_activity`（D1、D2、D5、D6、D7）；驗證：01～08 檢查全部 pass，記錄初始化耗時
-- [ ] 1.3 唯讀角色授權與 SQL 白名單加入新資料表與 view；驗證：先寫防護測試紅燈，再綠燈；整合測試以 `genbi_reader` 查得到 `favorites`
+- [x] 1.3 唯讀角色授權與 SQL 白名單加入新資料表與 view；驗證：先寫防護測試紅燈，再綠燈；整合測試以 `genbi_reader` 查得到 `favorites`
 
 ## 2. 說明
 
