@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     bedrock_guardrail_version: str | None = None
     # Extra model calls after a failed attempt; capped so one question cannot multiply cost.
     max_sql_retries: int = Field(default=1, ge=0, le=5)
+    # Questions the whole site answers per Taipei day; must be positive so a typo cannot remove the cap.
+    daily_question_limit: int = Field(default=500, gt=0)
 
     @field_validator("bedrock_effort", "bedrock_guardrail_id", "bedrock_guardrail_version", mode="before")
     @classmethod
