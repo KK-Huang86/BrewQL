@@ -17,11 +17,24 @@ from app.pricing import guardrail_cost_usd, model_cost_usd
 BUCKETS = (0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30)
 Unavailable = Literal["unavailable_guardrail", "unavailable_model", "unavailable_db"]
 
+# Every (status, refusal_source, error_kind) an answer can have. They are exported at 0 from the
+# start: Prometheus' increase() needs two samples, so a series born at 1 would hide its first event.
+OUTCOMES = (
+    ("ok", "", ""),
+    ("clarify", "", ""),
+    ("refused", "input_guardrail", ""),
+    ("refused", "model", ""),
+    *(("error", "", kind) for kind in ("generation", "guardrail", "query", *Unavailable.__args__)),
+)
+STAGES = ("input_guard", "model", "db")
+# The guardrail only has the prompt-attack filter today; other reasons appear on first use.
+KNOWN_BLOCK_REASONS = ("prompt_attack",)
+
 
 class AskMetrics:
     """One registry per app, so each test (and each app) counts on its own."""
 
-    def __init__(self, daily_limit: DailyQuestionLimit | None = None) -> None:
+    def __init__(self, daily_limit: DailyQuestionLimit | None = None, *, model_id: str | None = None) -> None:
         self.registry = CollectorRegistry()
         r = self.registry
         self.asks = Counter(
@@ -41,6 +54,7 @@ class AskMetrics:
         self.unpriced = Counter(
             "brewql_unpriced_questions", "Questions whose cost is unknown, so the cost total is low", registry=r
         )
+        self._start_at_zero(model_id)
         self.daily_limit_hits = None
         if daily_limit is not None:
             # Read at scrape time, so the dashboard shows 0 right after Taipei midnight.
@@ -51,6 +65,21 @@ class AskMetrics:
             self.daily_limit_hits = Counter(
                 "brewql_daily_limit_hits", "Questions refused by the daily limit", registry=r
             )
+
+    def _start_at_zero(self, model_id: str | None) -> None:
+        for outcome in OUTCOMES:
+            self.asks.labels(*outcome)
+        for stage in STAGES:
+            self.stage_seconds.labels(stage)
+        for component in ("model", "guardrail"):
+            self.cost.labels(component)
+        for policy in ("topic", "content"):
+            self.guardrail_units.labels(policy)
+        for reason in KNOWN_BLOCK_REASONS:
+            self.guardrail_blocks.labels(reason)
+        if model_id:
+            for direction in ("input", "output"):
+                self.tokens.labels(model_id, direction)
 
     def record(self, result: AskResult, seconds: float) -> None:
         usage = result.usage

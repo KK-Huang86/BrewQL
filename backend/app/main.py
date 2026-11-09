@@ -64,8 +64,10 @@ def create_app(
     input_guard: InputGuard | None = None,
     max_sql_retries: int = 0,
     daily_limit: DailyQuestionLimit | None = None,
+    model_id: str | None = None,
 ) -> FastAPI:
-    metrics = AskMetrics(daily_limit)
+    # model_id only pre-creates the token series at 0; the reply's own model ID is what gets counted.
+    metrics = AskMetrics(daily_limit, model_id=model_id)
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -166,4 +168,5 @@ def build_app() -> FastAPI:
         input_guard=deps.input_guard,
         max_sql_retries=settings.max_sql_retries,
         daily_limit=DailyQuestionLimit(settings.daily_question_limit),
+        model_id=settings.bedrock_model_id,
     )
