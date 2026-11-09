@@ -38,6 +38,9 @@ services:
       - ${HOME}/.aws:/home/app/.aws:ro
     ports:
       - "127.0.0.1:8000:8000"
+    labels:
+      # Alloy ships logs only from containers with this label (observe-with-grafana D8).
+      brewql.logs: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -51,9 +54,37 @@ services:
       MAX_CONNECTIONS_PER_IP: ${MAX_CONNECTIONS_PER_IP:-20}
     ports:
       - "127.0.0.1:8080:80"
+    labels:
+      brewql.logs: "true"
     depends_on:
       backend:
         condition: service_healthy
+
+  # Off unless started with --profile observability; the app never depends on it (D2).
+  alloy:
+    image: grafana/alloy:v1.10.0
+    profiles: ["observability"]
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      # Empty defaults keep `docker compose up` without the profile free of warnings.
+      GRAFANA_CLOUD_PROMETHEUS_URL: ${GRAFANA_CLOUD_PROMETHEUS_URL:-}
+      GRAFANA_CLOUD_PROMETHEUS_USER: ${GRAFANA_CLOUD_PROMETHEUS_USER:-}
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
+      GRAFANA_CLOUD_TOKEN: ${GRAFANA_CLOUD_TOKEN:-}
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # Read-only, yet it can still read every container's settings: only Alloy gets it (D8).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      # Alloy's debug UI, localhost only.
+      - "127.0.0.1:12345:12345"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

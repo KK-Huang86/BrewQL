@@ -1,0 +1,79 @@
+// Grafana Alloy for BrewQL (observe-with-grafana D1, D8, D8a, D11).
+// Runs only with `docker compose --profile observability`. Credentials come from the environment
+// (.env through compose), never from this file. Everything sent carries project="brewql", because
+// the free Grafana Cloud stack is shared with other projects.
+
+// ---- Metrics: the backend's /metrics on the compose network (never public, D9) ----
+
+prometheus.scrape "backend" {
+	targets         = [{"__address__" = "backend:8000", "service" = "backend"}]
+	metrics_path    = "/metrics"
+	scrape_interval = "15s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+	external_labels = {"project" = "brewql"}
+
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+}
+
+// ---- Logs: containers labelled brewql.logs=true (backend, frontend) ----
+
+discovery.docker "brewql" {
+	host = "unix:///var/run/docker.sock"
+
+	filter {
+		name   = "label"
+		values = ["brewql.logs=true"]
+	}
+}
+
+discovery.relabel "brewql_logs" {
+	targets = discovery.docker.brewql.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+}
+
+loki.source.docker "brewql" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.brewql_logs.output
+	forward_to = [loki.process.brewql.receiver]
+}
+
+loki.process "brewql" {
+	// Backend lines are JSON with a level (D6); only that low-cardinality field becomes a label.
+	// Lines that are not JSON (nginx startup, uvicorn errors) pass through unchanged.
+	stage.json {
+		expressions = {"level" = "level"}
+	}
+
+	stage.labels {
+		values = {"level" = ""}
+	}
+
+	forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.write "grafana_cloud" {
+	external_labels = {"project" = "brewql"}
+
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+}
