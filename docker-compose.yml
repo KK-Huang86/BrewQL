@@ -12,6 +12,8 @@ services:
     ports:
       # Bound to localhost only; never exposed on a public interface.
       - "127.0.0.1:${DB_PORT:-5434}:5432"
+    labels:
+      brewql.metrics: "true"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d genbi"]
       interval: 5s
@@ -39,8 +41,10 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     labels:
-      # Alloy ships logs only from containers with this label (observe-with-grafana D8).
+      # Alloy ships logs only from containers with brewql.logs and resource metrics only from
+      # containers with brewql.metrics (observe-with-grafana D8, D8b).
       brewql.logs: "true"
+      brewql.metrics: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -56,14 +60,17 @@ services:
       - "127.0.0.1:8080:80"
     labels:
       brewql.logs: "true"
+      brewql.metrics: "true"
     depends_on:
       backend:
         condition: service_healthy
 
   # Off unless started with --profile observability; the app never depends on it (D2).
   alloy:
-    image: grafana/alloy:v1.10.0
+    image: grafana/alloy:v1.14.0
     profiles: ["observability"]
+    labels:
+      brewql.metrics: "true"
     command:
       - run
       - --server.http.listen-addr=0.0.0.0:12345
@@ -80,6 +87,14 @@ services:
       - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
       # Read-only, yet it can still read every container's settings: only Alloy gets it (D8).
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Host and container resources (D8b), all read-only.
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      # With Docker's containerd image store (overlayfs driver), cAdvisor asks containerd for layers.
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
     ports:
       # Alloy's debug UI, localhost only.
       - "127.0.0.1:12345:12345"

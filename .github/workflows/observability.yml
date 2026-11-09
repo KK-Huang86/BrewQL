@@ -18,7 +18,7 @@ jobs:
       # Same image version as docker-compose.yml; dummy URLs only satisfy sys.env during validation.
       - name: alloy fmt and validate
         run: |
-          docker run --rm -v "$PWD/observability/alloy:/cfg:ro" grafana/alloy:v1.10.0 fmt -t /cfg/config.alloy
+          docker run --rm -v "$PWD/observability/alloy:/cfg:ro" grafana/alloy:v1.14.0 fmt -t /cfg/config.alloy
           docker run --rm -e GRAFANA_CLOUD_PROMETHEUS_URL=http://example.invalid \
             -e GRAFANA_CLOUD_LOKI_URL=http://example.invalid \
-            -v "$PWD/observability/alloy:/cfg:ro" grafana/alloy:v1.10.0 validate /cfg/config.alloy
+            -v "$PWD/observability/alloy:/cfg:ro" grafana/alloy:v1.14.0 validate /cfg/config.alloy
