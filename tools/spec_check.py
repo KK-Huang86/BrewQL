@@ -25,9 +25,13 @@ CAPABILITIES_SECTION = re.compile(r"^## Capabilities\n(.*?)(?=^## |\Z)", re.MULT
 SKIP_SPECS = re.compile(r"^skip_specs:\s*true\s*$", re.MULTILINE)
 
 
+def _is_code(path: str) -> bool:
+    return path.strip().startswith(CODE_DIRS)
+
+
 def check(paths: list[str]) -> tuple[bool, str]:
     paths = [p.strip() for p in paths if p.strip()]
-    code = [p for p in paths if p.startswith(CODE_DIRS)]
+    code = [p for p in paths if _is_code(p)]
     spec = [p for p in paths if p.startswith(SPEC_DIR)]
     if code and not spec:
         listed = "\n".join(f"  - {p}" for p in code)
@@ -37,7 +41,7 @@ def check(paths: list[str]) -> tuple[bool, str]:
 
 def mixed_changes(paths: list[str]) -> list[str]:
     """Changes a code PR touches, when there is more than one; otherwise empty."""
-    if not any(p.strip().startswith(CODE_DIRS) for p in paths):
+    if not any(_is_code(p) for p in paths):
         return []
     names = sorted(_touched_changes(paths))
     return names if len(names) > 1 else []
