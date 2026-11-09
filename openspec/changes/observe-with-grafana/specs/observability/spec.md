@@ -53,8 +53,19 @@
 - **WHEN** Alloy 推送失敗
 - **THEN** 提問仍然正常回答
 
+### Requirement: 主機與容器資源
+Alloy SHALL 收集主機的 CPU、記憶體、負載、檔案系統、磁碟與網路，以及這個 compose 專案每個容器的 CPU、記憶體與網路，以 `service` 標籤區分容器。Alloy MUST 只保留 dashboard 與告警用到的指標，掛載的主機路徑 MUST 為唯讀。
+
+#### Scenario: 容器資源
+- **WHEN** 加 `--profile observability` 啟動 compose
+- **THEN** Grafana Cloud 查得到 `db`、`backend`、`frontend` 各自的 CPU 與記憶體使用量，以及主機的記憶體與檔案系統使用率
+
+#### Scenario: 容器停止
+- **WHEN** `backend` 容器停止超過 5 分鐘
+- **THEN** 觸發容器停止的告警
+
 ### Requirement: Dashboard 與告警以程式碼保存
-Dashboard 與告警規則 SHALL 存在 repo 的 `observability/` 中，至少涵蓋：結果分布與拒答來源、各階段 p50／p95 耗時、每日 token 與估算成本（含「成本不完整」）、Guardrail 攔截原因、每日上限使用量、nginx 429 與 404 次數。告警 SHALL 至少包含：5 分鐘內 5xx 比例超過門檻、p95 總耗時超過門檻、Guardrail 無法使用、每日提問上限被觸發、nginx 429 次數暴增。通知管道的聯絡資訊 MUST NOT 存進 repo。
+Dashboard 與告警規則 SHALL 存在 repo 的 `observability/` 中，至少涵蓋：結果分布與拒答來源、各階段 p50／p95 耗時、每日 token 與估算成本（含「成本不完整」）、Guardrail 攔截原因、每日上限使用量、nginx 429 與 404 次數、主機與各容器的 CPU 與記憶體。告警 SHALL 至少包含：5 分鐘內 5xx 比例超過門檻、p95 總耗時超過門檻、Guardrail 無法使用、每日提問上限被觸發、nginx 429 次數暴增、主機檔案系統或記憶體使用率過高、`backend` 容器停止。通知管道的聯絡資訊 MUST NOT 存進 repo。
 
 #### Scenario: Guardrail 無法使用
 - **WHEN** Guardrail 版本設定錯誤，提問一律回 502

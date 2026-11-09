@@ -7,7 +7,7 @@
 
 ## Goals / Non-Goals
 
-**Goals:** 一眼看出延遲、結果分布、成本與故障；被攻擊（限流大量觸發）時收到告警；設定可從 repo 重建；沒有 Grafana 憑證時本機開發完全不受影響。
+**Goals:** 一眼看出延遲、結果分布、成本、故障，以及主機與容器資源；被攻擊（限流大量觸發）時收到告警；設定可從 repo 重建；沒有 Grafana 憑證時本機開發完全不受影響。
 
 **Non-Goals:** traces、長期保存、自架監控、問題原文（屬於 `record-audit-log`）。
 
@@ -71,6 +71,13 @@ nginx 以 `log_format ... escape=json` 輸出一行一個 JSON：時間、`remot
 ### D8a. 共用 Grafana Cloud stack：以 `project` 標籤區分
 Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他專案共用同一組 Loki、Prometheus 與額度。Alloy 對所有 log 與指標加上 external label `project="brewql"`，dashboard 與告警的查詢一律帶 `project="brewql"`，放在 `BrewQL` 資料夾。BrewQL 使用獨立的 access policy token，不沿用其他專案的 token，停用時可以單獨撤銷。
 
+### D8b. 主機與容器資源：Alloy 內建 exporter
+- **主機**：`prometheus.exporter.unix`（node exporter），只開 `cpu`、`meminfo`、`loadavg`、`filesystem`、`diskstats`、`netdev`，掛載 `/proc`、`/sys`、`/` 為唯讀。
+- **容器**：`prometheus.exporter.cadvisor`，讀 Docker socket 與 `/sys`、`/var/lib/docker` 唯讀，只保留這個 compose 專案的容器（`db`、`backend`、`frontend`、`alloy`），以 `service` 標籤區分。
+- 額度：免費方案的 active series 有上限，與其他專案共用（D8a）。以 relabel 只保留 dashboard 與告警用到的指標（CPU、記憶體、檔案系統、網路、容器 CPU／記憶體／網路），丟掉其餘；BrewQL 全部 series 目標在 1,000 以內。
+- 本機 Docker Desktop 上的「主機」是 Docker 的 Linux VM，不是 Mac 本身；主機數字要到部署的 EC2 才有意義，本機只驗證管線能通。
+- 不在 backend 加 Python process 指標：容器層已經看得到 backend 的 CPU 與記憶體。
+
 ### D9. `/metrics` 不對外
 `/metrics` 由 backend 提供，沒有驗證。只能從 compose 網路內存取：nginx 白名單不轉發 `/metrics`（`limit-public-traffic` D6，已有容器測試），backend port 只綁 `127.0.0.1`，部署主機的 security group 不開 8000。
 
@@ -83,6 +90,9 @@ Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他�
   - 5 分鐘內出現 Guardrail 無法使用（`error_kind="unavailable_guardrail"`）
   - 每日上限被觸發（`brewql_daily_limit_hits_total` 增加）
   - 5 分鐘內 nginx 429 超過 50 次（攻擊訊號）
+  - 主機檔案系統使用率 > 85%
+  - 主機記憶體使用率 > 90% 持續 10 分鐘
+  - `backend` 容器 5 分鐘內沒有任何 CPU 或記憶體資料（容器停了）
 
 ### D11. 設定
 `.env`（同步 `.env.example`，不提供真實值）：
