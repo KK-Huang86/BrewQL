@@ -74,3 +74,11 @@ def test_comparisons_return_one_category_and_one_measure():
     # columns, so the page showed a table instead of a bar chart.
     for text in ("比較或排名", "一個類別欄", "一個主要指標", "除非問題要求"):
         assert text in SCHEMA_CONTEXT, text
+
+
+def test_schema_context_describes_every_allowlisted_table():
+    # Spec (ticket 8): every table and view the guard allows has its own section.
+    from app.sql_guard import DEFAULT_ALLOWED_TABLES
+
+    missing = {t for t in DEFAULT_ALLOWED_TABLES if f" {t}：" not in SCHEMA_CONTEXT}
+    assert not missing, f"schema context has no section for: {missing}"
