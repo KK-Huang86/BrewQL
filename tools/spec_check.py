@@ -3,6 +3,8 @@
 1. A PR that changes code must also change something under openspec/.
 2. Each change the PR touches that already has specs/ must have a spec delta for every
    capability its proposal lists.
+3. A PR that changes code touches at most one change under openspec/changes/ (the archive
+   does not count); docs-only PRs may plan several.
 
 Only checks *that* specs exist, not *whether* they match the code; that semantic check
 is done by spectra drift and code review before opening a PR.
@@ -23,14 +25,26 @@ CAPABILITIES_SECTION = re.compile(r"^## Capabilities\n(.*?)(?=^## |\Z)", re.MULT
 SKIP_SPECS = re.compile(r"^skip_specs:\s*true\s*$", re.MULTILINE)
 
 
+def _is_code(path: str) -> bool:
+    return path.strip().startswith(CODE_DIRS)
+
+
 def check(paths: list[str]) -> tuple[bool, str]:
     paths = [p.strip() for p in paths if p.strip()]
-    code = [p for p in paths if p.startswith(CODE_DIRS)]
+    code = [p for p in paths if _is_code(p)]
     spec = [p for p in paths if p.startswith(SPEC_DIR)]
     if code and not spec:
         listed = "\n".join(f"  - {p}" for p in code)
         return False, f"程式碼有變更，但 openspec/ 沒有對應的變更：\n{listed}"
     return True, "spec check passed"
+
+
+def mixed_changes(paths: list[str]) -> list[str]:
+    """Changes a code PR touches, when there is more than one; otherwise empty."""
+    if not any(_is_code(p) for p in paths):
+        return []
+    names = sorted(_touched_changes(paths))
+    return names if len(names) > 1 else []
 
 
 def capability_gaps(paths: list[str], root: Path) -> dict[str, list[str]]:
@@ -81,7 +95,14 @@ def main(stdin: TextIO = sys.stdin, *, root: Path = Path("."), out: TextIO = sys
     gaps = capability_gaps(paths, root)
     for name, missing in gaps.items():
         print(f"{CHANGES_DIR}{name}: proposal 列出的 capability 沒有 spec delta：{', '.join(missing)}", file=out)
-    return 0 if ok and not gaps else 1
+    mixed = mixed_changes(paths)
+    if mixed:
+        print(
+            f"有程式碼變更的 PR 只能實作一個 change，這個 PR 動到：{', '.join(mixed)}；"
+            "其他 change 的文件請移到另一個分支",
+            file=out,
+        )
+    return 0 if ok and not gaps and not mixed else 1
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ BrewQL 是一個 GenBI（生成式 BI）服務：讓不會寫 SQL 的營運人�
 ```bash
 # 後端：安裝依賴、測試、靜態檢查
 uv --directory backend sync --group dev
-uv --directory backend run pytest -q
+uv --directory backend run pytest -q        # 指定檔案時路徑相對 backend/，例如 tests/test_charts.py
 uv --directory backend run ruff check .
 
 # commit 前檢查（每個 clone 安裝一次）
@@ -55,12 +55,17 @@ eval "$(db/test-db.sh up)"; uv --directory backend run pytest -q; db/test-db.sh 
 
 # 模擬資料故事檢查（db/checks，每個檔案失敗時 RAISE）
 PSQL="docker exec -i brewql-test-db psql -U genbi_owner -d genbi" db/checks/run.sh
+# 證明檢查會失敗：在交易中改資料、跑一個檢查、一定 rollback（caught 才算有效）
+PSQL="..." db/checks/mutate.sh "UPDATE cafes SET favorite_count = favorite_count + 1 WHERE id = 1" 08_views_favorites.sql
 
 # 實際呼叫 Bedrock 的 smoke 測試（需要 AWS 憑證與模型權限）
 uv --directory backend run python -m scripts.ask "台北市有幾家工作友善的咖啡店？"
 
 # 評估黃金測試集（先 --dry-run 免費檢查；完整執行會呼叫 Bedrock，結果摘要記入 backend/evaluation/RESULTS.md）
 AWS_PROFILE=brewql uv --directory backend run python -m evaluation [--dry-run] [--only q01,q12]
+# 對測試資料庫試跑參考 SQL（DB_PORT 要和 DATABASE_URL 的 port 一致）
+DB_PORT=5499 DATABASE_URL=postgresql://genbi_reader:ci-reader-password@127.0.0.1:5499/genbi \
+  uv --directory backend run python -m evaluation --dry-run
 
 # 前端
 npm --prefix frontend install
@@ -81,6 +86,7 @@ terraform -chdir=infra/terraform plan
 
 ## 注意事項
 
+- **寫測試、新增資料寫入路徑、準備開 PR 前，先讀 `CODING_STANDARDS.md`**（TDD、資料操作穩健性、PR 前 spec 一致性檢查）；code review 依該檔審查。
 - Commit 訊息一律使用英文，格式為 Conventional Commits（`feat:`、`fix:`、`chore:`、`docs:`、`test:`、`refactor:`），例如 `feat: add read-only query executor`。OpenSpec 文件與程式碼註解不受此限。
 - 分支策略：`main` 為可 Demo／部署的穩定版本，`develop` 為開發主線，兩者在 GitHub 上受保護，只能透過 PR 合併（禁止直接 push、force push 與刪除）。每個 OpenSpec change 從 `develop` 開 `feature/<change-name>` 分支，以 PR 合回 `develop`；要部署時再從 `develop` 開 PR 合進 `main`。
 - PR 標題使用英文（Conventional Commits 格式，例如 `feat: answer the first question end to end`），PR 內容使用繁體中文。撰寫 PR 內容時，必須先用 Skill tool 呼叫 `mattpocock-skills:pr`，依其範本（Summary、Evidence、Merge Danger）撰寫。
@@ -91,41 +97,3 @@ terraform -chdir=infra/terraform plan
 - 不得把真實 Find Coffee 使用者資料（LINE ID、收藏紀錄等）放進 repo 或 Demo 資料庫。
 - Unit test 不得真實呼叫 Bedrock 或其他外部服務；需要真實 Postgres 的測試放在 `backend/tests/integration/`。
 - 部署主機以 IAM role 取得 AWS 臨時憑證，不得建立或使用長期 access key。
-
-# TDD 開發規範（專案固定規則）
-
-任何實作階段（尤其 `/spectra-apply` 或直接寫程式碼）都必須遵守：
-
-1. **先寫測試，後寫程式碼**：在生成/修改任何實作程式碼之前，必須先為該功能撰寫對應的 unit test。若某個任務沒有對應的 unit test，禁止生成該任務的實作程式碼。
-2. **邊界案例優先**：撰寫 unit test 時，除了基本 happy path，必須額外涵蓋邊界情況（空值、極端值、錯誤輸入、併發/重複呼叫等），確保測試案例能反映真實使用情境與潛在風險。
-3. **分階段驗證**：每個開發階段完成後都要驗證再往下走，而不是一次做完才驗證，包含（但不限於）：
-   - 測試案例本身是否合理覆蓋需求與邊界情況
-   - 新寫的測試在無實作前應為紅燈（fail），且要讀失敗訊息確認是被測行為的斷言失敗或尚未存在的介面，不是 fixture、假物件或預期值本身寫錯
-   - 實作完成後測試需全部通過（green）
-   - 通過後再視情況重構（refactor），且重構後測試仍需全綠
-   - git 歷史要能證明順序：每個循環先 commit 紅燈測試（`test: ... (red)`），再 commit 實作（`feat: ... (green)`）；測試一寫就綠的驗證型測試，以 `test:` 單獨 commit 並在訊息中說明突變驗證
-4. **測試全過才能生成/合併程式碼**：只有當對應的 unit test（含邊界案例）全部撰寫完成且驗證通過後，才可以生成或提交最終的實作程式碼。
-5. **測試不可為了遷就程式碼而修改**：unit test 撰寫完成後，除非商業邏輯（需求本身）有變更，否則不可以因為程式碼實作結果、或是為了讓測試通過，而回頭修改測試內容（例如放寬斷言、刪除邊界案例、改動期望值以符合實作輸出）。測試失敗時，預設應該修的是程式碼，而不是測試；只有在確認是商業邏輯變更時，才能連動修改測試，且需同步說明變更原因。
-
-# 資料操作穩健性規範（專案固定規則）
-
-涉及資料寫入/狀態變更的開發，必須考慮以下事項：
-
-1. **重視邊界情況**：實作前先想清楚輸入的邊界（空值、極端值、型別錯誤、超量資料等），並反映在程式邏輯與測試中。
-2. **原子性操作**：提交相關聯的多筆資料變更時，要嘛全部成功、要嘛全部不生效，不可只完成一半。單一資料庫內優先用 transaction；跨系統/跨服務無法用單一 transaction 涵蓋時，需設計補償機制（compensating action / saga），不能假裝有原子性。
-3. **失敗時要能 rollback**：任何寫入流程都要事先設計失敗後的回復路徑，不能只處理成功路徑（happy path）。
-4. **冪等性（Idempotency）**：同一操作重複執行（重試、重複請求）結果需與只執行一次相同，避免重複扣款、重複寫入等副作用，這點在搭配 retry/rollback 機制時尤其重要。
-5. **錯誤不可被吞掉**：例外必須明確拋出或記錄，禁止 catch 後靜默忽略；rollback 觸發原因也需可被追蹤。
-6. **併發安全**：多請求同時操作同一資料時，需考慮鎖定或版本控制（如 optimistic lock），避免競爭條件造成資料不一致。
-7. **逾時與重試需有上限**：避免無限重試造成連鎖失敗或重複副作用，並應與冪等性設計搭配。
-8. **可觀測性**：失敗、rollback、重試都要有 log／監控可查，方便事後追查根因。
-
-# PR 前的 Spec 一致性檢查（專案固定規則）
-
-程式碼與 spec/proposal/design 是否一致，分兩層把關，性質不同：
-
-1. **結構檢查（交給 CI）**：若這次變更修改了實作程式碼，卻沒有同步修改對應的 `openspec/specs/**` 或該 change 目錄下的文件，CI 應直接擋下 PR。這是可自動化、確定性的規則，不需要 AI 判斷。
-2. **語意檢查（由我在流程中執行，不寫進 CI）**：驗證 task/實作是否真的符合 proposal、design 的描述，需要語意判讀，不適合當 CI 硬性 gate（成本高、可能不穩定）。因此：
-   - change 的任務完成、要準備開 PR 之前，依序執行：`openspec validate <change> --strict`、`spectra drift <change>`（檢查 spec 與程式碼現狀的落差）、`mattpocock-skills:code-review`（Standards 與 Spec 兩個面向，以 `develop` 為比較基準）。
-   - 任一項回報落差，必須先處理（修正實作或回頭調整 spec／design／tasks），確認一致後才能建議使用者開 PR。
-   - 這一層是流程約定，仰賴我主動執行，不是 CI 保證；若程式碼是透過我以外的方式修改，此規則不會被觸發。
