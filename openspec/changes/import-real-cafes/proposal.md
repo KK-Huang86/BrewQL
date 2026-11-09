@@ -29,3 +29,18 @@
 - 新增：`db/import/` 腳本、compose 的資料集切換、README 章節
 - 授權：Google Places 來源的資料受條款限制，不可散布，只能保留在私人環境；Cafe Nomad 資料需先確認授權
 - 依賴 ticket：`eval-golden-set`（評估先固定在模擬資料）、`deploy-public-demo`（部署後再決定線上是否使用真實店家）
+
+## 匯出檔現況（2026-11-08 檢查）
+
+本機匯出檔（pgAdmin CSV，有標頭，空值寫成字串 `NULL`）不進 repo，只記錄檢查結果：
+
+- `cafes`（店家主表）：812 家、27 欄，格式正常。
+  - 地址同時有「臺北市」與「台北市」，匯入時統一寫法；部分英文地址無法解析行政區，改用經緯度對行政區界判斷。
+  - `has_socket`、`limited_time` 約一半為 NULL，`has_pet`、`pet_friendly` 幾乎全為 NULL；真實資料比示範資料稀疏，評估結果不可直接比較。
+  - `reviews`（Google 評論原文）、`photo_reference`、`photo_s3_url` 依 Google 條款不匯入；`view_count` 全為 0。
+- `cafe_cafeattributevote`（屬性投票）：902 筆、7 欄，`cafe_id` 全部對得到 `cafes`。
+  - 屬性 socket、limited_time、quiet、cheap、pet_friendly、has_pet；值 yes/maybe/no/unknown。
+  - 來源 google 650、cafenomad 116、user 136；user 來源帶 `user_id`，屬於真實使用者行為，只匯入不含 `user_id` 的彙總。
+- `cafe_nomad_cache`（Cafe Nomad 社群資料）：1,661 筆、21 欄，格式正常。
+  - 有 wifi、seat、quiet、tasty、cheap、music 評分與捷運站 `mrt`（約 1/3 有值）。
+  - 沒有對應 `cafes` 的 id，需以店名＋座標比對；授權需先確認。
