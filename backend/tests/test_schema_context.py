@@ -82,3 +82,35 @@ def test_schema_context_describes_every_allowlisted_table():
 
     missing = {t for t in DEFAULT_ALLOWED_TABLES if f" {t}：" not in SCHEMA_CONTEXT}
     assert not missing, f"schema context has no section for: {missing}"
+
+
+def definition_of(term: str) -> str:
+    lines = [line for line in SCHEMA_CONTEXT.splitlines() if line.startswith(f"- {term}")]
+    assert lines, f"{term} is not defined"
+    return lines[0]
+
+
+def test_schema_context_defines_favorite_conversion_like_the_story_check():
+    # Design D3 / db/checks/08: favorites from an entry point ÷ views from it, as numeric.
+    definition = definition_of("收藏轉換率")
+    for text in ("favorites", "cafe_views", "source", "numeric"):
+        assert text in definition, text
+
+
+def test_schema_context_separates_active_users_from_account_status():
+    # Design D4: searched or viewed in the period (default 30 days), not users.status.
+    definition = definition_of("活躍使用者")
+    for text in ("search_logs", "cafe_views", "30 天", "status"):
+        assert text in definition, text
+
+
+def test_schema_context_defines_few_favorites_by_the_median():
+    # Design D4: with no threshold given, "few" means below the median favorite_count.
+    definition = definition_of("收藏很少")
+    for text in ("favorite_count", "percentile_cont(0.5)"):
+        assert text in definition, text
+
+
+def test_schema_context_prefers_the_cafe_profile_view():
+    # Spec: cafe attributes together with community ratings come from v_cafe_profile.
+    assert "優先使用 v_cafe_profile" in SCHEMA_CONTEXT
