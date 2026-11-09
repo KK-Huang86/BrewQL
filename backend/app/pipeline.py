@@ -2,7 +2,8 @@
 
 import logging
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any, Literal, Protocol
 
@@ -33,6 +34,15 @@ class QueryExecutor(Protocol):
     async def close(self) -> None: ...
 
 
+Stage = Literal["input_guard", "model", "db"]
+
+
+@dataclass(frozen=True)
+class StageTiming:
+    stage: Stage
+    seconds: float
+
+
 @dataclass
 class AskUsage:
     """What one question cost, over every attempt. Internal: evals and metrics, never the API."""
@@ -42,6 +52,18 @@ class AskUsage:
     output_tokens: int = 0
     guardrail: GuardrailUsage = field(default_factory=GuardrailUsage)
     elapsed_ms: int = 0
+    # One entry per call, in order; retries add their own model and db entries. Left out of
+    # equality: timings differ on every run, while usage compares by what was billed.
+    stages: list[StageTiming] = field(default_factory=list, compare=False)
+
+    @contextmanager
+    def timed(self, stage: Stage) -> Iterator[None]:
+        """Time one call, failed ones included: a failed model reply was still waited for (and billed)."""
+        started = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.stages.append(StageTiming(stage, time.perf_counter() - started))
 
     def add(self, call: ModelUsage | None) -> None:
         if call is None:
@@ -98,7 +120,8 @@ async def _answer(
     # First gate: a blocked question never reaches the model. Failures propagate (fail closed).
     # Checked once: retries reuse the same question, so screening it again only adds cost.
     if input_guard is not None:
-        verdict = await input_guard.check(question)
+        with usage.timed("input_guard"):
+            verdict = await input_guard.check(question)
         usage.guardrail = verdict.usage
         if verdict.blocked:
             return AskResult(status="refused", message=verdict.message, refusal_source="input_guardrail")
@@ -135,7 +158,8 @@ async def _attempt(
 ) -> tuple[AskResult, FailedAttempt | None, bool]:
     """One model call and, for SQL, guard + execution: (result, failure if any, whether a retry may help)."""
     try:
-        reply = await generator.generate(question, feedback)
+        with usage.timed("model"):
+            reply = await generator.generate(question, feedback)
     except ReplyError as e:
         usage.add(e.usage)  # an unusable reply was still billed
         failure = FailedAttempt(error_kind="generation", reason=str(e))
@@ -153,7 +177,8 @@ async def _attempt(
         failure = FailedAttempt(error_kind="guardrail", reason=str(e), sql=reply.sql)
         return AskResult(status="error", sql=reply.sql, message=str(e), error_kind="guardrail"), failure, True
     try:
-        columns, rows = await executor.run(sql)
+        with usage.timed("db"):
+            columns, rows = await executor.run(sql)
     except QueryError as e:
         result = AskResult(status="error", sql=sql, message="查詢執行失敗，請換個問法再試", error_kind="query")
         # A timed-out rewrite would likely run as long again; not worth another call.
