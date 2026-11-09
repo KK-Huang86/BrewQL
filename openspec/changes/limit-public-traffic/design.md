@@ -63,7 +63,7 @@ nginx 只把明確列出的公開 API 轉給 backend（`location = /api/ask`）�
 
 ### D7. nginx 行為以容器測試驗證
 `frontend/nginx-tests/`：用 Python 標準函式庫（`unittest`、`urllib`、`subprocess`）啟動兩個容器，放在同一個 Docker network：
-- 待測 nginx：`nginx:1.27-alpine` 掛上 repo 的 `nginx.conf` 與一個假的 `index.html`。
+- 待測 nginx：`nginx:1.27-alpine` 掛上 repo 的 `frontend/nginx/` 模板目錄與一個假的 `index.html`。
 - 假 backend：名稱為 `backend` 的 nginx，對任何請求回 200 JSON 並寫 access log；測試讀它的 log 判斷「後端有沒有收到」。
 
 測試涵蓋：白名單與 404、20 次連續提問的 6 通過 14 被擋、429 的 JSON body 與 `Retry-After`、413、不同來源 IP 互不影響（在同一個 Docker network 開第二個 client 容器）、環境變數改變限流數值（例如 burst 2 時只放行 3 次）、不合法的值讓 nginx 啟動失敗。待測 nginx 掛上 `frontend/nginx/default.conf.template`，與正式 image 走同一個模板流程。不呼叫 Bedrock、不需要資料庫。CI 的 frontend job 加一個步驟執行。
