@@ -9,7 +9,9 @@ request, so a test can tell whether a request reached the backend (design D7).
 
 from __future__ import annotations
 
+import http.client
 import json
+import socket
 import subprocess
 import tempfile
 import time
@@ -257,6 +259,40 @@ class InvalidLimitTest(unittest.TestCase):
                 with self.subTest(key=key, value=value):
                     harness.start_nginx({key: value})
                     self.assertFalse(harness.nginx_running(), f"nginx started with {key}={value!r}")
+
+
+class RequestSizeAndTimeoutTest(NginxTestCase):
+    # Spec: bodies over 16 KB are 413; a client that stalls for 10 s is cut off (design D5).
+
+    def post_raw(self, body: bytes) -> int:
+        conn = http.client.HTTPConnection("127.0.0.1", harness.port, timeout=10)
+        try:
+            conn.request("POST", "/api/ask", body=body, headers={"Content-Type": "application/json"})
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # nginx may answer before the whole body is sent
+        try:
+            return conn.getresponse().status
+        finally:
+            conn.close()
+
+    def test_a_one_megabyte_body_is_413_and_never_reaches_the_backend(self):
+        before = harness.backend_hits("/api/ask")
+        self.assertEqual(self.post_raw(b"x" * 1024 * 1024), 413)
+        self.assertEqual(harness.backend_hits("/api/ask"), before)
+
+    def test_a_body_under_16_kb_still_goes_through(self):
+        body = json.dumps({"question": "q", "pad": "x" * 15_000}).encode()
+        self.assertEqual(self.post_raw(body), 200)
+
+    def test_a_stalled_header_is_cut_off_within_about_ten_seconds(self):
+        with socket.create_connection(("127.0.0.1", harness.port), timeout=30) as sock:
+            sock.sendall(b"POST /api/ask HTTP/1.1\r\nHost: test\r\n")  # never finish the headers
+            start = time.monotonic()
+            while sock.recv(1024):
+                pass  # nginx may send a 408 before closing; wait for the close itself
+            elapsed = time.monotonic() - start
+        self.assertLess(elapsed, 13)
+        self.assertGreater(elapsed, 8)
 
 
 if __name__ == "__main__":
