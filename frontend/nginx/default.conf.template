@@ -11,6 +11,11 @@ server {
     root /usr/share/nginx/html;
 
     limit_conn per_ip ${MAX_CONNECTIONS_PER_IP};
+    # A question is at most 1000 characters, so 16 KB of JSON is plenty; slow or stalled
+    # clients are dropped after 10 s instead of holding a worker (design D5).
+    client_max_body_size 16k;
+    client_header_timeout 10s;
+    client_body_timeout 10s;
     # Same shape as a normal answer so the UI shows the message (design D2).
     error_page 429 = @too_many_requests;
 
