@@ -69,7 +69,7 @@ nginx 以 `log_format ... escape=json` 輸出一行一個 JSON：時間、`remot
 - 風險：Docker socket 即使唯讀掛載，仍能讀取所有容器的設定與環境變數。只給 Alloy、Alloy 不對外開 port、image 固定版本。替代方案是掛載 `/var/lib/docker/containers`，但會失去容器名稱、只剩 ID。
 
 ### D8a. 共用 Grafana Cloud stack：以 `project` 標籤區分
-Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他專案共用同一組 Loki、Prometheus 與額度。Alloy 對所有 log 與指標加上 external label `project="brewql"`，dashboard 與告警的查詢一律帶 `project="brewql"`，放在 `BrewQL` 資料夾。BrewQL 使用獨立的 access policy token，不沿用其他專案的 token，停用時可以單獨撤銷。
+Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他專案共用同一組 Loki、Prometheus 與額度。Alloy 對所有 log 與指標加上 external label `project="brewql"` 與 `env`（`BREWQL_ENV`，本機預設 `local`、部署為 `demo`），dashboard 與告警的查詢一律帶 `project="brewql"`，放在 `BrewQL` 資料夾。BrewQL 使用獨立的 access policy token，不沿用其他專案的 token，停用時可以單獨撤銷。
 
 ### D8b. 主機與容器資源：Alloy 內建 exporter
 - **主機**：`prometheus.exporter.unix`（node exporter），只開 `cpu`、`meminfo`、`loadavg`、`filesystem`、`diskstats`、`netdev`，掛載 `/proc`、`/sys`、`/` 為唯讀。

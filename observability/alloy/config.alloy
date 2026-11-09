@@ -13,7 +13,7 @@ prometheus.scrape "backend" {
 }
 
 prometheus.remote_write "grafana_cloud" {
-	external_labels = {"project" = "brewql"}
+	external_labels = {"project" = "brewql", "env" = coalesce(sys.env("BREWQL_ENV"), "local")}
 
 	endpoint {
 		url = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
@@ -148,7 +148,7 @@ loki.process "brewql" {
 }
 
 loki.write "grafana_cloud" {
-	external_labels = {"project" = "brewql"}
+	external_labels = {"project" = "brewql", "env" = coalesce(sys.env("BREWQL_ENV"), "local")}
 
 	endpoint {
 		url = sys.env("GRAFANA_CLOUD_LOKI_URL")
