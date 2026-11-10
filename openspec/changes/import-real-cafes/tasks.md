@@ -24,7 +24,8 @@
   - 結果：路徑由 `db/seed/` 改為 `backend/app/`（匯入容器的 image 只有 backend）；驗證由 `db/checks` 改為整合測試，因為 `db/checks` 檢查的是 demo 的資料故事（例如內湖區落差），real 本來就不成立。SQL 沿用 demo seed 的會員、搜尋（考試季）、瀏覽（依評分與評論數加權）、收藏轉換與回訪，固定 `setseed`；搜尋只落在有真實店家的行政區，比例依店家數；不產生 Cafe Nomad 與投票（用真實匯入的）。在匯入交易內執行，失敗一起 rollback。整合測試紅轉綠：2,000 會員、搜尋超過 4 萬、瀏覽超過 15 萬、搜尋行政區都有店家、計數等於明細、沒有在加入前的搜尋、沒有 user 來源投票。已加入會員數改用 `width_bucket`，測試由 14.6 秒降為 4.3 秒；mutation：拿掉計數更新後測試失敗
 - [x] 3.4 compose：`DATASET`、各自的 volume、`cafe-import` 服務（`REAL_DATA_DIR` 唯讀掛載）；`.gitignore` 加 `db/import/`；`.env.example` 同步；驗證：兩種模式都能啟動，`git status` 看不到匯入檔
   - 結果：demo seed 移到 `db/init/demo/02_seed.sql`，由 `db/init/02_seed.sh` 在非 real 時執行（Postgres 只執行 init 目錄第一層的檔案）；CI 改跑該腳本。compose：db 帶 `DATASET`、volume 名稱 `genbi_pgdata_${DATASET:-demo}`、新增 `cafe-import`（擁有者連線只給這個容器），backend 等它成功才啟動；db 健康檢查改走 TCP，init 期間 Postgres 只聽 socket，避免匯入在 init 完成前連線。實測：測試資料庫 demo 200 家、671 個測試與 8 個 `db/checks` 通過；`DATASET=real` 匯入報告 `cafes=812 parsed=768 filled=42 unknown=2 votes=766 member_votes_dropped=136 nomad_matched=147 nomad_unmatched=1511 nomad_duplicates=3`，資料庫 demo 店家 0、會員 2,000、搜尋 50,000、瀏覽 202,105、收藏 17,075、user 投票 0、知識文件 32；再次啟動顯示 already has cafes；不帶 `DATASET` 啟動回到 demo（200 家，新 volume `genbi_pgdata_demo`）。`db/import/` 下的檔案 `git status` 看不到。舊 volume `genbi_pgdata` 不再使用
-- [ ] 3.5 測試 + 實作：評估遇到非 demo 店家時在付費呼叫前報錯停止；驗證：測試由紅轉綠
+- [x] 3.5 測試 + 實作：評估遇到非 demo 店家時在付費呼叫前報錯停止；驗證：測試由紅轉綠
+  - 結果：`evaluation/dataset.py` 的 `check_demo_dataset` 以 `genbi_reader` 計算 `place_id` 不是 `demo-` 開頭的店家，評估在建立連線後、`--dry-run` 與任何 Bedrock 呼叫之前檢查，非 demo 時 exit 2。2 個單元測試與 1 個整合測試（測試資料庫的 demo 通過）紅轉綠。實測：本機切到 real 執行 `--dry-run` 印出「812 cafes are not demo cafes」並停止；切回 demo 22 題參考 SQL 全部 ok
 
 ## 4. 驗證與文件
 
