@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: 說明來源模式
-系統 SHALL 支援兩種給模型說明的模式，由設定切換：`static`（固定的完整說明）與 `rag`（依檢索結果組成）。`rag` 模式下說明 SHALL 至少包含白名單資料表名稱清單，即使檢索結果為空。
+系統 SHALL 支援兩種給模型說明的模式，由設定切換：`static`（固定的完整說明）與 `rag`（依檢索結果組成）。`rag` 模式下說明 SHALL 一律包含固定的回覆規則（回覆類型、拒答與反問條件）、白名單資料表名稱清單與今天日期，即使檢索結果為空；檢索到的知識接在後面。預設模式為 `static`，評估證明 `rag` 不比 `static` 差後才改預設（另一個 commit，附評估數據）。
 
 #### Scenario: RAG 模式
 - **WHEN** 模式為 `rag`
@@ -10,6 +10,17 @@
 #### Scenario: 檢索結果為空
 - **WHEN** 模式為 `rag` 且檢索不到任何知識
 - **THEN** 說明仍包含白名單資料表名稱，流程正常進行
+
+### Requirement: 檢索的成本與故障
+`rag` 模式下問題向量化的 token 數與費用 SHALL 計入該題的用量與估算成本（指標、稽核紀錄與評估報告同一來源）。Embedding 或檢索失敗 SHALL 視為相依服務故障回應 5xx，並以獨立的故障種類記錄；MUST NOT 靜默改用 `static` 模式。
+
+#### Scenario: 成本包含 embedding
+- **WHEN** 以 `rag` 模式回答一題
+- **THEN** 該題的估算成本包含 embedding 費用
+
+#### Scenario: embedding 失敗
+- **WHEN** Titan embedding 呼叫失敗
+- **THEN** 回應 5xx，故障種類為檢索，不呼叫產生 SQL 的模型
 
 ### Requirement: 回報使用的知識
 `rag` 模式下回應 SHALL 包含 `sources`：本次使用的知識 ID、類型與標題；`static` 模式下 `sources` 為空清單。
