@@ -28,9 +28,11 @@ from app.charts import Chart, choose_chart
 from app.daily_limit import DailyQuestionLimit
 from app.db import DatabaseUnavailable
 from app.input_guard import InputGuardUnavailable
+from app.knowledge import KnowledgeKind
 from app.llm import ErrorKind
 from app.metrics import AskMetrics, Unavailable
-from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
+from app.pipeline import MAX_QUESTION_CHARS, InputGuard, KnowledgeRetriever, QueryExecutor, SqlGenerator, ask
+from app.retrieval import RetrievalUnavailable
 
 log = logging.getLogger(__name__)
 # HMAC-SHA256 key for visitor IDs; shorter keys make the IPv4 space cheap to brute-force (D5).
@@ -40,6 +42,12 @@ MIN_VISITOR_KEY_LENGTH = 32
 class AskRequest(BaseModel):
     # Same rule as the pipeline, enforced at the edge so bad input is a 422.
     question: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=MAX_QUESTION_CHARS)]
+
+
+class SourceOut(BaseModel):
+    id: str
+    kind: KnowledgeKind
+    title: str
 
 
 class AskResponse(BaseModel):
@@ -54,6 +62,8 @@ class AskResponse(BaseModel):
     attempts: int = 0
     # How to draw the rows (result-visualization); null when there is no successful result.
     chart: Chart | None = None
+    # Knowledge documents a rag answer was given; empty in static mode (rag-knowledge-base).
+    sources: list[SourceOut] = []
 
     @field_serializer("rows")
     def _rows(self, rows: list[list[Any]]) -> list[list[Any]]:
@@ -80,6 +90,11 @@ def _outage(exc: Exception) -> _Outage:
     """A dependency the pipeline could not reach: how it is counted, answered and logged."""
     if isinstance(exc, InputGuardUnavailable):
         return _Outage("unavailable_guardrail", 502, "輸入檢查暫時無法使用，請稍後再試", "input guardrail unavailable")
+    if isinstance(exc, RetrievalUnavailable):
+        # Titan or the knowledge search failed in rag mode; the SQL model was never called (D9).
+        return _Outage(
+            "unavailable_retrieval", 502, "知識檢索暫時無法使用，請稍後再試", "knowledge retrieval unavailable"
+        )
     if isinstance(exc, DatabaseUnavailable):
         return _Outage("unavailable_db", 503, "資料庫暫時無法使用，請稍後再試", "database unavailable")
     # Bedrock/network failures: full detail goes to the log, a generic message to the client.
@@ -98,6 +113,7 @@ def create_app(
     audit_writer: AuditWriter | None = None,
     visitor_key: bytes | None = None,
     audit_timeout_seconds: float = 2.0,
+    retriever: KnowledgeRetriever | None = None,
 ) -> FastAPI:
     # model_id only pre-creates the token series at 0; the reply's own model ID is what gets counted.
     metrics = AskMetrics(daily_limit, model_id=model_id)
@@ -109,6 +125,8 @@ def create_app(
         await executor.close()
         if audit_writer is not None:
             await audit_writer.close()
+        if retriever is not None:
+            await retriever.close()
 
     app = FastAPI(title="BrewQL", lifespan=lifespan)
     # Dev only: in deployment nginx serves the UI and /api on one origin, so no CORS is needed.
@@ -145,7 +163,14 @@ def create_app(
         started = time.perf_counter()
         request_id = uuid.uuid4()
         try:
-            result = await ask(body.question, generator, executor, input_guard=input_guard, max_retries=max_sql_retries)
+            result = await ask(
+                body.question,
+                generator,
+                executor,
+                input_guard=input_guard,
+                max_retries=max_sql_retries,
+                retriever=retriever,
+            )
         except Exception as exc:
             outage = _outage(exc)
             log.exception(outage.log_message)
@@ -170,6 +195,8 @@ class Dependencies:
     generator: SqlGenerator
     executor: QueryExecutor
     input_guard: InputGuard | None
+    # Set only when PROMPT_MODE=rag.
+    retriever: KnowledgeRetriever | None = None
 
 
 def build_dependencies(settings) -> Dependencies:
@@ -193,7 +220,20 @@ def build_dependencies(settings) -> Dependencies:
     else:
         # Local development only; deployed environments must set it.
         log.warning("BEDROCK_GUARDRAIL_ID not set: questions skip the input guardrail")
-    return Dependencies(generator=generator, executor=PgExecutor(settings.database_url), input_guard=input_guard)
+    retriever = None
+    if settings.prompt_mode == "rag":
+        from app.embeddings import build_embedder
+        from app.retrieval import PgVectorSearch, Retriever
+
+        # Same genbi_reader DSN: it may read knowledge_documents, which the SQL guard never allows.
+        embedder = build_embedder(aws_region=settings.aws_region, model_id=settings.embedding_model_id)
+        retriever = Retriever(embedder, PgVectorSearch(settings.database_url))
+    return Dependencies(
+        generator=generator,
+        executor=PgExecutor(settings.database_url),
+        input_guard=input_guard,
+        retriever=retriever,
+    )
 
 
 def build_app() -> FastAPI:
@@ -219,4 +259,5 @@ def build_app() -> FastAPI:
         model_id=settings.bedrock_model_id,
         audit_writer=PgAuditWriter(settings.audit_database_url),
         visitor_key=settings.audit_ip_hmac_key.encode(),
+        retriever=deps.retriever,
     )

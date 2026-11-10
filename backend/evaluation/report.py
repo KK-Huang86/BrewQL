@@ -17,6 +17,8 @@ class RunInfo:
     guardrail: str | None
     max_sql_retries: int
     golden_file: str
+    # static or rag (rag-knowledge-base); reports from before rag were static.
+    prompt_mode: str = "static"
 
 
 def to_json(info: RunInfo, summary: Summary, outcomes: list[QuestionOutcome]) -> dict[str, Any]:
@@ -49,6 +51,8 @@ def _detail(o: QuestionOutcome) -> dict[str, Any]:
         "guardrail_content_units": u.guardrail.content_units if u else None,
         "cost_usd": o.cost_usd,
         "error": o.error,
+        # Knowledge ids a rag answer was given; empty in static mode.
+        "sources": list(o.sources),
     }
 
 
@@ -61,6 +65,7 @@ def to_markdown(info: RunInfo, summary: Summary, outcomes: list[QuestionOutcome]
         f"- 輸入 Guardrail：`{info.guardrail or '未啟用'}`",
         f"- MAX_SQL_RETRIES：{info.max_sql_retries}",
         f"- 測試集：`{info.golden_file}`",
+        f"- 說明來源模式：{info.prompt_mode}",
         "",
         "## 指標",
         "",

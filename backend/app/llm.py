@@ -133,11 +133,11 @@ class Reply:
 LOCAL_TZ = ZoneInfo("Asia/Taipei")
 
 
-def build_system_prompt(today: date) -> str:
+def build_system_prompt(today: date, context: str = SCHEMA_CONTEXT) -> str:
     # Without a date the model judges "the future" by its training data and refuses past years
     # (eval baseline, q09). The date changes daily, so it is added per call, not to the schema text.
     return (
-        f"{SCHEMA_CONTEXT}\n\n## 今天日期\n\n"
+        f"{context}\n\n## 今天日期\n\n"
         f"今天是 {today.isoformat()}（台北時間）。早於今天的期間都是歷史資料，可以查詢；"
         "只有要求推估今天以後的數值才算預測未來。\n"
     )
@@ -164,14 +164,17 @@ class BedrockSqlGenerator:
         if effort:
             self._output_config["effort"] = effort
 
-    async def generate(self, question: str, feedback: Sequence[FailedAttempt] = ()) -> Reply:
+    async def generate(
+        self, question: str, feedback: Sequence[FailedAttempt] = (), *, context: str | None = None
+    ) -> Reply:
+        # context: the rag prompt (rag-knowledge-base D8); None keeps the static schema.
         # The SDK call is synchronous; run it in a worker thread so the event loop stays free.
         try:
             message = await asyncio.to_thread(
                 self._client.messages.create,
                 model=self._model_id,
                 max_tokens=self._max_tokens,
-                system=build_system_prompt(self._now().astimezone(LOCAL_TZ).date()),
+                system=build_system_prompt(self._now().astimezone(LOCAL_TZ).date(), context or SCHEMA_CONTEXT),
                 messages=build_messages(question, feedback),
                 output_config=self._output_config,
             )

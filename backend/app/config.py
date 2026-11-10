@@ -1,6 +1,7 @@
 """Runtime settings from environment variables (and .env in local development)."""
 
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,6 +34,12 @@ class Settings(BaseSettings):
     # build_app is what refuses to start without them.
     audit_database_url: str = ""
     audit_ip_hmac_key: str = ""
+    # RAG (rag-knowledge-base): Titan model for question and document vectors; the importer's role.
+    embedding_model_id: str = "amazon.titan-embed-text-v2:0"
+    knowledge_database_url: str = ""
+    # rag: retrieved knowledge (default since the 2026-11-10 evaluation: as accurate, ~25% cheaper, D10);
+    # static: the full schema text, kept as the evaluation baseline and a fallback switch.
+    prompt_mode: Literal["static", "rag"] = "rag"
 
     @field_validator("bedrock_effort", "bedrock_guardrail_id", "bedrock_guardrail_version", mode="before")
     @classmethod

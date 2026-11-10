@@ -22,6 +22,8 @@ class QuestionOutcome:
     sql: str | None = None
     refusal_source: str | None = None
     error: str | None = None
+    # Knowledge document ids used in rag mode.
+    sources: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

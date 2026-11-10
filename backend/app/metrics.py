@@ -12,11 +12,11 @@ from prometheus_client import CollectorRegistry, Counter, Gauge, Histogram, gene
 from app.daily_limit import DailyQuestionLimit
 from app.llm import ErrorKind
 from app.pipeline import AskResult
-from app.pricing import guardrail_cost_usd, model_cost_usd
+from app.pricing import embedding_cost_usd, guardrail_cost_usd, model_cost_usd
 
 # Seconds; nginx gives up on the backend after 60.
 BUCKETS = (0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30)
-Unavailable = Literal["unavailable_guardrail", "unavailable_model", "unavailable_db"]
+Unavailable = Literal["unavailable_guardrail", "unavailable_retrieval", "unavailable_model", "unavailable_db"]
 
 # Every (status, refusal_source, error_kind) an answer can have. They are exported at 0 from the
 # start: Prometheus' increase() needs two samples, so a series born at 1 would hide its first event.
@@ -27,9 +27,9 @@ OUTCOMES = (
     ("refused", "model", ""),
     *(("error", "", kind) for kind in (*ErrorKind.__args__, *Unavailable.__args__)),
 )
-STAGES = ("input_guard", "model", "db")
+STAGES = ("input_guard", "retrieval", "model", "db")
 DIRECTIONS = ("input", "output")
-COST_COMPONENTS = ("model", "guardrail")
+COST_COMPONENTS = ("model", "guardrail", "embedding")
 GUARDRAIL_POLICIES = ("topic", "content")
 # The guardrail only has the prompt-attack filter today; other reasons appear on first use.
 KNOWN_BLOCK_REASONS = ("prompt_attack",)
@@ -98,17 +98,22 @@ class AskMetrics:
         if usage.model_id:
             self.tokens.labels(usage.model_id, "input").inc(usage.input_tokens)
             self.tokens.labels(usage.model_id, "output").inc(usage.output_tokens)
+        if usage.embedding_model_id:
+            self.tokens.labels(usage.embedding_model_id, "input").inc(usage.embedding_tokens)
         self.guardrail_units.labels("topic").inc(usage.guardrail.topic_units)
         self.guardrail_units.labels("content").inc(usage.guardrail.content_units)
         for reason in usage.guardrail_reasons:
             self.guardrail_blocks.labels(reason).inc()
         # Each part counts when known; a question with any unknown part is flagged, never guessed.
-        model, guardrail = model_cost_usd(usage), guardrail_cost_usd(usage)
-        if model is not None:
-            self.cost.labels("model").inc(model)
-        if guardrail is not None:
-            self.cost.labels("guardrail").inc(guardrail)
-        if model is None or guardrail is None:
+        parts = {
+            "model": model_cost_usd(usage),
+            "guardrail": guardrail_cost_usd(usage),
+            "embedding": embedding_cost_usd(usage),
+        }
+        for component, dollars in parts.items():
+            if dollars is not None:
+                self.cost.labels(component).inc(dollars)
+        if any(dollars is None for dollars in parts.values()):
             self.unpriced.inc()
 
     def record_unavailable(self, kind: Unavailable, seconds: float) -> None:

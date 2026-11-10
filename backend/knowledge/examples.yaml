@@ -1,0 +1,89 @@
+# Question and SQL pairs that teach query patterns. None may match a golden-set question
+# (backend/evaluation/golden.yaml); every SQL must pass the guard and return rows (integration test).
+
+- id: example-members-by-type
+  question: 付費會員和免費會員各有幾位？
+  sql: SELECT member_type, count(*) AS members FROM users GROUP BY member_type
+
+- id: example-inactive-accounts
+  question: 停用的帳號有幾個？
+  sql: SELECT count(*) AS accounts FROM users WHERE status = 'inactive'
+
+- id: example-monthly-signups
+  question: 每個月新註冊幾位會員？依月份排序
+  sql: >-
+    SELECT to_char(created_at, 'YYYY-MM') AS month, count(*) AS signups
+    FROM users GROUP BY month ORDER BY month
+
+- id: example-top-favorited-cafes
+  question: 收藏數最多的前 10 家咖啡店是哪些？
+  sql: >-
+    SELECT name, favorite_count FROM cafes
+    ORDER BY favorite_count DESC, id LIMIT 10
+
+- id: example-cafes-without-favorites
+  question: 沒有人收藏的咖啡店有幾家？
+  sql: SELECT count(*) AS cafes FROM cafes WHERE favorite_count = 0
+
+- id: example-daily-views-last-week
+  question: 最近一週每天的瀏覽次數是多少？
+  sql: >-
+    SELECT day, views FROM v_daily_activity
+    WHERE day > current_date - 7 ORDER BY day
+
+- id: example-top-search-keywords
+  question: 最常被搜尋的 10 個關鍵字是什麼？
+  sql: >-
+    SELECT query_text, count(*) AS searches FROM search_logs
+    GROUP BY query_text ORDER BY searches DESC, query_text LIMIT 10
+
+- id: example-zero-result-keywords
+  question: 哪些關鍵字最常搜尋不到店？列出前 10 個
+  sql: >-
+    SELECT query_text, count(*) AS misses FROM search_logs
+    WHERE result_count = 0
+    GROUP BY query_text ORDER BY misses DESC, query_text LIMIT 10
+
+- id: example-quiet-standing-desk
+  question: 安靜評分 4 分以上而且有站立座位的咖啡店有哪些？
+  sql: >-
+    SELECT p.name FROM v_cafe_profile p
+    JOIN cafe_nomad_cache n ON n.cafe_id = p.id
+    WHERE p.quiet >= 4 AND n.standing_desk = 'yes'
+
+- id: example-city-average-rating
+  question: 各城市咖啡店的平均評分是多少？取到小數點後兩位
+  sql: >-
+    SELECT city, round(avg(rating), 2) AS avg_rating FROM cafes
+    WHERE rating IS NOT NULL GROUP BY city ORDER BY avg_rating DESC
+
+- id: example-district-wifi
+  question: 新北市各行政區的 Cafe Nomad 網路平均評分是多少？取到小數點後兩位
+  sql: >-
+    SELECT district, round(avg(wifi), 2) AS avg_wifi FROM v_cafe_profile
+    WHERE city = '新北市' AND wifi IS NOT NULL
+    GROUP BY district ORDER BY avg_wifi DESC
+
+- id: example-user-vote-yes-share
+  question: 使用者投票中，各個屬性投「是」的比例是多少？
+  sql: >-
+    SELECT attribute,
+           round(count(*) FILTER (WHERE value = 'yes')::numeric / count(*), 3) AS yes_share
+    FROM cafe_attribute_votes WHERE source = 'user' GROUP BY attribute
+
+- id: example-premium-share-of-active
+  question: 最近 30 天的活躍使用者中，付費會員佔多少比例？
+  sql: >-
+    WITH active AS (
+      SELECT user_id FROM search_logs WHERE created_at >= now() - interval '30 days'
+      UNION
+      SELECT user_id FROM cafe_views WHERE created_at >= now() - interval '30 days'
+    )
+    SELECT round(count(*) FILTER (WHERE u.member_type = 'premium')::numeric / count(*), 3) AS premium_share
+    FROM active a JOIN users u ON u.id = a.user_id
+
+- id: example-monthly-line-favorites
+  question: 從 LINE 選單按下的收藏，每個月有幾筆？依月份排序
+  sql: >-
+    SELECT to_char(created_at, 'YYYY-MM') AS month, count(*) AS favorites
+    FROM favorites WHERE source = 'rich_menu' GROUP BY month ORDER BY month

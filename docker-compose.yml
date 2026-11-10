@@ -7,6 +7,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       GENBI_READER_PASSWORD: ${GENBI_READER_PASSWORD:?set GENBI_READER_PASSWORD in .env}
       GENBI_AUDIT_WRITER_PASSWORD: ${GENBI_AUDIT_WRITER_PASSWORD:?set GENBI_AUDIT_WRITER_PASSWORD in .env}
+      GENBI_KNOWLEDGE_WRITER_PASSWORD: ${GENBI_KNOWLEDGE_WRITER_PASSWORD:?set GENBI_KNOWLEDGE_WRITER_PASSWORD in .env}
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d:ro
       - pgdata:/var/lib/postgresql/data
@@ -36,6 +37,9 @@ services:
       BEDROCK_GUARDRAIL_VERSION: ${BEDROCK_GUARDRAIL_VERSION:-}
       MAX_SQL_RETRIES: ${MAX_SQL_RETRIES:-1}
       DAILY_QUESTION_LIMIT: ${DAILY_QUESTION_LIMIT:-500}
+      # rag (default) or static (rag-knowledge-base D10); knowledge-import below runs before the backend.
+      PROMPT_MODE: ${PROMPT_MODE:-rag}
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-amazon.titan-embed-text-v2:0}
       # Append-only audit role (record-audit-log D2); the backend refuses to start without these.
       AUDIT_DATABASE_URL: postgresql://genbi_audit_writer:${GENBI_AUDIT_WRITER_PASSWORD}@db:5432/genbi
       AUDIT_IP_HMAC_KEY: ${AUDIT_IP_HMAC_KEY:?set AUDIT_IP_HMAC_KEY in .env (32+ characters)}
@@ -49,6 +53,29 @@ services:
       # containers with brewql.metrics (observe-with-grafana D8, D8b).
       brewql.logs: "true"
       brewql.metrics: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      knowledge-import:
+        condition: service_completed_successfully
+
+  # One-shot RAG knowledge import (rag-knowledge-base): runs on every `up` before the backend, so a
+  # rebuilt database never serves rag with an empty knowledge base. Unchanged documents cost nothing;
+  # a failed import keeps the backend down (PROMPT_MODE=static skips it). The documents are baked into
+  # the image, so after editing them:
+  # docker compose run --rm --build knowledge-import
+  knowledge-import:
+    build: ./backend
+    command: ["python", "-m", "scripts.import_knowledge"]
+    environment:
+      # static skips the import, so falling back to static never waits on Titan (D6).
+      PROMPT_MODE: ${PROMPT_MODE:-rag}
+      KNOWLEDGE_DATABASE_URL: postgresql://genbi_knowledge_writer:${GENBI_KNOWLEDGE_WRITER_PASSWORD}@db:5432/genbi
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_PROFILE: ${AWS_PROFILE:-default}
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-amazon.titan-embed-text-v2:0}
+    volumes:
+      - ${HOME}/.aws:/home/app/.aws:ro
     depends_on:
       db:
         condition: service_healthy

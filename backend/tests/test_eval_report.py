@@ -70,6 +70,8 @@ def test_json_has_run_settings_metrics_and_every_question_detail():
         "guardrail": "gr-123:1",
         "max_sql_retries": 1,
         "golden_file": "evaluation/golden.yaml",
+        # rag-knowledge-base: which prompt the run used; RunInfo defaults to static.
+        "prompt_mode": "static",
     }
     summary = data["summary"]
     assert (summary["correct"], summary["total"]) == (2, 4)  # q01 and q14
@@ -98,6 +100,7 @@ def test_json_has_run_settings_metrics_and_every_question_detail():
         "guardrail_content_units": 1,
         "cost_usd": 0.0030,
         "error": None,
+        "sources": [],
     }
     failed = next(q for q in data["questions"] if q["id"] == "q09")
     assert failed["elapsed_ms"] is None

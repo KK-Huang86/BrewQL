@@ -5,7 +5,7 @@
 ## ADDED Requirements
 
 ### Requirement: 知識文件
-知識 SHALL 以版本控制中的文件維護，分為 `schema`（資料表／欄位說明）、`glossary`（商業名詞定義）、`example`（問題與 SQL 範例）三類，每份有唯一 ID、類型、標題與內容。知識 MUST NOT 包含資料庫中的資料列內容或任何使用者資料。每份 `example` 的 SQL MUST 能通過 `sql-guardrails` 驗證並以唯讀角色成功執行。
+知識 SHALL 以版本控制中的文件維護，分為 `schema`（資料表／欄位說明）、`glossary`（商業名詞定義）、`example`（問題與 SQL 範例）三類，每份有唯一 ID、類型、標題與內容。知識 MUST NOT 包含資料庫中的資料列內容或任何使用者資料。每份 `example` 的 SQL MUST 能通過 `sql-guardrails` 驗證（匯入時檢查）並以唯讀角色成功執行（整合測試檢查）。
 
 #### Scenario: ID 重複
 - **WHEN** 兩份知識文件的 ID 相同
@@ -31,7 +31,7 @@
 - **THEN** 知識庫中不再有該文件
 
 ### Requirement: 檢索
-給定問題，系統 SHALL 只計算一次問題向量，並同時（並發）檢索三類知識，各回傳相似度最高的前 N 筆（可設定，預設 schema 4、glossary 3、example 3）。知識庫為空或某類沒有文件時 SHALL 回傳空清單而非錯誤。知識庫資料表 MUST NOT 被加入 SQL 白名單。
+給定問題，系統 SHALL 只計算一次問題向量，並同時（並發）檢索三類知識，各回傳相似度最高的前 N 筆（建立檢索器時可指定，預設 schema 4、glossary 3、example 3）。知識庫為空或某類沒有文件時 SHALL 回傳空清單而非錯誤。知識庫資料表 MUST NOT 被加入 SQL 白名單。
 
 #### Scenario: 相關定義被找到
 - **WHEN** 問題為「台北市有幾家工作友善的咖啡店？」
