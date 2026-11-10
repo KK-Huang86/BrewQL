@@ -87,3 +87,9 @@
   sql: >-
     SELECT to_char(created_at, 'YYYY-MM') AS month, count(*) AS favorites
     FROM favorites WHERE source = 'rich_menu' GROUP BY month ORDER BY month
+
+- id: example-city-cafes-per-10k
+  question: 新北市每萬人有幾家咖啡店？取到小數點後兩位
+  sql: >-
+    SELECT round((SELECT count(*) FROM cafes WHERE city = '新北市')::numeric
+      / (SELECT sum(population) FROM district_population WHERE city = '新北市') * 10000, 2) AS cafes_per_10k

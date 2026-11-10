@@ -32,7 +32,7 @@ universities (code, name, ownership, level, city, district)          -- PRIMARY 
 `db/checks` 新增一個檢查：demo 的每個行政區都對得到人口資料，`universities` 的行政區都在 `district_population` 裡。行政區名稱不一致時檢查失敗，而不是查詢時悄悄少算。
 
 ### D6. 讓模型會用
-- 知識文件：兩張表的 schema；名詞「每萬人咖啡店數」＝店家數 ÷ 人口 × 10,000；範例兩題（每萬人咖啡店數排行、各區大學數與搜尋數）。`STATIC_KNOWLEDGE` 同步。
+- 知識文件：兩張表的 schema；名詞「每萬人咖啡店數」＝店家數 ÷ 人口 × 10,000；範例一題（新北市每萬人咖啡店數；rag-knowledge-base 限定範例 10 到 15 題，現有 14 題，行政區排行的寫法放在名詞定義）。`STATIC_KNOWLEDGE` 同步。
 - SQL 白名單加入兩張表。
 - golden set 新增 3 題跨來源題目（含 1 題 hard），以 demo 資料計算標準答案；static 與 rag 各跑 2 次，記入 `RESULTS.md`。
 
