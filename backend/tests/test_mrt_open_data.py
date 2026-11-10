@@ -10,7 +10,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.open_data import MrtRow, YoubikeRow, mrt_rows
+from app.open_data import MRT_DISTRICT_FIXES, MrtRow, YoubikeRow, mrt_rows
 
 AS_OF = date(2026, 11, 11)
 
@@ -115,3 +115,17 @@ def test_an_exit_number_with_a_letter_counts_as_an_exit():
     [row] = mrt_rows(exits, BIKES, AS_OF, fixes={})
 
     assert (row.name, row.exit_count) == ("板橋", 2)
+
+
+def test_fixes_list_the_stations_whose_nearest_youbike_lies_across_a_district_border():
+    # Checked on 2026-11-11 against every station address on the Taipei Metro website
+    # (import-transit-open-data task 1.3): these 7 of 119 stations borrow the wrong district.
+    assert MRT_DISTRICT_FIXES == {
+        "公館": ("台北市", "中正區"),
+        "南京復興": ("台北市", "松山區"),
+        "台電大樓": ("台北市", "中正區"),
+        "國父紀念館": ("台北市", "信義區"),
+        "後山埤": ("台北市", "南港區"),
+        "忠孝新生": ("台北市", "大安區"),
+        "雙連": ("台北市", "大同區"),
+    }
