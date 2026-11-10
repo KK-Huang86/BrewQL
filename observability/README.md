@@ -123,7 +123,20 @@ backend 等級為 WARNING 或 ERROR 的 JSON log，最新的在上面。指標�
 | 重複的問題 | 問題文字出現 2 次以上的次數與平均 input token | 評估快取答案或 prompt caching 是否值得做 |
 | 每題 input token | 每題送給模型的 input token | 資料表說明佔了大部分，是 prompt caching 能省下的部分 |
 
-Loki 只保存一段時間；完整歷史在資料庫的 `ask_audit` 資料表。
+### 兩份紀錄的保存與權限
+
+| | Loki（`ask_audit` log） | 資料庫（`ask_audit` 資料表） |
+|---|---|---|
+| 保存期限 | 14 天（Free 方案；Pro 為 30 天），之後自動刪除 | 永久，沒有自動清除 |
+| 誰能寫入 | Alloy token，scopes 只有 `logs:write`、`metrics:write` | `genbi_audit_writer`，只有 `INSERT`、`SELECT` |
+| 誰能刪除 | 有 `logs:delete` 的 token；Alloy token 沒有，backend 主機被入侵也刪不掉 | 只有資料庫擁有者；寫入角色不能 `UPDATE`／`DELETE` |
+| 用途 | 最近 14 天的 dashboard 與告警 | 完整歷史，管理者以 psql 查詢 |
+
+查證（2026-11-10）：
+
+- 保存期限與每月 50 GB 寫入上限見 [Grafana Cloud pricing](https://grafana.com/pricing/)；這個 stack 用 Free 方案，14 天已足夠，更早的紀錄查資料庫。
+- `logs:read`、`logs:write`、`logs:delete` 是三個獨立的 scope，見 [access policies](https://grafana.com/docs/grafana-cloud/security-and-account-management/authentication-and-permissions/access-policies/)。Alloy 使用的 access policy 在 Grafana Cloud 後台確認只有 `logs:write` 與 `metrics:write`。
+- 新建或輪換 Alloy token 時維持這兩個 scope；不要給 `logs:read`、`logs:delete`。
 
 ## 匯入告警規則
 

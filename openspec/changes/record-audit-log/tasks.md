@@ -29,7 +29,8 @@
 
 - [x] 4.1 稽核 dashboard（`observability/dashboards/brewql-audit.json`）與稽核失敗告警；驗證：本機提問後在 Grafana 看到紀錄，停掉稽核資料庫連線後告警觸發
   - 結果：dashboard 6 個面板與 `BrewQLAuditWriteFailed` 告警已完成。用本機 Loki 3.4 餵入 backend 實際輸出的 `ask_audit` log，所有面板查詢與篩選結果正確；`alerts/tests/` 的 promtool 單元測試紅轉綠並加入 CI。Grafana Cloud 實機：`down -v` 重建後提問，稽核 dashboard 看得到紀錄，與 `ask_audit` 資料表 5 筆一致（含 3 筆 `unavailable_guardrail` 502、同一 visitor）。告警的實機觸發（REVOKE INSERT）由使用者決定略過，觸發與解除由 promtool 單元測試涵蓋
-- [ ] 4.2 查證 Grafana Cloud Loki 的保存期限與 token 權限，記入 `observability/README.md`；驗證：README 記錄查證結果與來源
+- [x] 4.2 查證 Grafana Cloud Loki 的保存期限與 token 權限，記入 `observability/README.md`；驗證：README 記錄查證結果與來源
+  - 結果：Free 方案 log 保存 14 天、每月 50 GB（官方 pricing 頁）；`logs:delete` 是獨立 scope（官方 access policies 文件）；使用者在後台確認 Alloy policy 只有 `logs:write`、`metrics:write`。README 新增兩份紀錄的保存期限、寫入與刪除權限對照，並註明輪換 token 時維持這兩個 scope
 
 ## 5. 驗證
 
