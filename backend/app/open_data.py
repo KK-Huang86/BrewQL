@@ -15,7 +15,7 @@ from app.real_cafes import AREA
 Row = dict[str, str]
 
 # 戶政司 site_id joins city and district, e.g. 新北市板橋區.
-_SITE = re.compile(r"^(.{2}[市縣])(.+[區鄉鎮市])$")
+_DISTRICT = re.compile(r"^.+[區鄉鎮市]$")
 
 
 def _demo_city(city: str) -> str:
@@ -37,16 +37,17 @@ def population_rows(rows: Iterable[Row]) -> list[PopulationRow]:
         year = row["statistic_yyy"]
         if not year.isdigit():  # the official file repeats its header in Chinese on row 2
             continue
-        match = _SITE.match(row["site_id"])
-        if match is None:
+        site = _demo_city(row["site_id"])
+        city = next((c for c in AREA if site.startswith(c)), None)
+        if city is None:  # other cities, and 東沙群島 / 南沙群島 that name no city
             continue
-        city = _demo_city(match.group(1))
-        if city not in AREA:
-            continue
+        district = site.removeprefix(city)
+        if not _DISTRICT.match(district):
+            raise ValueError(f"population row without a district: {row['site_id']!r}")
         out.append(
             PopulationRow(
                 city,
-                match.group(2),
+                district,
                 int(row["people_total"]),
                 Decimal(row["area"]),
                 f"{int(year) + 1911}-12-31",  # ROC year to Gregorian

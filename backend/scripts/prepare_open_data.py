@@ -38,5 +38,12 @@ def main(population_csv: Path, universities_csv: Path, out_dir: Path) -> int:
     return 0
 
 
+def run(argv: list[str]) -> int:
+    if len(argv) != 3:
+        print("usage: python -m scripts.prepare_open_data POPULATION.csv UNIVERSITIES.csv OUT_DIR", file=sys.stderr)
+        return 2
+    return main(*(Path(arg) for arg in argv))
+
+
 if __name__ == "__main__":
-    sys.exit(main(*(Path(arg) for arg in sys.argv[1:4])))
+    sys.exit(run(sys.argv[1:]))
