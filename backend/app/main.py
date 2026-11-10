@@ -1,6 +1,7 @@
 """HTTP API: health check and question endpoint."""
 
 import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
@@ -9,7 +10,8 @@ from typing import Annotated, Any, Literal
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST
 from pydantic import BaseModel, StringConstraints, field_serializer
 
 from app.charts import Chart, choose_chart
@@ -17,6 +19,7 @@ from app.daily_limit import DailyQuestionLimit
 from app.db import DatabaseUnavailable
 from app.input_guard import InputGuardUnavailable
 from app.llm import ErrorKind
+from app.metrics import AskMetrics, Unavailable
 from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
@@ -53,6 +56,24 @@ def _error(status_code: int, message: str, *, retry_after: int | None = None) ->
     return JSONResponse(status_code=status_code, content=body.model_dump(), headers=headers)
 
 
+@dataclass(frozen=True)
+class _Outage:
+    kind: Unavailable
+    status_code: int
+    message: str
+    log_message: str
+
+
+def _outage(exc: Exception) -> _Outage:
+    """A dependency the pipeline could not reach: how it is counted, answered and logged."""
+    if isinstance(exc, InputGuardUnavailable):
+        return _Outage("unavailable_guardrail", 502, "輸入檢查暫時無法使用，請稍後再試", "input guardrail unavailable")
+    if isinstance(exc, DatabaseUnavailable):
+        return _Outage("unavailable_db", 503, "資料庫暫時無法使用，請稍後再試", "database unavailable")
+    # Bedrock/network failures: full detail goes to the log, a generic message to the client.
+    return _Outage("unavailable_model", 502, "模型服務暫時無法使用，請稍後再試", "ask failed")
+
+
 def create_app(
     *,
     generator: SqlGenerator,
@@ -61,7 +82,11 @@ def create_app(
     input_guard: InputGuard | None = None,
     max_sql_retries: int = 0,
     daily_limit: DailyQuestionLimit | None = None,
+    model_id: str | None = None,
 ) -> FastAPI:
+    # model_id only pre-creates the token series at 0; the reply's own model ID is what gets counted.
+    metrics = AskMetrics(daily_limit, model_id=model_id)
+
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         yield
@@ -79,25 +104,28 @@ def create_app(
         # Liveness only: must not depend on the database or Bedrock.
         return {"status": "ok"}
 
+    @app.get("/metrics")
+    async def prometheus_metrics() -> Response:
+        # Internal only: nginx never forwards it; Alloy scrapes it on the compose network (D9).
+        return Response(metrics.render(), media_type=CONTENT_TYPE_LATEST)
+
     @app.post("/api/ask", response_model=AskResponse)
     async def ask_question(body: AskRequest):
         # Checked before the guardrail and the model so a question over the limit costs nothing.
         # Invalid input is a 422 before this handler runs, so it never uses up the limit.
         if daily_limit is not None and not daily_limit.try_acquire():
             log.warning("daily question limit reached: %d/%d", daily_limit.count, daily_limit.limit)
+            metrics.record_daily_limit_hit()
             return _error(429, "今日提問次數已達上限，請明天再試", retry_after=daily_limit.retry_after_seconds())
+        started = time.perf_counter()
         try:
             result = await ask(body.question, generator, executor, input_guard=input_guard, max_retries=max_sql_retries)
-        except InputGuardUnavailable:
-            log.exception("input guardrail unavailable")
-            return _error(502, "輸入檢查暫時無法使用，請稍後再試")
-        except DatabaseUnavailable:
-            log.exception("database unavailable")
-            return _error(503, "資料庫暫時無法使用，請稍後再試")
-        except Exception:
-            # Bedrock/network failures: full detail goes to the log, a generic message to the client.
-            log.exception("ask failed")
-            return _error(502, "模型服務暫時無法使用，請稍後再試")
+        except Exception as exc:
+            outage = _outage(exc)
+            log.exception(outage.log_message)
+            metrics.record_unavailable(outage.kind, time.perf_counter() - started)
+            return _error(outage.status_code, outage.message)
+        metrics.record(result, time.perf_counter() - started)
         chart = choose_chart(result.columns, result.rows) if result.status == "ok" else None
         return AskResponse(**asdict(result), chart=chart)
 
@@ -150,4 +178,5 @@ def build_app() -> FastAPI:
         input_guard=deps.input_guard,
         max_sql_retries=settings.max_sql_retries,
         daily_limit=DailyQuestionLimit(settings.daily_question_limit),
+        model_id=settings.bedrock_model_id,
     )

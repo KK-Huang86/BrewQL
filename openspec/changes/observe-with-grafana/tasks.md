@@ -1,20 +1,37 @@
 ## 1. 後端
 
-- [ ] 1.1 測試 + 實作：log 改為 JSON 格式，保留既有結構化欄位，不含憑證；驗證：測試由紅轉綠
-- [ ] 1.2 測試 + 實作：`/metrics` 與各指標（結果、各階段耗時、token、Guardrail 原因、每日上限），標籤只有固定列舉值；驗證：測試由紅轉綠
+- [x] 1.1 JSON log（D6）：`app` logger 每行一個 JSON，含 `time`、`level`、`logger`、`message` 與 `extra` 欄位，無法序列化的值轉字串，例外帶 traceback；uvicorn access log 關閉；驗證：紅燈再綠燈
+- [x] 1.2 各階段耗時（D4）：`AskUsage` 記錄 `input_guard`、`model`、`db` 每次呼叫的耗時（重試各一筆、被 Guardrail 擋下時沒有 `model`），pipeline 不 import 指標套件；驗證：紅燈再綠燈
+- [x] 1.3 `/metrics` 與提問指標（D3）：`brewql_ask_total`（含 5xx 的 `unavailable_*`）、`brewql_ask_seconds`、`brewql_stage_seconds`、`brewql_llm_tokens_total`、`brewql_guardrail_blocks_total`、`brewql_guardrail_units_total`；每個測試獨立 registry；驗證：紅燈再綠燈
+- [x] 1.4 成本與每日上限指標（D3、D5）：`brewql_estimated_cost_usd_total` 用 `pricing.cost_usd`、不在單價表時只加 `brewql_unpriced_questions_total`；`brewql_daily_questions_used`、`brewql_daily_question_limit`、`brewql_daily_limit_hits_total`；驗證：紅燈再綠燈
 
 ## 2. 收集
 
-- [ ] 2.1 docker compose 加入 Alloy（`observability` profile）、Alloy 設定（Docker log → Loki、`/metrics` → Mimir）、nginx access log 改 JSON；Grafana Cloud 設定同步 `.env.example`；驗證：未設定時 `docker compose up` 正常，設定後 Grafana Cloud 查得到 log 與指標
-- [ ] 2.2 確認 `/metrics` 不對外；驗證：經 nginx 請求 `/metrics` 回 404
+- [x] 2.1 nginx JSON access log（D7）：容器測試確認每行可被 JSON 解析、429 有紀錄、`uri` 不含 query string；驗證：紅燈再綠燈
+- [x] 2.2 Alloy（D1、D2、D8、D8a、D11）：所有 log 與指標帶 `project="brewql"`；`observability/alloy/config.alloy`、compose `observability` profile、Grafana Cloud 變數同步 `.env.example`（只列名稱）；CI 以 `alloy fmt` 檢查設定；驗證：不加 profile 時 `docker compose up` 與提問正常；使用者設定 `.env` 後加 profile，Grafana Cloud 查得到 backend 與 nginx 的 log 與 `brewql_*` 指標
+  - 結果（2026-11-09）：不加 profile 時 `docker compose config --services` 只有 db、backend、frontend；加 profile 後 Alloy 推送 metrics 1,560 筆、失敗 0，logs 34 筆、Loki 回 204；使用者在 Grafana Cloud Explore 查到 `{project="brewql"}` 的 nginx JSON log 與 `brewql_ask_seconds_bucket{project="brewql",service="backend"}`
+- [x] 2.3 主機與容器資源（D8b）：Alloy 加 `prometheus.exporter.unix` 與 `prometheus.exporter.cadvisor`，唯讀掛載，relabel 只保留用到的指標；驗證：Grafana Cloud 查得到主機記憶體與檔案系統、`db`／`backend`／`frontend` 的 CPU 與記憶體，BrewQL 的 active series 少於 1,000
+  - 結果（2026-11-09，本機 Docker Desktop）：Grafana Cloud 查到 `node_memory_MemAvailable_bytes{project="brewql",service="host",instance="brewql-alloy"}` 一條，以及 `db`、`backend`、`frontend`、`alloy` 的 `container_memory_working_set_bytes`；估算 BrewQL series：容器 12、主機約 180、backend 約 20 起，低於 1,000。容器網路流量只有主機層（`id="/"`）的資料：cAdvisor 需要 Alloy 開 `pid: host` 才讀得到各容器的網路，決定不收（見 design D8b）
+- [x] 2.4 Alloy 故障不影響服務（D2）：Grafana Cloud URL 設成無法連線時提問照常；驗證：記錄結果
+  - 結果（2026-11-09）：Alloy 的 Prometheus 與 Loki URL 改成 `unreachable.invalid` 後，Alloy log 出現 `Failed to send batch, retrying`、重試 84 筆、送出 0 筆；同時經 nginx 提問「台北市有幾家咖啡店？」回 `ok [[160]]`，約 3 秒，與平常相同。改回正確設定後恢復推送
 
 ## 3. Dashboard 與告警
 
-- [ ] 3.1 建立 dashboard 並匯出 JSON 到 `observability/`；驗證：從 JSON 匯入可重建
-- [ ] 3.2 告警規則（5xx 比例、p95、Guardrail 失敗、每日上限）存到 `observability/`；驗證：讓 Guardrail 版本失效（fail closed），告警觸發
+- [x] 3.1 Dashboard（D10）：結果分布、拒答來源、各階段 p50／p95、每日 token 與估算成本、成本不完整、Guardrail 原因、每日上限使用量、nginx 429／404、主機與容器資源，匯出 JSON 到 `observability/dashboards/`；驗證：從 JSON 匯入可重建
+  - 結果（2026-11-09）：使用者從 JSON 匯入 Grafana Cloud，面板有資料。檢查時發現成功率顯示 100%（實際 2 題成功、2 題拒答）：有標籤的 counter 第一次事件才產生 series，`increase()` 看不到那次事件；改為啟動時把已知的標籤組合以 0 輸出後恢復正確
+- [x] 3.2 告警（D10）：八條規則匯出 YAML 到 `observability/alerts/`；驗證：本機把 Guardrail 版本設錯，Guardrail 無法使用的告警觸發；連續提問觸發 nginx 429 告警；停掉 `backend` 容器觸發容器停止告警
+  - 結果（2026-11-09～10）：兩個 YAML 以「Import to Grafana-managed rules」匯入；Loki 規則匯入時資料來源被設成 Prometheus，改到 `…-logs` 後正常。Guardrail 版本設成 `999` 後 6 題回 502，`BrewQLGuardrailUnavailable` Firing 並收到 email；連續 70 次空白提問（64 次 429）觸發 `BrewQLRateLimitSpike`；停掉 backend 後 `BrewQLBackendDown` 5 分鐘轉 Firing，但這次沒收到 email（contact point 測試信與 Guardrail 告警信都收得到，原因未查明，使用者決定不追）
 
-- [ ] 3.3 成本：模型與 Guardrail 單價設定、估算成本面板；Terraform 建立 Grafana 唯讀 IAM role（external ID），Grafana Cloud AWS 整合讀取 `AWS/Bedrock` 與 `AWS/Bedrock/Guardrails`；驗證：同一天的 token 數兩邊一致
+## 4. 成本對帳
 
-## 4. 驗證
+- [x] 4.1 查證 Grafana Cloud 免費方案能否以 assume role（external ID）連 CloudWatch（D5）；驗證：記錄結論與來源，決定走 data source 或本機對帳腳本
+  - 結論（2026-11-10）：文件沒有寫明免費方案是否支援；實際在使用者的免費 stack 新增 CloudWatch data source 時，Authentication Provider 有「Grafana Assume Role」，並顯示 Grafana 的 AWS 帳號 ID 與 stack 專屬的 external ID。採用 CloudWatch data source（查詢時才讀，不佔 series 額度），不用 Cloud Provider 整合。來源：Grafana 文件〈CloudWatch data source: AWS authentication〉與 learning path〈Grafana Assume Role〉
+- [x] 4.2 Terraform 唯讀 IAM role（只有 CloudWatch 讀取權限），依 4.1 的結論接上 Grafana Cloud 或對帳腳本；驗證：`terraform plan` 只新增該 role 與 policy；使用者 apply 後，一段時間內的 token 數兩邊一致
+  - 結果：`brewql-grafana-cloudwatch-read` 由 Grafana Cloud 以 Assume Role（Grafana 的 AWS 帳號 + stack external ID）取得，沒有 access key；`terraform plan` 只新增 role 與 inline policy。deployer 原本缺 `iam:CreateRole`，另加限定 `role/brewql-*` 的 inline policy 後 apply 成功。CloudWatch 資料來源 metrics 測試通過；logs 測試 AccessDenied 是預期（role 沒有 `logs:*`）。
+  - 對帳：backend 重啟後問 2 題，`/metrics` 為 input 6,306、output 89；Grafana Explore 查 `AWS/Bedrock` `InputTokenCount`／`OutputTokenCount`（Sum、period 300）同一格完全相同。dashboard 的 `increase([1h])` 長條會外推、且小時對齊與 CloudWatch 可能差一格，只會接近；精確對帳以原始計數與 CloudWatch Sum 比較。修正前較早的 3.1k 差距來自序列從 1 起跳被 `increase()` 漏算，已由預先建立 0 值序列修正。
 
-- [ ] 4.1 實際提問各種類型（正常、拒答、反問、攔截、限流），截圖 dashboard 放進 README；驗證：每個面板都有資料
+## 5. 驗證
+
+- [x] 5.1 實際提問各種類型（正常、拒答、反問、攔截、5xx、每日上限、nginx 限流），截圖 dashboard 放進 README；驗證：每個面板都有資料
+  - 結果：經 nginx 送出 ok 3、clarify 1、模型拒答 1、prompt attack 1、白名單外路徑 404 ×4、並發 30 次（24 次 429）；Guardrail 版本設錯時 2 題 502（`unavailable_guardrail`）；上限設 1 時 1 題 200、2 題 429。每個面板都有資料，沒觸發的錯誤種類顯示 0 而非 No data。截圖在 `docs/images/`，README 與 `observability/README.md` 引用。
+  - 對帳面板改為所選範圍的總數並排（原本每小時長條在短時間範圍幾乎畫不出來）。3 小時範圍 app input 19K、CloudWatch 22K：恢復設定重啟 backend 後在 Alloy 下一次抓取前就答題，新計數 3,157 已超過重啟前的值，Prometheus 看不出重置而少算約一題。屬 Prometheus 抓取間隔的已知限制，記在 `observability/README.md`，不改程式。

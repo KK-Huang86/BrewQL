@@ -12,6 +12,8 @@ services:
     ports:
       # Bound to localhost only; never exposed on a public interface.
       - "127.0.0.1:${DB_PORT:-5434}:5432"
+    labels:
+      brewql.metrics: "true"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d genbi"]
       interval: 5s
@@ -38,6 +40,11 @@ services:
       - ${HOME}/.aws:/home/app/.aws:ro
     ports:
       - "127.0.0.1:8000:8000"
+    labels:
+      # Alloy ships logs only from containers with brewql.logs and resource metrics only from
+      # containers with brewql.metrics (observe-with-grafana D8, D8b).
+      brewql.logs: "true"
+      brewql.metrics: "true"
     depends_on:
       db:
         condition: service_healthy
@@ -51,9 +58,53 @@ services:
       MAX_CONNECTIONS_PER_IP: ${MAX_CONNECTIONS_PER_IP:-20}
     ports:
       - "127.0.0.1:8080:80"
+    labels:
+      brewql.logs: "true"
+      brewql.metrics: "true"
     depends_on:
       backend:
         condition: service_healthy
+
+  # Off unless started with --profile observability; the app never depends on it (D2).
+  alloy:
+    image: grafana/alloy:v1.14.0
+    profiles: ["observability"]
+    # Exporters label host and container series with this name as `instance`; the default
+    # (the container ID) would start new series every time Alloy is recreated.
+    hostname: brewql-alloy
+    labels:
+      brewql.metrics: "true"
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    environment:
+      # Empty defaults keep `docker compose up` without the profile free of warnings.
+      GRAFANA_CLOUD_PROMETHEUS_URL: ${GRAFANA_CLOUD_PROMETHEUS_URL:-}
+      GRAFANA_CLOUD_PROMETHEUS_USER: ${GRAFANA_CLOUD_PROMETHEUS_USER:-}
+      GRAFANA_CLOUD_LOKI_URL: ${GRAFANA_CLOUD_LOKI_URL:-}
+      GRAFANA_CLOUD_LOKI_USER: ${GRAFANA_CLOUD_LOKI_USER:-}
+      GRAFANA_CLOUD_TOKEN: ${GRAFANA_CLOUD_TOKEN:-}
+      # Tells local runs from the deployed demo in the shared stack (D8a).
+      BREWQL_ENV: ${BREWQL_ENV:-local}
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      # Read-only, yet it can still read every container's settings: only Alloy gets it (D8).
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Host and container resources (D8b), all read-only.
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/host/root:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      # With Docker's containerd image store (overlayfs driver), cAdvisor asks containerd for layers.
+      - /run/containerd/containerd.sock:/run/containerd/containerd.sock:ro
+    ports:
+      # Alloy's debug UI, localhost only.
+      - "127.0.0.1:12345:12345"
+    depends_on:
+      - backend
 
 volumes:
   pgdata:

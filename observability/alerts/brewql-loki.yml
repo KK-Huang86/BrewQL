@@ -1,0 +1,15 @@
+# BrewQL alert rules on Grafana Cloud Loki (observe-with-grafana D10): nginx JSON access log.
+# Same rule format as brewql-prometheus.yml; imported with the Loki data source.
+groups:
+  - name: brewql-public-traffic
+    interval: 1m
+    rules:
+      - alert: BrewQLRateLimitSpike
+        # 429 from the per-IP limit; a burst like this is someone hammering /api/ask.
+        expr: |
+          sum by (env) (count_over_time({project="brewql", service="frontend"} | json | __error__="" | status="429" [5m])) > 50
+        labels:
+          severity: warning
+        annotations:
+          summary: "BrewQL：5 分鐘內 nginx 限流超過 50 次"
+          description: "看 dashboard「被限流最多的來源 IP」。"

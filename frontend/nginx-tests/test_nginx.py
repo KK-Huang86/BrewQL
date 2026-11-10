@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import re
 import socket
 import subprocess
 import tempfile
@@ -130,6 +131,11 @@ class NginxHarness:
         """Requests for exactly this path that reached the fake backend."""
         logs = docker("logs", self.backend).stdout
         return sum(1 for line in logs.splitlines() if f" {path} HTTP/" in line)
+
+    def access_log(self) -> list[str]:
+        """Request lines nginx wrote to stdout, without the image's own startup messages."""
+        stdout = docker("logs", self.nginx).stdout
+        return [line for line in stdout.splitlines() if line and not re.match(r"^\S+\.sh: ", line)]
 
     def stop(self) -> None:
         docker("rm", "-f", self.nginx, self.backend, check=False)
@@ -303,6 +309,40 @@ class RequestSizeAndTimeoutTest(NginxTestCase):
             elapsed = time.monotonic() - start
         self.assertLess(elapsed, 13)
         self.assertGreater(elapsed, 8)
+
+
+class AccessLogTest(NginxTestCase):
+    # observe-with-grafana D7: one JSON object per request so Loki can count 429 and 404.
+
+    def entries(self) -> list[dict]:
+        return [json.loads(line) for line in harness.access_log()]
+
+    def test_every_request_is_logged_as_one_json_object(self):
+        harness.request("GET", "/")
+        harness.ask()
+        harness.request("GET", "/metrics")
+
+        entries = self.entries()
+        self.assertEqual([(e["method"], e["uri"], e["status"]) for e in entries][-3:], [
+            ("GET", "/", 200), ("POST", "/api/ask", 200), ("GET", "/metrics", 404)
+        ])
+        for entry in entries:
+            self.assertTrue({"time", "remote_addr", "request_time", "upstream_status", "body_bytes_sent"} <= set(entry))
+
+    def test_rate_limited_requests_are_logged_as_429(self):
+        ask_n_times(20)
+
+        statuses = [e["status"] for e in self.entries() if e["uri"] == "/api/ask"]
+        self.assertEqual(statuses.count(429), 14)
+
+    def test_query_strings_and_bodies_never_reach_the_log(self):
+        harness.request("POST", "/api/ask?token=s3cret", json.dumps({"question": "我的祕密問題"}).encode())
+
+        log = "\n".join(harness.access_log())
+        self.assertEqual(self.entries()[-1]["uri"], "/api/ask")
+        self.assertNotIn("s3cret", log)
+        self.assertNotIn("祕密", log)
+        self.assertNotIn("\\u79d8", log)  # nor its JSON-escaped form
 
 
 if __name__ == "__main__":

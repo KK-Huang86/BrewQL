@@ -1,0 +1,162 @@
+// Grafana Alloy for BrewQL (observe-with-grafana D1, D8, D8a, D11).
+// Runs only with `docker compose --profile observability`. Credentials come from the environment
+// (.env through compose), never from this file. Everything sent carries project="brewql", because
+// the free Grafana Cloud stack is shared with other projects.
+
+// ---- Metrics: the backend's /metrics on the compose network (never public, D9) ----
+
+prometheus.scrape "backend" {
+	targets         = [{"__address__" = "backend:8000", "service" = "backend"}]
+	metrics_path    = "/metrics"
+	scrape_interval = "15s"
+	forward_to      = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+prometheus.remote_write "grafana_cloud" {
+	external_labels = {"project" = "brewql", "env" = coalesce(sys.env("BREWQL_ENV"), "local")}
+
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_PROMETHEUS_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_PROMETHEUS_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+}
+
+// ---- Host resources (D8b): node exporter reading the host's /proc, /sys and / (read-only) ----
+
+prometheus.exporter.unix "host" {
+	set_collectors = ["cpu", "meminfo", "loadavg", "filesystem", "diskstats", "netdev"]
+	procfs_path    = "/host/proc"
+	sysfs_path     = "/host/sys"
+	rootfs_path    = "/host/root"
+
+	// Only physical-style NICs: veth pairs, bridges and tunnel devices would only add series.
+	netdev {
+		device_include = "^(eth|ens|enp|eno).*$"
+	}
+
+	filesystem {
+		fs_types_exclude = "^(autofs|cgroup2?|devpts|devtmpfs|fuse.*|mqueue|nsfs|overlay|proc|squashfs|sysfs|tmpfs|tracefs)$"
+	}
+}
+
+prometheus.scrape "host" {
+	targets         = prometheus.exporter.unix.host.targets
+	scrape_interval = "30s"
+	forward_to      = [prometheus.relabel.host.receiver]
+}
+
+// Only what the dashboard and alerts use: the free tier's series budget is shared (D8a).
+prometheus.relabel "host" {
+	rule {
+		source_labels = ["__name__"]
+		regex         = "node_(cpu_seconds_total|memory_(MemTotal|MemAvailable)_bytes|load(1|5|15)|filesystem_(size|avail)_bytes|disk_(read|written)_bytes_total|network_(receive|transmit)_bytes_total)"
+		action        = "keep"
+	}
+
+	rule {
+		target_label = "service"
+		replacement  = "host"
+	}
+	forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---- Container resources (D8b): cAdvisor, only containers labelled brewql.metrics=true ----
+// No network: per-container stats need `pid: host`, which would expose every host process.
+
+prometheus.exporter.cadvisor "containers" {
+	docker_host                  = "unix:///var/run/docker.sock"
+	docker_only                  = true
+	store_container_labels       = false
+	allowlisted_container_labels = ["com.docker.compose.service", "brewql.metrics"]
+	enabled_metrics              = ["cpu", "memory"]
+	storage_duration             = "2m"
+}
+
+prometheus.scrape "containers" {
+	targets         = prometheus.exporter.cadvisor.containers.targets
+	scrape_interval = "30s"
+	forward_to      = [prometheus.relabel.containers.receiver]
+}
+
+prometheus.relabel "containers" {
+	rule {
+		source_labels = ["container_label_brewql_metrics"]
+		regex         = "true"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__name__"]
+		regex         = "container_(cpu_usage_seconds_total|memory_working_set_bytes)"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+
+	// Container IDs, image digests and per-CPU splits would multiply series without helping.
+	rule {
+		regex  = "container_label_.*|id|image|name|cpu"
+		action = "labeldrop"
+	}
+	forward_to = [prometheus.remote_write.grafana_cloud.receiver]
+}
+
+// ---- Logs: containers labelled brewql.logs=true (backend, frontend) ----
+
+discovery.docker "brewql" {
+	host = "unix:///var/run/docker.sock"
+
+	filter {
+		name   = "label"
+		values = ["brewql.logs=true"]
+	}
+}
+
+discovery.relabel "brewql_logs" {
+	targets = discovery.docker.brewql.targets
+
+	rule {
+		source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+		target_label  = "service"
+	}
+}
+
+loki.source.docker "brewql" {
+	host       = "unix:///var/run/docker.sock"
+	targets    = discovery.relabel.brewql_logs.output
+	forward_to = [loki.process.brewql.receiver]
+}
+
+loki.process "brewql" {
+	// Backend lines are JSON with a level (D6); only that low-cardinality field becomes a label.
+	// Lines that are not JSON (nginx startup, uvicorn errors) pass through unchanged.
+	stage.json {
+		expressions = {"level" = "level"}
+	}
+
+	stage.labels {
+		values = {"level" = ""}
+	}
+
+	forward_to = [loki.write.grafana_cloud.receiver]
+}
+
+loki.write "grafana_cloud" {
+	external_labels = {"project" = "brewql", "env" = coalesce(sys.env("BREWQL_ENV"), "local")}
+
+	endpoint {
+		url = sys.env("GRAFANA_CLOUD_LOKI_URL")
+
+		basic_auth {
+			username = sys.env("GRAFANA_CLOUD_LOKI_USER")
+			password = sys.env("GRAFANA_CLOUD_TOKEN")
+		}
+	}
+}

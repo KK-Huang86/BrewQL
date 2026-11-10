@@ -33,6 +33,10 @@ class DailyQuestionLimit:
         self.count += 1
         return True
 
+    def used_today(self) -> int:
+        """Questions counted today; 0 once the Taipei date has moved on, even before the next question."""
+        return self.count if self._local_now().date() == self._day else 0
+
     def retry_after_seconds(self) -> int:
         """Whole seconds until the next Taipei midnight, rounded up so it is never 0."""
         now = self._local_now()
