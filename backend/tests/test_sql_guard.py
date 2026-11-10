@@ -104,6 +104,15 @@ def test_allowlisted_tables_ctes_and_public_schema_pass(sql):
     validate_sql(sql)
 
 
+def test_open_data_tables_are_queryable():
+    # import-open-data: government snapshots join Find Coffee data by city and district.
+    validate_sql(
+        "SELECT c.district, count(*)::numeric / p.population * 10000 AS per_10k "
+        "FROM cafes c JOIN district_population p USING (city, district) GROUP BY c.district, p.population"
+    )
+    validate_sql("SELECT district, count(*) FROM universities GROUP BY district")
+
+
 @pytest.mark.parametrize(
     "sql",
     [

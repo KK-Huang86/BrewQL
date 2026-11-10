@@ -145,3 +145,18 @@ def test_shipped_golden_set_has_view_and_favorite_questions():
     assert any("cafe_views" in q.sql and "favorites" in q.sql for q in related)
     assert any("v_cafe_profile" in q.sql for q in related)
     assert any("活躍使用者" in q.question for q in related)
+
+
+def test_shipped_golden_set_has_cross_source_questions():
+    # Spec (import-open-data): at least 3 questions joining open data with Find Coffee data, 1 hard.
+    from pathlib import Path
+
+    questions = load_golden_set(Path(__file__).resolve().parents[1] / "evaluation" / "golden.yaml")
+    find_coffee = ("cafes", "search_logs")
+    open_data = ("district_population", "universities")
+    cross = [
+        q for q in questions if q.sql and any(t in q.sql for t in find_coffee) and any(t in q.sql for t in open_data)
+    ]
+
+    assert len(cross) >= 3
+    assert any(q.difficulty == "hard" for q in cross)

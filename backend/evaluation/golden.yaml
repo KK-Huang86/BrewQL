@@ -185,6 +185,34 @@
   question: 各個入口（搜尋結果、收藏清單、LINE 選單）的瀏覽次數各是多少？列出入口與次數
   sql: SELECT source, COUNT(*) FROM cafe_views GROUP BY source
 
+# --- government open data joined by district (import-open-data) ------------------------------
+- id: q27
+  difficulty: medium
+  question: 每萬人咖啡店數最高的 3 個行政區是哪些？列出行政區與每萬人咖啡店數，取到小數點後兩位
+  sql: >-
+    SELECT c.district, ROUND(COUNT(*)::numeric / p.population * 10000, 2) AS per_10k
+    FROM cafes c JOIN district_population p USING (city, district)
+    GROUP BY c.district, p.population ORDER BY per_10k DESC LIMIT 3
+
+- id: q28
+  difficulty: medium
+  question: 有大專校院的行政區中，哪一區的咖啡店最多？列出行政區與店數
+  sql: >-
+    SELECT c.district, COUNT(*) AS cafes FROM cafes c
+    WHERE EXISTS (SELECT 1 FROM universities u WHERE u.city = c.city AND u.district = c.district)
+    GROUP BY c.district ORDER BY cafes DESC LIMIT 1
+
+- id: q29
+  difficulty: hard
+  question: 搜尋次數前 5 名的行政區中，每萬人搜尋次數最高的是哪一區？只列出行政區名稱
+  sql: >-
+    WITH top5 AS (
+      SELECT city, district, COUNT(*) AS searches
+      FROM search_logs GROUP BY city, district ORDER BY searches DESC LIMIT 5
+    )
+    SELECT t.district FROM top5 t JOIN district_population p USING (city, district)
+    ORDER BY t.searches::numeric / p.population DESC LIMIT 1
+
 # --- refuse / clarify: no SQL should run ------------------------------------------------------
 - id: q12
   difficulty: refuse

@@ -24,12 +24,17 @@ _CITY = "|".join(c.replace("台", "[台臺]") for c in _CITIES)
 _ADDRESS = re.compile(rf"({_CITY})\s*([^\s\d]{{1,4}}?[區鄉鎮市])")
 
 
+def demo_spelling(city: str) -> str:
+    """Official sources write 臺北市; the demo data and the model use 台北市."""
+    return city.replace("臺", "台")
+
+
 def parse_address(address: str) -> tuple[str, str] | None:
     """(city, district) from a Taiwanese address, or None when the address does not say both."""
     match = _ADDRESS.search(address)
     if match is None:
         return None
-    return match.group(1).replace("臺", "台"), match.group(2)
+    return demo_spelling(match.group(1)), match.group(2)
 
 
 Location = tuple[str, str]  # (city, district)

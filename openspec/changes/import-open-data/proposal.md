@@ -1,49 +1,50 @@
 ## Why
 
-目前的分析只看得到 Find Coffee 自己的資料（店家、會員、搜尋），能回答「哪裡搜尋多、哪裡店少」，卻回答不了「為什麼」。加入政府公開資料當補充，可以讓營運問題連到外部背景，例如人口多但咖啡店少的區、交通方便的工作友善咖啡店。
+目前的分析只看得到 Find Coffee 自己的資料（店家、會員、搜尋），能回答「哪裡搜尋多、哪裡店少」，卻回答不了「為什麼」。加入政府公開資料當補充，可以讓營運問題連到外部背景，例如人口多但咖啡店少的區、學校多的區搜尋是否也多。
 
 考慮過把整套資料換成公開資料（例如只做台北自行車或人口分析），但那會讓產品變成另一個題目，評估集、圖表故事與 Find Coffee 的定位都要重來。因此選擇第三條路：**保留 Find Coffee，再加入公開資料，以行政區（或座標）串接**。
 
-> 這份 proposal 目前只記錄考量，尚未排入實作；capability 與 spec delta 待排程時再補。
-
 ## What Changes
 
-選定 4 份公開資料（2026-11-08 決定），全部以固定版本快照匯入（唯讀、可重現），範圍先限雙北（Find Coffee 店家 85% 在雙北）：
+本 change 是公開資料的**第一階段：行政區串接**。第二階段（YouBike、捷運，以距離串接）另開 change。
 
 | 資料 | 來源 | 串接方式 | 可回答的問題 |
 |---|---|---|---|
-| 行政區人口 | 內政部戶政司 各鄉鎮市區人口數（月） | `city` + `district` | 每萬人有幾家咖啡店、人口多但店少的區 |
-| YouBike 2.0 站點 | 臺北市、新北市 YouBike 2.0 即時資訊（取站點快照） | 經緯度（距離） | 咖啡店 300 公尺內有幾個站 |
-| 捷運車站出入口 + 各站進出人次 | 臺北捷運 車站出入口座標、每月各站進出量 | 經緯度（距離）、站名 | 離捷運站最近的工作友善店、人流大但店少的站 |
-| 大專校院 | 教育部 大專校院名錄 | `city` + `district`（名錄只有地址） | 學校多的區搜尋是否也多（接考試季故事） |
+| 行政區人口與面積 | 內政部戶政司「各鄉鎮市區人口密度」114 年底（data.gov.tw/dataset/8410） | `district` | 每萬人有幾家咖啡店、人口多但店少的區 |
+| 大專校院 | 教育部「全國大學校院名錄」108 學年度（data.gov.tw/dataset/33207） | `district` | 學校多的區搜尋是否也多 |
 
-另外需要 **行政區界**（內政部 鄉鎮市區界線）：把沒有行政區的座標（YouBike、捷運出入口、無法解析地址的店家）對到 `district`。
-
-### 設計考量
-
-- **分兩階段**：第一階段只做「行政區串接」（人口、大專校院），直接重用 ticket 7 的行政區長條圖；第二階段做「距離串接」（YouBike、捷運）。
-- **距離先算好**：模型自己寫經緯度距離公式容易錯，匯入時預先計算 `cafe_transit`（每家店 300 公尺內 YouBike 站數、最近捷運站與距離），模型只查結果。是否引入 PostGIS 留到 design 決定。
-- **名稱正規化**：「臺北市／台北市」、捷運站名有無「站」字，匯入時統一，並以故事檢查（`db/checks`）驗證每筆都串得到。
-- **示範與真實資料都可用**：公開資料不含個資，可進 repo（標示來源與授權），示範店家與真實店家（`import-real-cafes`）都能串。
-- schema context 加入新表說明與名詞（每萬人咖啡店數、交通方便＝300 公尺內有 YouBike 或 500 公尺內有捷運出入口）；SQL 白名單與 `genbi_reader` 權限加入新表。
-- golden set 新增跨資料來源題目，量測 token 與正確率，決定是否提前做 RAG（見下節）。
+- 新增資料表 `district_population`、`universities`，以固定版本快照匯入（唯讀、可重現），只收台北市、新北市
+- 快照由腳本從官方下載檔裁成需要的欄位後放進 repo；`demo` 與 `real` 資料集都會載入
+- SQL 白名單、`genbi_reader` 權限、知識文件（schema、名詞「每萬人咖啡店數」、範例）加入新表
+- golden set 新增跨資料來源題目，評估 rag 正確率與 token
+- README 標示資料來源與授權
 
 ### Non-goals
 
 - 取代 Find Coffee 資料或改變既有評估題目
 - 即時串接公開資料 API（只匯入快照，避免外部服務影響 Demo 與評估）
+- 距離串接（第二階段）、行政區界圖資
 
-## 與 RAG 的關係
+## Capabilities
 
-加入更多資料**不需要**先做 RAG：
+### New Capabilities
 
-- **查詢速度**取決於 SQL 與索引（資料量在數萬筆內，Postgres 直接處理）；跨表 join 需要的是 `district` 索引，不是 RAG。
-- **RAG（`rag-knowledge-base`）解決的是 schema context 太長**：資料表、名詞、範例變多後，每題都把全部說明送給模型會增加 token 成本（ticket 6 後已從約 1,108 增加到約 1,690 input tokens）並可能降低正確率。RAG 只檢索與問題相關的表與範例。
-- 決策方式：加入公開資料後量測 golden set 的 token 與正確率；若 input tokens 或錯誤明顯增加，再優先做 RAG。
+- `open-data`: 政府公開資料快照（行政區人口、大專校院）的匯入、串接與來源標示。
+
+### Modified Capabilities
+
+- `sql-guardrails`: 白名單加入公開資料表。
+- `evaluation`: golden set 加入跨資料來源題目。
 
 ## Impact
 
-- 新增：`db/import/` 匯入腳本與快照檔、`db/init` 的新表與權限、schema context、golden set 題目、README 資料來源與授權說明
-- 修改：SQL 防護白名單
-- 授權：政府資料開放授權條款（OGDL）可散布，需在 README 標示來源
-- 依賴 ticket：`district-gap-bar-chart`（行政區長條圖可直接重用）；排程待定，預計在 `view-favorite-insights` 之後評估。開始實作前補 design.md、specs 與 tasks.md
+- 新增：`backend/scripts/prepare_open_data.py`（官方檔 → 快照）、`db/init/open_data/*.csv`（快照）、`db/init/06_open_data.sh`、知識文件與 golden set 題目、README 資料來源章節
+- 修改：SQL 白名單、`genbi_reader` 權限、`STATIC_KNOWLEDGE`
+- 本機資料庫需重建（`down -v`）才會有新表
+- 授權：政府資料開放授權條款第 1 版，可散布，需標示來源
+- 依賴 ticket：`district-gap-bar-chart`（行政區長條圖直接重用）、`rag-knowledge-base`、`import-real-cafes`
+
+## 來源檔現況（2026-11-10 檢查）
+
+- 人口：371 列（全國鄉鎮市區），欄位 `statistic_yyy, site_id, people_total, area, population_density`，第 2 列是中文欄名；`site_id` 為「新北市板橋區」這種縣市加行政區的字串，雙北 41 區（台北 12、新北 29）。
+- 大專校院：160 所，欄位含學校代碼、公私立、體制、學校名稱、縣市別、第三級行政區、地址，另有校長職稱與姓名、電話傳真；雙北 49 所（台北 26、新北 23）。資料為 108 學年度，官方之後沒有更新，少數學校可能已合併或改名。
