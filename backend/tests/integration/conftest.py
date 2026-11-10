@@ -33,3 +33,12 @@ def audit_dsn() -> str:
     if not dsn:
         pytest.skip("TEST_AUDIT_DATABASE_URL not set")
     return dsn
+
+
+@pytest.fixture
+def knowledge_dsn() -> str:
+    """genbi_knowledge_writer's DSN (rag-knowledge-base D5); db/test-db.sh prints it next to the others."""
+    dsn = os.environ.get("TEST_KNOWLEDGE_DATABASE_URL")
+    if not dsn:
+        pytest.skip("TEST_KNOWLEDGE_DATABASE_URL not set")
+    return dsn
