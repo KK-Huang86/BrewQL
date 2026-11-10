@@ -5,8 +5,10 @@ Pure functions only: the import script reads the files and writes the database.
 
 import math
 import re
-from collections.abc import Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
 
 # Every city and county in Taiwan, in the demo spelling ("台", D5).
 _CITIES = (
@@ -80,3 +82,100 @@ def distance_m(a: Place, b: Place) -> float:
     dlat, dlng = lat2 - lat1, math.radians(b.lng - a.lng)
     h = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlng / 2) ** 2
     return 2 * _EARTH_RADIUS_M * math.asin(math.sqrt(h))
+
+
+# --- export rows ---------------------------------------------------------------------------------
+
+Row = Mapping[str, str]  # one CSV row; pgAdmin writes NULL as the string "NULL"
+
+
+@dataclass(frozen=True)
+class CafeRow:
+    """The whitelisted columns of one cafe (D4); anything else in the export is ignored."""
+
+    source_id: int  # Find Coffee's id, only to link votes; the database assigns its own
+    place_id: str
+    name: str
+    address: str
+    lat: float  # matching and location fill only; not stored (D4)
+    lng: float
+    rating: Decimal | None
+    user_ratings_total: int
+    has_socket: str | None
+    limited_time: str | None
+    pet_friendly: bool | None
+    has_pet: bool | None
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class VoteRow:
+    cafe_source_id: int
+    attribute: str
+    value: str
+    source: str
+    created_at: datetime
+
+
+@dataclass(frozen=True)
+class CleanVotes:
+    kept: list[VoteRow]
+    dropped_member_votes: int
+
+
+# Votes from these sources are imported; "user" votes are real member behaviour (D6).
+VOTE_SOURCES = ("google", "cafenomad")
+
+
+def clean_cafe(row: Row) -> CafeRow:
+    rating = _value(row, "rating")
+    return CafeRow(
+        source_id=int(row["id"]),
+        place_id=row["place_id"],
+        name=row["name"],
+        address=row["address"],
+        lat=float(row["lat"]),
+        lng=float(row["lng"]),
+        rating=Decimal(rating) if rating is not None else None,
+        user_ratings_total=int(row["user_ratings_total"]),
+        has_socket=_value(row, "has_socket"),
+        limited_time=_value(row, "limited_time"),
+        pet_friendly=_yes_no(row, "pet_friendly"),
+        has_pet=_yes_no(row, "has_pet"),
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+def clean_votes(rows: Iterable[Row]) -> CleanVotes:
+    kept: list[VoteRow] = []
+    dropped = 0
+    for row in rows:
+        if row["source"] not in VOTE_SOURCES:
+            # The whole vote goes, not just user_id: when a member voted is behaviour too.
+            dropped += 1
+            continue
+        kept.append(
+            VoteRow(
+                cafe_source_id=int(row["cafe_id"]),
+                attribute=row["attribute"],
+                value=row["value"],
+                source=row["source"],
+                created_at=datetime.fromisoformat(row["created_at"]),
+            )
+        )
+    return CleanVotes(kept=kept, dropped_member_votes=dropped)
+
+
+def _value(row: Row, column: str) -> str | None:
+    value = row[column]
+    return None if value in ("", "NULL") else value
+
+
+def _yes_no(row: Row, column: str) -> bool | None:
+    # Unknown stays unknown: turning it into False would say "no pets" without knowing (D8).
+    value = _value(row, column)
+    if value is None:
+        return None
+    if value not in ("yes", "no"):
+        raise ValueError(f"{column}: expected yes, no or NULL, got {value!r}")
+    return value == "yes"
