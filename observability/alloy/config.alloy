@@ -65,13 +65,14 @@ prometheus.relabel "host" {
 }
 
 // ---- Container resources (D8b): cAdvisor, only containers labelled brewql.metrics=true ----
+// No network: per-container stats need `pid: host`, which would expose every host process.
 
 prometheus.exporter.cadvisor "containers" {
 	docker_host                  = "unix:///var/run/docker.sock"
 	docker_only                  = true
 	store_container_labels       = false
 	allowlisted_container_labels = ["com.docker.compose.service", "brewql.metrics"]
-	enabled_metrics              = ["cpu", "memory", "network"]
+	enabled_metrics              = ["cpu", "memory"]
 	storage_duration             = "2m"
 }
 
@@ -90,7 +91,7 @@ prometheus.relabel "containers" {
 
 	rule {
 		source_labels = ["__name__"]
-		regex         = "container_(cpu_usage_seconds_total|memory_working_set_bytes|network_(receive|transmit)_bytes_total)"
+		regex         = "container_(cpu_usage_seconds_total|memory_working_set_bytes)"
 		action        = "keep"
 	}
 

@@ -1193,7 +1193,7 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
+        "w": 12,
         "x": 0,
         "y": 68
       },
@@ -1235,8 +1235,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 8,
-        "x": 8,
+        "w": 12,
+        "x": 12,
         "y": 68
       },
       "targets": [
@@ -1268,51 +1268,9 @@
       "options": {}
     },
     {
-      "type": "timeseries",
-      "title": "容器網路",
-      "id": 35,
-      "datasource": {
-        "type": "prometheus",
-        "uid": "${prom}"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 8,
-        "x": 16,
-        "y": 68
-      },
-      "targets": [
-        {
-          "expr": "sum by (service) (rate(container_network_receive_bytes_total{project=\"brewql\", env=\"$env\"}[$__rate_interval]))",
-          "legendFormat": "{{service}} receive",
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${prom}"
-          }
-        },
-        {
-          "expr": "sum by (service) (rate(container_network_transmit_bytes_total{project=\"brewql\", env=\"$env\"}[$__rate_interval]))",
-          "legendFormat": "{{service}} transmit",
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "${prom}"
-          }
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "Bps"
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
       "type": "row",
       "title": "Backend 警告與錯誤 log",
-      "id": 36,
+      "id": 35,
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -1325,7 +1283,7 @@
     {
       "type": "logs",
       "title": "WARNING / ERROR",
-      "id": 37,
+      "id": 36,
       "datasource": {
         "type": "loki",
         "uid": "${loki}"
