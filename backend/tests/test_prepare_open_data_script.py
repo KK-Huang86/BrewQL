@@ -7,7 +7,6 @@ from datetime import date
 
 import pytest
 
-from app.open_data import MRT_DISTRICT_FIXES
 from scripts.prepare_open_data import main, run
 from tests.test_mrt_open_data import exit_
 from tests.test_open_data import POPULATION_HEADER, population, university
@@ -24,15 +23,26 @@ def write_csv(path, rows):
         writer.writerows(rows)
 
 
+# The real downloads always have the stations in MRT_DISTRICT_FIXES and the districts they point
+# to: a fix for a missing station or to an unknown district stops the build.
+FIXED_STATIONS = ["公館", "南京復興", "台電大樓", "國父紀念館", "後山埤", "忠孝新生", "雙連"]
+OTHER_DISTRICTS = ["中正區", "信義區", "南港區", "大同區", "松山區"]
+
+
 def downloads(tmp_path):
-    write_csv(tmp_path / "pop.csv", [POPULATION_HEADER, population("臺北市大安區", "290000", "11.3614")])
+    write_csv(
+        tmp_path / "pop.csv",
+        [POPULATION_HEADER, population("臺北市大安區", "290000", "11.3614")]
+        + [population(f"臺北市{district}") for district in OTHER_DISTRICTS],
+    )
     write_csv(tmp_path / "univ.csv", [university("0001", "範例大學", "臺北市", "大安區", ownership="公立")])
-    (tmp_path / "yb_taipei.json").write_text(json.dumps([taipei("500101001")]), encoding="utf-8")
+    # 大安區 first, so the 大安 MRT station (all at one spot) takes its district from it.
+    bikes = [taipei(f"50010100{i}", sarea=d) for i, d in enumerate(["大安區", *OTHER_DISTRICTS], start=1)]
+    (tmp_path / "yb_taipei.json").write_text(json.dumps(bikes), encoding="utf-8")
     (tmp_path / "yb_new_taipei.json").write_text(json.dumps([]), encoding="utf-8")
-    # The Taipei Metro exit file is Big5 (cp950), without a BOM. The real file always has the
-    # stations in MRT_DISTRICT_FIXES, and a fix for a missing station stops the build.
+    # The Taipei Metro exit file is Big5 (cp950), without a BOM.
     with (tmp_path / "exits.csv").open("w", encoding="cp950", newline="") as f:
-        exits = [exit_(f"{name}站出口1", "1", "25.026050", "121.543600") for name in ["大安", *MRT_DISTRICT_FIXES]]
+        exits = [exit_(f"{name}站出口1", "1", "25.026050", "121.543600") for name in ["大安", *FIXED_STATIONS]]
         writer = csv.DictWriter(f, fieldnames=list(exits[0]))
         writer.writeheader()
         writer.writerows(exits)
@@ -47,7 +57,12 @@ def test_snapshots_list_columns_in_table_order(tmp_path):
 
     assert (out / "district_population.csv").read_text(encoding="utf-8").splitlines() == [
         "city,district,population,area_km2,as_of",
+        "台北市,中正區,100000,10.5,2025-12-31",
+        "台北市,信義區,100000,10.5,2025-12-31",
+        "台北市,南港區,100000,10.5,2025-12-31",
+        "台北市,大同區,100000,10.5,2025-12-31",
         "台北市,大安區,290000,11.3614,2025-12-31",
+        "台北市,松山區,100000,10.5,2025-12-31",
     ]
     assert (out / "universities.csv").read_text(encoding="utf-8").splitlines() == [
         "code,name,ownership,level,city,district",
@@ -56,13 +71,22 @@ def test_snapshots_list_columns_in_table_order(tmp_path):
     assert (out / "youbike_stations.csv").read_text(encoding="utf-8").splitlines() == [
         "station_no,name,city,district,docks,lat,lng,as_of",
         f"500101001,範例站01,台北市,大安區,28,25.026050,121.543600,{AS_OF}",
+        f"500101002,範例站02,台北市,中正區,28,25.026050,121.543600,{AS_OF}",
+        f"500101003,範例站03,台北市,信義區,28,25.026050,121.543600,{AS_OF}",
+        f"500101004,範例站04,台北市,南港區,28,25.026050,121.543600,{AS_OF}",
+        f"500101005,範例站05,台北市,大同區,28,25.026050,121.543600,{AS_OF}",
+        f"500101006,範例站06,台北市,松山區,28,25.026050,121.543600,{AS_OF}",
     ]
     assert (out / "mrt_stations.csv").read_text(encoding="utf-8").splitlines() == [
         "name,city,district,exit_count,lat,lng,as_of",
-        *sorted(
-            f"{name},{city},{district},1,25.026050,121.543600,{AS_OF}"
-            for name, (city, district) in [("大安", ("台北市", "大安區")), *MRT_DISTRICT_FIXES.items()]
-        ),
+        f"公館,台北市,中正區,1,25.026050,121.543600,{AS_OF}",
+        f"南京復興,台北市,松山區,1,25.026050,121.543600,{AS_OF}",
+        f"台電大樓,台北市,中正區,1,25.026050,121.543600,{AS_OF}",
+        f"國父紀念館,台北市,信義區,1,25.026050,121.543600,{AS_OF}",
+        f"大安,台北市,大安區,1,25.026050,121.543600,{AS_OF}",
+        f"後山埤,台北市,南港區,1,25.026050,121.543600,{AS_OF}",
+        f"忠孝新生,台北市,大安區,1,25.026050,121.543600,{AS_OF}",
+        f"雙連,台北市,大同區,1,25.026050,121.543600,{AS_OF}",
     ]
 
 
