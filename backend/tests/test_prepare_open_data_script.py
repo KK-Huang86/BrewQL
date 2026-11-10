@@ -7,6 +7,7 @@ from datetime import date
 
 import pytest
 
+from app.open_data import MRT_DISTRICT_FIXES
 from scripts.prepare_open_data import main, run
 from tests.test_mrt_open_data import exit_
 from tests.test_open_data import POPULATION_HEADER, population, university
@@ -28,9 +29,10 @@ def downloads(tmp_path):
     write_csv(tmp_path / "univ.csv", [university("0001", "範例大學", "臺北市", "大安區", ownership="公立")])
     (tmp_path / "yb_taipei.json").write_text(json.dumps([taipei("500101001")]), encoding="utf-8")
     (tmp_path / "yb_new_taipei.json").write_text(json.dumps([]), encoding="utf-8")
-    # The Taipei Metro exit file is Big5 (cp950), without a BOM.
+    # The Taipei Metro exit file is Big5 (cp950), without a BOM. The real file always has the
+    # stations in MRT_DISTRICT_FIXES, and a fix for a missing station stops the build.
     with (tmp_path / "exits.csv").open("w", encoding="cp950", newline="") as f:
-        exits = [exit_("大安站出口1", "1", "25.026050", "121.543600")]
+        exits = [exit_(f"{name}站出口1", "1", "25.026050", "121.543600") for name in ["大安", *MRT_DISTRICT_FIXES]]
         writer = csv.DictWriter(f, fieldnames=list(exits[0]))
         writer.writeheader()
         writer.writerows(exits)
@@ -57,7 +59,10 @@ def test_snapshots_list_columns_in_table_order(tmp_path):
     ]
     assert (out / "mrt_stations.csv").read_text(encoding="utf-8").splitlines() == [
         "name,city,district,exit_count,lat,lng,as_of",
-        f"大安,台北市,大安區,1,25.026050,121.543600,{AS_OF}",
+        *sorted(
+            f"{name},{city},{district},1,25.026050,121.543600,{AS_OF}"
+            for name, (city, district) in [("大安", ("台北市", "大安區")), *MRT_DISTRICT_FIXES.items()]
+        ),
     ]
 
 
