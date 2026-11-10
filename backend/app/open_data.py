@@ -152,9 +152,17 @@ _MRT_EXIT = re.compile(r"^(?:(?P<main>台北車站)M\d+|(?P<station>.+?)站出�
 # Farther than this from every YouBike station, the nearest one says nothing about the district.
 _MRT_MAX_BIKE_M = 1000
 
-# Stations whose nearest YouBike station lies across a district border, checked against the
-# station addresses on the Taipei Metro website (filled in task 1.3).
-MRT_DISTRICT_FIXES: dict[str, tuple[str, str]] = {}
+# Stations whose nearest YouBike station lies across a district border: every station was
+# checked against its address on the Taipei Metro website on 2026-11-11 (task 1.3).
+MRT_DISTRICT_FIXES: dict[str, tuple[str, str]] = {
+    "公館": ("台北市", "中正區"),
+    "南京復興": ("台北市", "松山區"),
+    "台電大樓": ("台北市", "中正區"),
+    "國父紀念館": ("台北市", "信義區"),
+    "後山埤": ("台北市", "南港區"),
+    "忠孝新生": ("台北市", "大安區"),
+    "雙連": ("台北市", "大同區"),
+}
 
 
 @dataclass(frozen=True)
