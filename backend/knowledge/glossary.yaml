@@ -1,0 +1,51 @@
+# Business terms and query conventions; same meaning as the static prompt (app/schema_context.py).
+
+- id: glossary-work-friendly
+  title: 工作友善
+  content: |
+    咖啡店：limited_time IN ('no', 'maybe') AND has_socket IN ('yes', 'maybe')
+    搜尋：filters @> '{"no_time_limit": true, "has_socket": true}'
+
+- id: glossary-search-miss-rate
+  title: 搜尋落空率
+  content: |
+    依 district 分組，count(*) FILTER (WHERE result_count = 0)::numeric / count(*)（無結果搜尋 ÷ 該區搜尋）
+
+- id: glossary-favorite-conversion-rate
+  title: 收藏轉換率
+  content: |
+    同一 source 的 favorites 筆數::numeric / cafe_views 筆數
+    只比較 'search' 與 'rich_menu'（從收藏清單進入的店已經收藏過）
+    寫法：SELECT v.source, (SELECT count(*) FROM favorites f WHERE f.source = v.source)::numeric
+          / count(*) AS rate FROM cafe_views v WHERE v.source IN ('search', 'rich_menu') GROUP BY v.source
+    不要 JOIN cafe_views 和 favorites：同一家店瀏覽多次會讓一筆收藏被重複計算
+
+- id: glossary-active-users
+  title: 活躍使用者
+  content: |
+    期間內 search_logs 或 cafe_views 有紀錄的會員，未指定期間用最近 30 天，不是 status
+    users.status = 'active' 是帳號使用中，問「使用中的帳號」才用它；活躍使用者以 user_id 去重
+
+- id: glossary-few-many-favorites
+  title: 收藏很少／很多
+  content: |
+    沒給門檻時以 favorite_count 中位數為界，percentile_cont(0.5)
+    寫法：percentile_cont(0.5) WITHIN GROUP (ORDER BY favorite_count)
+
+- id: glossary-relative-time
+  title: 時間用語（最近一週、最近一個月、最近半年）
+  content: |
+    以今天為基準往回算，不需要反問：
+    - 最近一週：最近 7 天
+    - 最近一個月：最近 30 天
+    - 最近半年：最近 6 個月，例如 created_at >= now() - interval '6 months'
+
+- id: glossary-trend
+  title: 趨勢（每月、每天的變化）
+  content: |
+    依時間分組（通常每月，用 date_trunc 或 to_char(..., 'YYYY-MM')），並依時間排序
+
+- id: glossary-ranking
+  title: 比較或排名（各行政區、前幾名）
+  content: |
+    只回傳一個類別欄與一個主要指標欄，除非問題要求更多欄位

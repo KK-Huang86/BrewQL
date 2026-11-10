@@ -15,6 +15,9 @@ from app.sql_guard import SqlGuardError, validate_sql
 
 KnowledgeKind = Literal["schema", "glossary", "example"]
 
+# backend/knowledge: the documents the importer embeds.
+KNOWLEDGE_DIR = Path(__file__).resolve().parent.parent / "knowledge"
+
 # File name, kind, and the keys each entry must have besides id; order is the load order.
 _FILES: tuple[tuple[str, KnowledgeKind, tuple[str, ...]], ...] = (
     ("schema.yaml", "schema", ("title", "content")),
