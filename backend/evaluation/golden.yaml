@@ -231,8 +231,8 @@
       GROUP BY district ORDER BY docks DESC LIMIT 3
     ),
     s AS (SELECT district, COUNT(*) AS searches FROM search_logs GROUP BY district)
-    SELECT y.district FROM y JOIN s USING (district)
-    ORDER BY s.searches::numeric / y.docks DESC LIMIT 1
+    SELECT y.district FROM y LEFT JOIN s USING (district)
+    ORDER BY COALESCE(s.searches, 0)::numeric / y.docks DESC LIMIT 1
 
 # --- refuse / clarify: no SQL should run ------------------------------------------------------
 - id: q12
