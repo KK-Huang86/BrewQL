@@ -20,7 +20,8 @@
 
 ## 3. 來源 IP 與畫面
 
-- [ ] 3.1 測試 + 實作：nginx 以 `X-Real-IP $remote_addr` 覆寫來源 IP；驗證：nginx 容器測試中使用者送的 `X-Real-IP` 被蓋掉
+- [x] 3.1 測試 + 實作：nginx 以 `X-Real-IP $remote_addr` 覆寫來源 IP；驗證：nginx 容器測試中使用者送的 `X-Real-IP` 被蓋掉
+  - 結果：`/api/ask` 加 `proxy_set_header X-Real-IP $remote_addr`；fake backend 回傳收到的 `X-Real-IP`，`SourceIpTest` 2 個測試紅轉綠（使用者送 `203.0.113.66` 被換成 nginx 看到的位址）；nginx 測試 18 個全過
 - [ ] 3.2 測試 + 實作：提問畫面顯示稽核提示；驗證：前端測試由紅轉綠
 
 ## 4. Grafana
