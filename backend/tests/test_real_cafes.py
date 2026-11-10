@@ -242,7 +242,7 @@ def test_prepare_joins_the_three_exports_into_one_batch_with_a_report():
     assert batch.report == {
         "cafes": 2, "parsed": 1, "filled": 1, "unknown": 0, "outside_area": 0,
         "votes": 1, "member_votes_dropped": 1,
-        "nomad_matched": 1, "nomad_unmatched": 1, "nomad_duplicates": 0,
+        "nomad_matched": 1, "nomad_unmatched": 1, "nomad_outside_area": 0, "nomad_duplicates": 0,
     }  # fmt: skip
 
 
