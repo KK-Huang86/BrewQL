@@ -35,3 +35,8 @@
   - 結果：匯入報告見 2.5。3 題皆 ok，且與直接查資料庫一致：「新北市各行政區各有幾家咖啡店？列出前五名」板橋區 62、新莊區 59、三重區 48、永和區 23、樹林區 22；「台北市哪個行政區的咖啡店平均評分最高？」北投區 4.65；「大安區有插座而且不限時的咖啡店有幾家？」51（依名詞定義 maybe 也算）。Bedrock 花費約 $0.02（含 2.5 之前的嘗試）
 - [x] 4.2 README：兩種模式、切換方式、資料來源與授權限制；驗證：照 README 從 demo 切到 real 再切回 demo 成功
   - 結果：README「本機啟動」新增「資料集：demo 與 real」：切換指令、匯入與不匯入的欄位、Cafe Nomad 比對、Google 條款與 Cafe Nomad 授權限制、real 不作為評估依據；另註明舊 volume `genbi_pgdata` 可刪除。照 README 實測：demo 200 家 → real 711 家（已有店家，略過匯入）→ demo 200 家
+
+## 5. PR 前審查
+
+- [x] 5.1 依 code review（Standards、Spec）修正；驗證：全部測試通過、`openspec validate --strict`、`spectra drift` 為 0
+  - 結果：評估保護改為「有店家且全部是 demo」，空資料庫也停止（fake 改回傳兩個數字，需求變更以獨立 `test:` commit）；模擬瀏覽落在店家上架之後（紅燈：上架 3 天的店有 93,018 筆更早的瀏覽）；Cafe Nomad 對全部店家比對，對到外縣市的另計 `nomad_outside_area`（報告測試以獨立 `test:` commit 加欄位）；`02_seed.sh` 補上整合測試（demo 與 real 兩個驗證測試附 mutation 檢查，補足 compose commit 缺的測試），未知的 `DATASET` 讓初始化失敗；匯入失敗以 `log.exception` 記錄 traceback，連線逾時 10 秒；refactor：批次的店家位置型別不再可為 None、共用查詢常數、`prepare` 改名 `prepare_batch`、compose 的擁有者密碼加上必填檢查、評估保護沿用 `QueryExecutor`。spec 的地址需求與 D3、D5、D7、D9、D10、D12 文字同步實作。未採用：報告改成 dataclass、`dataset` 改成型別、`Place` 拆出座標型別（判斷為不值得增加的結構）；SQL 中 members CTE 重複兩次（CTE 只在單一語句內有效）。重建 real：`cafes=711 ... outside_area=101 votes=620 ... nomad_matched=147 nomad_unmatched=1511 nomad_outside_area=0 nomad_duplicates=3`，早於上架的瀏覽 0 筆
