@@ -4,10 +4,14 @@ Runs only in the one-shot cafe-import container as the database owner; the API n
 """
 
 import asyncio
+from pathlib import Path
 
 import asyncpg
 
 from app.real_cafes import RealBatch
+
+# Simulated members and behaviour, written in the same transaction (D9).
+REAL_BEHAVIOR_SQL = (Path(__file__).parent / "real_behavior.sql").read_text(encoding="utf-8")
 
 _INSERT_CAFE = """
 INSERT INTO cafes (place_id, name, address, city, district, rating, user_ratings_total,
@@ -76,6 +80,7 @@ class PgRealCafeStore:
                     for n in batch.nomad
                 ],
             )  # fmt: skip
+            await conn.execute(REAL_BEHAVIOR_SQL)
 
     async def close(self) -> None:
         if self._pool is not None:

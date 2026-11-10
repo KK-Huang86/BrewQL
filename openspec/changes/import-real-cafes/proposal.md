@@ -29,7 +29,7 @@
 
 ## Impact
 
-- 新增：`backend/app/real_cafes.py`（清理與比對）、`backend/scripts/import_real_cafes.py`、`db/seed/real_behavior.sql`、compose 的 `cafe-import` 服務與資料集切換、README 章節
+- 新增：`backend/app/real_cafes.py`（清理與比對）、`backend/scripts/import_real_cafes.py`、`backend/app/real_behavior.sql`、compose 的 `cafe-import` 服務與資料集切換、README 章節
 - 修改：`cafes.pet_friendly`、`has_pet` 改為可為 NULL（真實資料多數未知）；知識文件 `schema.yaml` 同步說明
 - 既有 demo volume 名稱改變，需要 `docker compose down -v` 重建一次
 - 授權：Google Places 來源的欄位只能保留在私人環境；Cafe Nomad 查不到正式授權條款，只在本機使用並標示來源

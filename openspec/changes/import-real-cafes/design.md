@@ -20,7 +20,7 @@
 `cafe-import` 在 db 健康後、`knowledge-import` 與 backend 之前執行：
 - `DATASET=demo`：直接 exit 0。
 - `DATASET=real` 且 `cafes` 已有資料：exit 0（只匯入空資料庫；匯出檔更新時重建 real volume）。
-- 否則：讀檔、清理、在一個交易內寫入店家、投票、Cafe Nomad，再執行 `db/seed/real_behavior.sql` 產生模擬行為；任何一步失敗就 rollback，exit 1，backend 不啟動。
+- 否則：讀檔、清理、在一個交易內寫入店家、投票、Cafe Nomad，再執行 `backend/app/real_behavior.sql` 產生模擬行為；任何一步失敗就 rollback，exit 1，backend 不啟動。
 
 清理與比對寫成純函式（`app/real_cafes.py`），用假資料單元測試；不在 SQL 裡做字串解析，邊界情況比較好測。寫入使用資料庫擁有者帳號，只出現在 `cafe-import` 容器，backend 仍只用 `genbi_reader`。
 
@@ -46,7 +46,7 @@
 真實資料的 `pet_friendly`、`has_pet` 幾乎全是 NULL，轉成 FALSE 會把「不知道」說成「不行」。schema 拿掉 `NOT NULL`；demo 仍全部有值，資料不變。`schema.yaml` 補上「NULL 表示未知」。
 
 ### D9. real 模式的行為資料另寫一份 SQL
-`db/seed/real_behavior.sql` 參考 demo seed 的做法（固定 `setseed`、會員、搜尋、瀏覽依評分與評論數加權、收藏由瀏覽轉換、計數等於明細），但各行政區的搜尋比例依店家數計算，不重現 demo 特有的資料故事（例如內湖區落差）。不與 demo seed 共用：共用需要重構 `02_seed.sql`，風險是改到 demo 資料、評估基準失效。
+`backend/app/real_behavior.sql`（跟著 backend image 打包，匯入容器才讀得到）參考 demo seed 的做法（固定 `setseed`、會員、搜尋、瀏覽依評分與評論數加權、收藏由瀏覽轉換、計數等於明細），但各行政區的搜尋比例依店家數計算，不重現 demo 特有的資料故事（例如內湖區落差）。不與 demo seed 共用：共用需要重構 `02_seed.sql`，風險是改到 demo 資料、評估基準失效。
 
 ### D10. 評估只在 demo 上執行
 評估開始前檢查 `cafes.place_id` 全部以 `demo-` 開頭，否則報錯停止，在任何付費呼叫之前。CI 不設定 `DATASET`，使用預設 demo。
