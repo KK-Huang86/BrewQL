@@ -31,3 +31,30 @@ async def test_population_rows_keep_their_date_and_area(reader):
     assert row["population"] > 0
     assert row["area_km2"] > 0
     assert str(row["as_of"]) == "2025-12-31"
+
+
+# import-transit-open-data D1, D4: snapshots downloaded on 2026-11-11.
+
+
+async def test_reader_sees_youbike_stations_by_city(reader):
+    rows = await reader.fetch("SELECT city, count(*) AS n FROM youbike_stations GROUP BY city ORDER BY city")
+
+    assert [(r["city"], r["n"]) for r in rows] == [("台北市", 1803), ("新北市", 1595)]
+
+
+async def test_reader_sees_mrt_stations_by_city(reader):
+    rows = await reader.fetch("SELECT city, count(*) AS n FROM mrt_stations GROUP BY city ORDER BY city")
+
+    assert [(r["city"], r["n"]) for r in rows] == [("台北市", 74), ("新北市", 45)]
+
+
+async def test_transit_rows_keep_coordinates_and_download_day(reader):
+    station = await reader.fetchrow(
+        "SELECT district, exit_count, lat, lng, as_of FROM mrt_stations WHERE name = '台北車站'"
+    )
+    bike = await reader.fetchrow("SELECT docks, lat, lng, as_of FROM youbike_stations WHERE station_no = '500101001'")
+
+    assert (station["district"], station["exit_count"]) == ("中正區", 8)
+    assert (str(station["lat"]), str(station["lng"])) == ("25.046778", "121.517707")
+    assert (bike["docks"], str(bike["lat"]), str(bike["lng"])) == (28, "25.026050", "121.543600")
+    assert str(station["as_of"]) == str(bike["as_of"]) == "2026-11-11"
