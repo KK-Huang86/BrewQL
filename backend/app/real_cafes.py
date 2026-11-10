@@ -303,7 +303,7 @@ def _rating(row: Row, column: str) -> Decimal | None:
 class RealBatch:
     """Everything one import writes, already cleaned, plus the counts it reports."""
 
-    cafes: list[tuple[CafeRow, Location | None]]
+    cafes: list[tuple[CafeRow, Location]]  # only cafes in AREA, so every one has a location
     votes: list[VoteRow]
     nomad: list[NomadRow]
     report: dict[str, int]
@@ -313,11 +313,13 @@ class RealBatch:
 AREA = ("台北市", "新北市")
 
 
-def prepare(cafe_rows: Iterable[Row], vote_rows: Iterable[Row], nomad_rows: Iterable[Row]) -> RealBatch:
+def prepare_batch(cafe_rows: Iterable[Row], vote_rows: Iterable[Row], nomad_rows: Iterable[Row]) -> RealBatch:
     all_cafes = [clean_cafe(row) for row in cafe_rows]
     # Located over every cafe: a cafe outside the area can still vouch for a neighbour's district.
     located = locate([Place(c.address, c.lat, c.lng) for c in all_cafes])
-    kept = [(c, loc) for c, loc in zip(all_cafes, located.locations, strict=True) if loc and loc[0] in AREA]
+    kept: list[tuple[CafeRow, Location]] = [
+        (c, loc) for c, loc in zip(all_cafes, located.locations, strict=True) if loc is not None and loc[0] in AREA
+    ]
     cafes = [c for c, _ in kept]
     in_area = {c.source_id for c in cafes}
     votes = clean_votes(vote_rows)

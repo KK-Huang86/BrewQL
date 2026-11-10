@@ -74,7 +74,7 @@ services:
     environment:
       DATASET: ${DATASET:-demo}
       # The owner writes cafes; only this one-shot container gets it, never the backend.
-      REAL_IMPORT_DATABASE_URL: postgresql://${POSTGRES_USER:-genbi_owner}:${POSTGRES_PASSWORD}@db:5432/genbi
+      REAL_IMPORT_DATABASE_URL: postgresql://${POSTGRES_USER:-genbi_owner}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/genbi
       REAL_DATA_DIR: /real-data
     volumes:
       - ${REAL_DATA_DIR:-./db/import}:/real-data:ro

@@ -3,7 +3,7 @@
 import asyncpg
 import pytest
 
-from app.real_cafes import prepare
+from app.real_cafes import prepare_batch
 from app.real_cafes_store import PgRealCafeStore
 from tests.test_real_cafes import EXPORT_ROW, LAT, nomad, vote
 
@@ -15,7 +15,7 @@ def batch(nomad_override=None):
          "lat": str(LAT + 300 / 111_000)},
     ]  # fmt: skip
     votes = [vote("google", cafe_id="2"), vote("cafenomad", cafe_id="1")]
-    return prepare(cafes, votes, [nomad("n1", "午後咖啡", north_m=300, **(nomad_override or {}))])
+    return prepare_batch(cafes, votes, [nomad("n1", "午後咖啡", north_m=300, **(nomad_override or {}))])
 
 
 async def fetch(dsn, sql):
@@ -107,7 +107,7 @@ async def test_no_view_or_favorite_comes_before_the_cafe_was_listed(empty_db):
     ]
     store = PgRealCafeStore(empty_db)
     try:
-        await store.write(prepare(cafes, [], []))
+        await store.write(prepare_batch(cafes, [], []))
     finally:
         await store.close()
 

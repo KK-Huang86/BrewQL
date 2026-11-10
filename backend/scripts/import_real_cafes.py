@@ -15,7 +15,7 @@ import sys
 from pathlib import Path
 from typing import Protocol
 
-from app.real_cafes import RealBatch, prepare
+from app.real_cafes import RealBatch, prepare_batch
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +33,7 @@ class ExportError(Exception):
     pass
 
 
-async def main(directory: Path, *, dataset: str, store: RealCafeStore) -> int:
+async def main(exports_dir: Path, *, dataset: str, store: RealCafeStore) -> int:
     if dataset == "demo":
         print("DATASET=demo: real cafe import skipped")
         return 0
@@ -45,7 +45,7 @@ async def main(directory: Path, *, dataset: str, store: RealCafeStore) -> int:
         print("database already has cafes: real cafe import skipped")
         return 0
     try:
-        batch = prepare(*(_read(_find(directory, pattern)) for pattern in EXPORTS))
+        batch = prepare_batch(*(_read(_find(exports_dir, pattern)) for pattern in EXPORTS))
     except (ExportError, ValueError, KeyError) as e:
         print(f"export error: {type(e).__name__}: {e}", file=sys.stderr)
         return 2

@@ -14,7 +14,7 @@ from app.real_cafes import (
     locate,
     match_nomad,
     parse_address,
-    prepare,
+    prepare_batch,
 )
 
 
@@ -234,7 +234,7 @@ def test_prepare_joins_the_three_exports_into_one_batch_with_a_report():
     ]
     votes = [vote("google", cafe_id="1"), vote("user", user_id="99", cafe_id="2")]
 
-    batch = prepare(cafes, votes, [nomad("n1", "晨光咖啡"), nomad("n2", "沒有這家店", north_m=5_000)])
+    batch = prepare_batch(cafes, votes, [nomad("n1", "晨光咖啡"), nomad("n2", "沒有這家店", north_m=5_000)])
 
     assert [(c.source_id, loc) for c, loc in batch.cafes] == [(1, ("台北市", "信義區")), (2, ("台北市", "信義區"))]
     assert [v.cafe_source_id for v in batch.votes] == [1]
@@ -248,7 +248,7 @@ def test_prepare_joins_the_three_exports_into_one_batch_with_a_report():
 
 def test_prepare_refuses_a_vote_for_a_cafe_not_in_the_export():
     with pytest.raises(ValueError, match="vote for unknown cafe 404"):
-        prepare([EXPORT_ROW], [vote("google", cafe_id="404")], [])
+        prepare_batch([EXPORT_ROW], [vote("google", cafe_id="404")], [])
 
 
 def test_only_taipei_and_new_taipei_cafes_are_kept_with_their_votes():
@@ -260,7 +260,7 @@ def test_only_taipei_and_new_taipei_cafes_are_kept_with_their_votes():
     ]
     votes = [vote("google", cafe_id=i) for i in ("1", "2", "3", "4")]
 
-    batch = prepare(cafes, votes, [nomad("n3", "測試咖啡", north_m=(24.16 - LAT) * 111_000)])
+    batch = prepare_batch(cafes, votes, [nomad("n3", "測試咖啡", north_m=(24.16 - LAT) * 111_000)])
 
     assert [c.source_id for c, _ in batch.cafes] == [1, 2]
     assert [v.cafe_source_id for v in batch.votes] == [1, 2]
@@ -275,6 +275,6 @@ def test_nomad_rows_of_cafes_outside_the_area_are_counted_apart_from_unmatched()
     ]
     taichung = nomad("n3", "測試咖啡", north_m=(24.16 - LAT) * 111_000)
 
-    batch = prepare(cafes, [], [taichung, nomad("n9", "沒有這家店", north_m=5_000)])
+    batch = prepare_batch(cafes, [], [taichung, nomad("n9", "沒有這家店", north_m=5_000)])
 
     assert (batch.report["nomad_outside_area"], batch.report["nomad_unmatched"]) == (1, 1)

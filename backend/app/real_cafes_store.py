@@ -13,6 +13,8 @@ from app.real_cafes import RealBatch
 # Simulated members and behaviour, written in the same transaction (D9).
 REAL_BEHAVIOR_SQL = (Path(__file__).parent / "real_behavior.sql").read_text(encoding="utf-8")
 
+_HAS_CAFES = "SELECT EXISTS (SELECT 1 FROM cafes)"
+
 _INSERT_CAFE = """
 INSERT INTO cafes (place_id, name, address, city, district, rating, user_ratings_total,
                    has_socket, limited_time, pet_friendly, has_pet, created_at)
@@ -47,7 +49,7 @@ class PgRealCafeStore:
 
     async def has_cafes(self) -> bool:
         pool = await self._get_pool()
-        return bool(await pool.fetchval("SELECT EXISTS (SELECT 1 FROM cafes)"))
+        return bool(await pool.fetchval(_HAS_CAFES))
 
     async def write(self, batch: RealBatch) -> None:
         pool = await self._get_pool()
@@ -55,12 +57,12 @@ class PgRealCafeStore:
             await conn.execute(f"SET LOCAL statement_timeout = {int(self._statement_timeout_ms)}")
             # Two imports at once: the second waits here, then finds cafes and fails the check below.
             await conn.execute("LOCK TABLE cafes IN EXCLUSIVE MODE")
-            if await conn.fetchval("SELECT EXISTS (SELECT 1 FROM cafes)"):
+            if await conn.fetchval(_HAS_CAFES):
                 raise RuntimeError("cafes appeared during the import; nothing written")
             await conn.executemany(
                 _INSERT_CAFE,
                 [
-                    (c.place_id, c.name, c.address, *(loc or (None, None)), c.rating, c.user_ratings_total,
+                    (c.place_id, c.name, c.address, *loc, c.rating, c.user_ratings_total,
                      c.has_socket, c.limited_time, c.pet_friendly, c.has_pet, c.created_at)
                     for c, loc in batch.cafes
                 ],
