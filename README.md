@@ -118,7 +118,7 @@ npm --prefix frontend run build
 ```
 
 - 以 TDD 開發：每個行為先有失敗的測試，再寫實作。單元測試不呼叫 Bedrock 或其他外部服務。
-- CI（GitHub Actions）在每個 PR 執行 `backend`（ruff + pytest，含真實 Postgres 整合測試）、`frontend`（oxlint + Vitest + build）與 `spec-check`（程式碼變更必須伴隨 `openspec/` 變更），三者皆為合併前的必要條件。`observability/` 有變更時另跑 `alloy fmt`／`validate` 與 `promtool check rules`。
+- CI（GitHub Actions）在每個 PR 執行 `backend`（ruff + pytest，含真實 Postgres 整合測試）、`frontend`（oxlint + Vitest + build）、`spec-check`（程式碼變更必須伴隨 `openspec/` 變更）與 `observability`（`alloy fmt`／`validate`、`promtool check rules`）。
 - 分支：`main` 可部署、`develop` 開發主線，皆只能透過 PR 合併；每個 OpenSpec change 一個 `feature/<change-name>` 分支。
 
 ## 進度
