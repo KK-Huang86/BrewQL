@@ -156,3 +156,12 @@ async def test_empty_document_list_deletes_everything_stored():
 
     assert report == SyncReport(added=0, updated=0, unchanged=0, deleted=1)
     assert store.docs == {}
+
+
+async def test_wrong_dimension_is_logged_like_other_failures(caplog):
+    with caplog.at_level(logging.ERROR, logger="app.knowledge_sync"), pytest.raises(ImportFailed):
+        await sync([CAFES], FakeEmbedder(dimension=3), FakeStore())
+
+    [record] = [r for r in caplog.records if r.levelno == logging.ERROR]
+    assert record.doc_id == "schema-cafes"
+    assert record.error == "dimension_mismatch"

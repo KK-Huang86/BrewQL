@@ -47,3 +47,17 @@ async def test_failed_import_exits_1_and_says_nothing_was_written(tmp_path, caps
     assert code == 1
     assert store.docs == {}
     assert "knowledge base unchanged" in capsys.readouterr().err
+
+
+async def test_static_mode_skips_the_import_so_titan_cannot_keep_the_backend_down(tmp_path, capsys):
+    # compose runs the import before the backend on every `up`; static is the fallback when rag breaks (D6).
+    embedder, store = FakeEmbedder(), FakeStore()
+
+    code = await main(
+        knowledge_dir(tmp_path), embedder=embedder, store=store, model_id="m", dimension=1024, prompt_mode="static"
+    )
+
+    assert code == 0
+    assert embedder.texts == []
+    assert store.docs == {}
+    assert "PROMPT_MODE=static" in capsys.readouterr().out
