@@ -53,3 +53,29 @@ def population_rows(rows: Iterable[Row]) -> list[PopulationRow]:
             )
         )
     return sorted(out, key=lambda r: (r.city, r.district))
+
+
+@dataclass(frozen=True)
+class UniversityRow:
+    code: str
+    name: str
+    ownership: str  # 公立 or 私立
+    level: str  # the official 體制, e.g. 一般大學, 技專校院
+    city: str
+    district: str
+
+
+def university_rows(rows: Iterable[Row]) -> list[UniversityRow]:
+    """Principal names, phone and fax numbers are dropped: the analysis only needs where schools are."""
+    out = [
+        UniversityRow(
+            row["學校\n代碼"],
+            row["學校名稱"],
+            row["公私立"],
+            row["體制"],
+            _demo_city(row["縣市別"]),
+            row["第三級\n行政區"],
+        )
+        for row in rows
+    ]
+    return sorted((r for r in out if r.city in AREA), key=lambda r: int(r.code))
