@@ -27,6 +27,7 @@
 
 ## 4. 評估
 
-- [ ] 4.1 測試 + 實作：評估指定模式、比較摘要、洩題檢查；驗證：測試由紅轉綠
+- [x] 4.1 測試 + 實作：評估指定模式、比較摘要、洩題檢查；驗證：測試由紅轉綠
+  - 結果：`python -m evaluation --mode static|rag`（未指定時依 `PROMPT_MODE`），rag 模式把檢索器接進評估流程；報告記錄 `prompt_mode` 與每題使用的知識 ID。`evaluation/compare_runs.py` 讀兩份 JSON 報告，輸出各難度正確率、平均輸入 token、平均成本、p50／p95、從錯變對與從對變錯的題目，以及翻轉題目在 rag 使用的知識；兩份報告題目不同時拒絕比較。`evaluation/leaks.py` 在任何付費呼叫前檢查範例問題與測試題（忽略空白與問號）完全相同即停止；repo 中的範例通過檢查。新增測試 13 個紅轉綠（紅燈原因為模組不存在）；`test_eval_report.py` 的完整 JSON 比對因新增欄位另以 `test:` commit 更新（需求變更）。`--dry-run --mode rag` 對測試資料庫執行正常。後端 626 個測試通過
 - [ ] 4.2 以真實 Bedrock 分別跑 static 與 rag；驗證：比較摘要記入評估紀錄（各難度正確率、成本、延遲、翻轉題目）
 - [ ] 4.3 依 4.2 結果決定預設模式：`rag` 不比 `static` 差才改預設（獨立 commit）；驗證：README 與 `.env.example` 記錄預設與理由
