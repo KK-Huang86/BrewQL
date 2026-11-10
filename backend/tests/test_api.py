@@ -71,6 +71,8 @@ def test_ask_returns_sql_columns_and_rows():
         "attempts": 1,
         # Ticket 7: city + count is now a bar; value_key is null for every chart but the number card.
         "chart": {"type": "bar", "x_key": "city", "y_key": "n", "value_key": None},
+        # rag-knowledge-base: knowledge used by a rag answer; static answers have none.
+        "sources": [],
     }
 
 
@@ -146,6 +148,7 @@ def test_bedrock_failure_body_keeps_the_response_contract():
         "refusal_source": None,
         "attempts": 0,
         "chart": None,
+        "sources": [],
     }
 
 
@@ -212,6 +215,7 @@ def test_database_outage_is_503_with_its_own_message(caplog):
         "refusal_source": None,
         "attempts": 0,
         "chart": None,
+        "sources": [],
     }
     assert "connection refused" not in response.text
     assert any("connection refused" in (r.exc_text or "") for r in caplog.records)
@@ -292,6 +296,7 @@ def test_refusal_is_200_with_reason_and_source():
         "refusal_source": "model",
         "attempts": 1,
         "chart": None,
+        "sources": [],
     }
 
 
@@ -313,6 +318,7 @@ def test_clarify_is_200_with_the_question_back():
         "refusal_source": None,
         "attempts": 1,
         "chart": None,
+        "sources": [],
     }
 
 
@@ -347,6 +353,7 @@ def test_input_guard_outage_is_502_and_the_model_is_never_called(caplog):
         "refusal_source": None,
         "attempts": 0,
         "chart": None,
+        "sources": [],
     }
     assert "AccessDenied" not in response.text
     assert len([r for r in caplog.records if r.exc_info]) == 1
@@ -499,6 +506,7 @@ def test_over_the_daily_limit_is_429_before_any_paid_call(caplog):
         "refusal_source": None,
         "attempts": 0,
         "chart": None,
+        "sources": [],
     }
     warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
     assert any("daily question limit" in w and "1/1" in w for w in warnings), warnings
