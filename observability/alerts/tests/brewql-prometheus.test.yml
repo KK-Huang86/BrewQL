@@ -1,0 +1,26 @@
+# promtool unit tests for brewql-prometheus.yml (CI: observability workflow).
+# Run locally:
+#   docker run --rm --entrypoint promtool -v "$PWD/observability/alerts:/a:ro" \
+#     prom/prometheus:v2.53.0 test rules /a/tests/brewql-prometheus.test.yml
+rule_files: [../brewql-prometheus.yml]
+evaluation_interval: 1m
+tests:
+  # record-audit-log D4: one failed audit write within 5 minutes alerts, then clears.
+  - interval: 1m
+    input_series:
+      - series: 'brewql_audit_write_failures_total{project="brewql", env="demo"}'
+        values: '0 0 0 1 1 1 1 1 1 1 1 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: BrewQLAuditWriteFailed
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: BrewQLAuditWriteFailed
+        exp_alerts:
+          - exp_labels: {severity: critical, env: demo}
+            exp_annotations:
+              summary: "BrewQL：稽核紀錄寫入資料庫失敗"
+              description: "backend log 有 audit write failed（含 request_id），該題只剩 Loki 的 ask_audit 紀錄；檢查 AUDIT_DATABASE_URL 與 genbi_audit_writer 權限。"
+      - eval_time: 11m
+        alertname: BrewQLAuditWriteFailed
+        exp_alerts: []

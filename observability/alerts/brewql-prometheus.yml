@@ -48,6 +48,17 @@ groups:
           summary: "BrewQL：今日提問上限已用完，之後的提問回 429"
           description: "確認是正常流量還是濫用；上限由 DAILY_QUESTION_LIMIT 設定，台北午夜重置。"
 
+      - alert: BrewQLAuditWriteFailed
+        # record-audit-log D4: the answer went out but its ask_audit row did not; only the Loki
+        # copy remains. Usually the audit role's connection or permission, not the whole database.
+        expr: |
+          sum by (env) (increase(brewql_audit_write_failures_total{project="brewql"}[5m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "BrewQL：稽核紀錄寫入資料庫失敗"
+          description: "backend log 有 audit write failed（含 request_id），該題只剩 Loki 的 ask_audit 紀錄；檢查 AUDIT_DATABASE_URL 與 genbi_audit_writer 權限。"
+
       - alert: BrewQLHostDiskFull
         expr: |
           max by (env, mountpoint) (1 - node_filesystem_avail_bytes{project="brewql"} / node_filesystem_size_bytes{project="brewql"}) > 0.85

@@ -16,6 +16,13 @@ function deferred() {
 }
 
 describe('AskPage', () => {
+  it('tells visitors their questions are recorded before they ask anything', () => {
+    // record-audit-log D9: the question text is kept for audit, so warn before anyone types.
+    render(<AskPage ask={vi.fn()} />)
+
+    expect(screen.getByText('提問內容會被記錄以供稽核，請勿輸入個人資料')).toBeInTheDocument()
+  })
+
   it('sends the question once and shows a pending state', async () => {
     const pending = deferred()
     const ask = vi.fn(() => pending.promise)

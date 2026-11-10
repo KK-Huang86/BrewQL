@@ -35,6 +35,7 @@ th { background: #f1efe9; }
 .guardrail { color: var(--guard); background: var(--guard-bg); border-left: 4px solid var(--guard); border-radius: 8px; padding: 10px 14px; }
 .guardrail p { margin: 4px 0 0; }
 .corrections { color: var(--muted); font-size: 0.875rem; margin: 4px 0; }
+.audit-notice { color: var(--muted); font-size: 0.875rem; margin: 4px 0 12px; }
 .refused, .clarify { border-left: 4px solid; border-radius: 8px; padding: 10px 14px; }
 .refused { color: var(--refused); background: var(--refused-bg); }
 .clarify { color: var(--clarify); background: var(--clarify-bg); }

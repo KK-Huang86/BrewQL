@@ -32,3 +32,7 @@ jobs:
         run: |
           docker run --rm --entrypoint promtool -v "$PWD/observability/alerts:/a:ro" \
             prom/prometheus:v2.53.0 check rules /a/brewql-prometheus.yml
+      - name: promtool test rules
+        run: |
+          docker run --rm --entrypoint promtool -v "$PWD/observability/alerts:/a:ro" \
+            prom/prometheus:v2.53.0 test rules /a/tests/brewql-prometheus.test.yml

@@ -244,3 +244,29 @@ async def test_success_logs_no_failed_attempt(caplog):
     await ask("q", ScriptedGenerator(GOOD), ScriptedExecutor(), max_retries=1)
 
     assert attempt_logs(caplog) == []
+
+
+async def test_result_keeps_the_attempts_that_failed_before_the_answer():
+    # Audit trail (record-audit-log D8): the rejected SQL must stay on record after a successful retry.
+    gen = ScriptedGenerator(BAD, GOOD)
+
+    result = await ask("q", gen, ScriptedExecutor(), max_retries=2)
+
+    assert result.failed_attempts == list(gen.feedbacks[1])
+    assert result.failed_attempts[0].sql == "DELETE FROM cafes"
+
+
+async def test_the_last_attempt_is_the_result_not_a_failed_attempt():
+    # Out of retries: the final failure is the result itself (status, sql, error_kind), recorded once.
+    gen = ScriptedGenerator(BAD, BAD)
+
+    result = await ask("q", gen, ScriptedExecutor(), max_retries=1)
+
+    assert (result.status, result.error_kind, result.sql) == ("error", "guardrail", "DELETE FROM cafes")
+    assert [f.error_kind for f in result.failed_attempts] == ["guardrail"]
+
+
+async def test_first_try_success_has_no_failed_attempts():
+    result = await ask("q", ScriptedGenerator(GOOD), ScriptedExecutor(), max_retries=2)
+
+    assert result.failed_attempts == []

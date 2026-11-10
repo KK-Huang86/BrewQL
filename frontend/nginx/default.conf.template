@@ -46,6 +46,9 @@ server {
         proxy_pass http://backend:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # The backend's audit visitor ID comes from this header (record-audit-log D5). Always
+        # overwritten with the connecting address, so a client cannot send its own.
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_read_timeout 60s;
     }
 

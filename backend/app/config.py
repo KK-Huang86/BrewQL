@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     max_sql_retries: int = Field(default=1, ge=0, le=5)
     # Questions the whole site answers per Taipei day; must be positive so a typo cannot remove the cap.
     daily_question_limit: int = Field(default=500, gt=0)
+    # Audit trail (record-audit-log). Optional here because eval and smoke share Settings;
+    # build_app is what refuses to start without them.
+    audit_database_url: str = ""
+    audit_ip_hmac_key: str = ""
 
     @field_validator("bedrock_effort", "bedrock_guardrail_id", "bedrock_guardrail_version", mode="before")
     @classmethod

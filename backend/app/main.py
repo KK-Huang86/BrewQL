@@ -2,18 +2,28 @@
 
 import logging
 import time
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST
 from pydantic import BaseModel, StringConstraints, field_serializer
 
+from app.audit import (
+    AuditRecord,
+    AuditWriter,
+    PgAuditWriter,
+    record_from_outage,
+    record_from_result,
+    store,
+    visitor_id,
+)
 from app.charts import Chart, choose_chart
 from app.daily_limit import DailyQuestionLimit
 from app.db import DatabaseUnavailable
@@ -23,6 +33,8 @@ from app.metrics import AskMetrics, Unavailable
 from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
+# HMAC-SHA256 key for visitor IDs; shorter keys make the IPv4 space cheap to brute-force (D5).
+MIN_VISITOR_KEY_LENGTH = 32
 
 
 class AskRequest(BaseModel):
@@ -83,6 +95,9 @@ def create_app(
     max_sql_retries: int = 0,
     daily_limit: DailyQuestionLimit | None = None,
     model_id: str | None = None,
+    audit_writer: AuditWriter | None = None,
+    visitor_key: bytes | None = None,
+    audit_timeout_seconds: float = 2.0,
 ) -> FastAPI:
     # model_id only pre-creates the token series at 0; the reply's own model ID is what gets counted.
     metrics = AskMetrics(daily_limit, model_id=model_id)
@@ -92,6 +107,8 @@ def create_app(
         yield
         # Release pooled connections so restarts don't leave sessions open on Postgres.
         await executor.close()
+        if audit_writer is not None:
+            await audit_writer.close()
 
     app = FastAPI(title="BrewQL", lifespan=lifespan)
     # Dev only: in deployment nginx serves the UI and /api on one origin, so no CORS is needed.
@@ -109,8 +126,16 @@ def create_app(
         # Internal only: nginx never forwards it; Alloy scrapes it on the compose network (D9).
         return Response(metrics.render(), media_type=CONTENT_TYPE_LATEST)
 
+    async def record_audit(record: AuditRecord) -> None:
+        await store(record, audit_writer, timeout_seconds=audit_timeout_seconds, failures=metrics.audit_write_failures)
+
+    def visitor_of(request: Request) -> str | None:
+        # nginx overwrites X-Real-IP with the connecting address; direct calls (SSH tunnel) have none.
+        ip = request.headers.get("x-real-ip") or (request.client.host if request.client else None)
+        return visitor_id(ip, visitor_key) if visitor_key else None
+
     @app.post("/api/ask", response_model=AskResponse)
-    async def ask_question(body: AskRequest):
+    async def ask_question(body: AskRequest, request: Request):
         # Checked before the guardrail and the model so a question over the limit costs nothing.
         # Invalid input is a 422 before this handler runs, so it never uses up the limit.
         if daily_limit is not None and not daily_limit.try_acquire():
@@ -118,14 +143,22 @@ def create_app(
             metrics.record_daily_limit_hit()
             return _error(429, "今日提問次數已達上限，請明天再試", retry_after=daily_limit.retry_after_seconds())
         started = time.perf_counter()
+        request_id = uuid.uuid4()
         try:
             result = await ask(body.question, generator, executor, input_guard=input_guard, max_retries=max_sql_retries)
         except Exception as exc:
             outage = _outage(exc)
             log.exception(outage.log_message)
-            metrics.record_unavailable(outage.kind, time.perf_counter() - started)
+            seconds = time.perf_counter() - started
+            metrics.record_unavailable(outage.kind, seconds)
+            await record_audit(
+                record_from_outage(
+                    request_id, body.question, outage.kind, visitor=visitor_of(request), elapsed_ms=int(seconds * 1000)
+                )
+            )
             return _error(outage.status_code, outage.message)
         metrics.record(result, time.perf_counter() - started)
+        await record_audit(record_from_result(request_id, body.question, result, visitor=visitor_of(request)))
         chart = choose_chart(result.columns, result.rows) if result.status == "ok" else None
         return AskResponse(**asdict(result), chart=chart)
 
@@ -170,6 +203,11 @@ def build_app() -> FastAPI:
 
     configure_logging()
     settings = Settings()
+    # D4: every question must leave an audit trail, so a missing setting stops startup.
+    if not settings.audit_database_url:
+        raise RuntimeError("AUDIT_DATABASE_URL is required (genbi_audit_writer connection)")
+    if len(settings.audit_ip_hmac_key) < MIN_VISITOR_KEY_LENGTH:
+        raise RuntimeError(f"AUDIT_IP_HMAC_KEY must be at least {MIN_VISITOR_KEY_LENGTH} characters")
     deps = build_dependencies(settings)
     return create_app(
         generator=deps.generator,
@@ -179,4 +217,6 @@ def build_app() -> FastAPI:
         max_sql_retries=settings.max_sql_retries,
         daily_limit=DailyQuestionLimit(settings.daily_question_limit),
         model_id=settings.bedrock_model_id,
+        audit_writer=PgAuditWriter(settings.audit_database_url),
+        visitor_key=settings.audit_ip_hmac_key.encode(),
     )

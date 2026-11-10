@@ -24,3 +24,12 @@ async def executor(reader_dsn):
     ex = PgExecutor(reader_dsn)
     yield ex
     await ex.close()
+
+
+@pytest.fixture
+def audit_dsn() -> str:
+    """genbi_audit_writer's DSN (record-audit-log); db/test-db.sh prints it next to TEST_DATABASE_URL."""
+    dsn = os.environ.get("TEST_AUDIT_DATABASE_URL")
+    if not dsn:
+        pytest.skip("TEST_AUDIT_DATABASE_URL not set")
+    return dsn

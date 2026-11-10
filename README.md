@@ -51,7 +51,8 @@ flowchart LR
 
 ```bash
 cp .env.example .env
-# 編輯 .env：設定 POSTGRES_PASSWORD、GENBI_READER_PASSWORD（兩組不同，避免 : @ /）
+# 編輯 .env：設定 POSTGRES_PASSWORD、GENBI_READER_PASSWORD、GENBI_AUDIT_WRITER_PASSWORD
+#           （三組不同，避免 : @ /）、AUDIT_IP_HMAC_KEY（openssl rand -hex 32）
 #           以及 AWS_PROFILE、BEDROCK_MODEL_ID
 
 docker compose up --build
@@ -70,7 +71,8 @@ curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
 ```
 
 - 資料庫預設發布在 5434，避開本機其他專案常用的 5432；要改就改 `.env` 的 `DB_PORT`，`DATABASE_URL` 的 port 也要一起改。
-- 重建示範資料庫：`docker compose down -v`（資料以固定種子產生，重建後完全相同）。
+- 重建示範資料庫：`docker compose down -v`（資料以固定種子產生，重建後完全相同；稽核紀錄會一併清除）。
+- 少了稽核設定 backend 會拒絕啟動；新增稽核資料表後，既有的本機資料庫要 `down -v` 重建才會有。
 
 ### Bedrock 憑證
 
@@ -103,6 +105,37 @@ backend 輸出 JSON log 與 Prometheus 指標（`/metrics` 只在 compose 網路
 
 ![應用程式與 CloudWatch 的 token 總數對帳](docs/images/grafana-reconciliation.png)
 
+## 稽核
+
+每一次 `/api/ask` 提問（成功、反問、拒答、錯誤，含 5xx）在回應前留下一筆紀錄：問題原文、產生的 SQL、被拒的重試、結果、token 與估算成本、耗時、訪客。被 nginx 限流、每日上限擋下或格式錯誤的請求沒有進入答題流程，不記錄。
+
+- **兩份紀錄**：資料庫 `ask_audit` 資料表（永久）與一行 `ask_audit` JSON log（送到 Grafana Cloud Loki，保存 14 天）。資料庫寫入失敗不影響回答，但會記錄錯誤、計入 `brewql_audit_write_failures_total` 並觸發告警，log 那一份仍在。
+- **訪客**：來源 IP 的 HMAC-SHA256（金鑰 `AUDIT_IP_HMAC_KEY`）。看得出同一位訪客問了哪些題，但不儲存 IP。IP 由 nginx 以連線位址覆寫 `X-Real-IP`，使用者無法偽造。
+- **權限分離**：寫入用的 `genbi_audit_writer` 只有 `INSERT`、`SELECT`，不能修改或刪除紀錄，也讀不到 `cafes`；查詢用的 `genbi_reader` 讀不到稽核表。
+- **只給管理者**：公開網址沒有讀取紀錄的入口；提問畫面提醒使用者不要輸入個人資料。最近 14 天看 Grafana 的稽核 dashboard（見 [observability/README.md](observability/README.md#稽核-dashboard)），完整歷史用 psql 查資料庫：
+
+```bash
+# 本機
+docker compose exec db psql -U genbi_owner -d genbi
+# 部署環境：資料庫只綁主機的 127.0.0.1，先開 SSH tunnel 再連
+ssh -N -L 5434:127.0.0.1:5434 <部署主機>
+psql "postgresql://genbi_audit_writer@127.0.0.1:5434/genbi"
+```
+
+```sql
+-- 最近 20 題
+SELECT created_at, left(visitor, 8) AS visitor, status, coalesce(refusal_source, error_kind) AS reason,
+       question, sql
+FROM ask_audit ORDER BY created_at DESC LIMIT 20;
+
+-- 某位訪客（visitor 開頭幾碼）的所有提問
+SELECT created_at, status, question FROM ask_audit WHERE visitor LIKE '0f1488db%' ORDER BY created_at;
+
+-- 每日題數、結果分布與估算成本（台北時間）
+SELECT (created_at AT TIME ZONE 'Asia/Taipei')::date AS day, status, count(*), sum(estimated_cost_usd) AS usd
+FROM ask_audit GROUP BY 1, 2 ORDER BY 1 DESC, 2;
+```
+
 ## 開發
 
 ```bash
@@ -118,7 +151,7 @@ npm --prefix frontend run build
 ```
 
 - 以 TDD 開發：每個行為先有失敗的測試，再寫實作。單元測試不呼叫 Bedrock 或其他外部服務。
-- CI（GitHub Actions）在每個 PR 執行 `backend`（ruff + pytest，含真實 Postgres 整合測試）、`frontend`（oxlint + Vitest + build）、`spec-check`（程式碼變更必須伴隨 `openspec/` 變更）與 `observability`（`alloy fmt`／`validate`、`promtool check rules`）；前三者為合併前的必要條件。
+- CI（GitHub Actions）在每個 PR 執行 `backend`（ruff + pytest，含真實 Postgres 整合測試）、`frontend`（oxlint + Vitest + build）、`spec-check`（程式碼變更必須伴隨 `openspec/` 變更）與 `observability`（`alloy fmt`／`validate`、`promtool check rules`／`test rules`）；前三者為合併前的必要條件。
 - 分支：`main` 可部署、`develop` 開發主線，皆只能透過 PR 合併；每個 OpenSpec change 一個 `feature/<change-name>` 分支。
 
 ## 進度

@@ -5,8 +5,9 @@ BrewQL 的監控設定（OpenSpec change `observe-with-grafana`）。資料由 G
 ```
 observability/
 ├── alloy/config.alloy       # Alloy：backend /metrics、主機、容器、容器 log → Grafana Cloud
-├── dashboards/brewql.json   # Dashboard
-└── alerts/                  # 告警規則
+├── dashboards/brewql.json         # 營運 dashboard
+├── dashboards/brewql-audit.json   # 稽核 dashboard（record-audit-log，只給管理者）
+└── alerts/                        # 告警規則；tests/ 為 promtool 單元測試
 ```
 
 ## 啟動 Alloy
@@ -20,7 +21,7 @@ observability/
 ## 匯入 dashboard
 
 1. Grafana Cloud → **Dashboards** → **New** → **Import**。
-2. 上傳 `observability/dashboards/brewql.json`，資料夾選 `BrewQL`（沒有就先建立）。
+2. 上傳 `observability/dashboards/brewql.json`，資料夾選 `BrewQL`（沒有就先建立）。稽核 dashboard `brewql-audit.json` 以同樣方式匯入。
 3. 匯入後在頁面上方選擇資料來源（`…-prom`、`…-logs`、CloudWatch）與環境（`local` 或 `demo`）。
 
 在 UI 修改 dashboard 後，用 **Export** → **Export as JSON**（不勾 *Export for sharing externally*）覆蓋 repo 的檔案，再開 PR。
@@ -109,6 +110,34 @@ Grafana Cloud 以 Assume Role 讀取 `AWS/Bedrock` 指標，不使用 access key
 
 backend 等級為 WARNING 或 ERROR 的 JSON log，最新的在上面。指標告訴你「出事了」，log 告訴你「為什麼」：例如每日上限觸發、Guardrail 或 Bedrock 呼叫失敗的完整錯誤。log 不含問題原文。
 
+## 稽核 dashboard
+
+`brewql-audit.json` 讀 backend 每題一行的 `ask_audit` log（問題原文只出現在這種 log），只給管理者看；公開網址沒有任何讀取紀錄的入口。頁面上方可依狀態與訪客（visitor 開頭幾碼）篩選。
+
+| 面板 | 意涵 | 為什麼需要 |
+|---|---|---|
+| 提問紀錄數、訪客數 | 所選範圍內的提問數，與不同 visitor（來源 IP 的 HMAC）數量 | 看出流量是少數人大量提問還是很多人各問幾題 |
+| 稽核寫入失敗 | 沒寫進 `ask_audit` 資料表的提問數 | 大於 0 時那幾題只剩 Loki 這一份紀錄，要查稽核資料庫連線 |
+| 估算成本 | `ask_audit` 的估算成本加總（單價未知的提問不計） | 與營運 dashboard 的估算成本互相對照 |
+| 最近的提問 | 每題一列：時間、訪客、狀態、問題、SQL、拒答來源、錯誤種類、筆數、耗時、request id | 查某位訪客問了什麼、某個錯誤是哪一題；request id 可對到 backend 其他 log 與資料表 |
+| 重複的問題 | 問題文字出現 2 次以上的次數與平均 input token | 評估快取答案或 prompt caching 是否值得做 |
+| 每題 input token | 每題送給模型的 input token | 資料表說明佔了大部分，是 prompt caching 能省下的部分 |
+
+### 兩份紀錄的保存與權限
+
+| | Loki（`ask_audit` log） | 資料庫（`ask_audit` 資料表） |
+|---|---|---|
+| 保存期限 | 14 天（Free 方案；Pro 為 30 天），之後自動刪除 | 永久，沒有自動清除 |
+| 誰能寫入 | Alloy token，scopes 只有 `logs:write`、`metrics:write` | `genbi_audit_writer`，只有 `INSERT`、`SELECT` |
+| 誰能刪除 | 有 `logs:delete` 的 token；Alloy token 沒有，backend 主機被入侵也刪不掉 | 只有資料庫擁有者；寫入角色不能 `UPDATE`／`DELETE` |
+| 用途 | 最近 14 天的 dashboard 與告警 | 完整歷史，管理者以 psql 查詢 |
+
+查證（2026-11-10）：
+
+- 保存期限與每月 50 GB 寫入上限見 [Grafana Cloud pricing](https://grafana.com/pricing/)；這個 stack 用 Free 方案，14 天已足夠，更早的紀錄查資料庫。
+- `logs:read`、`logs:write`、`logs:delete` 是三個獨立的 scope，見 [access policies](https://grafana.com/docs/grafana-cloud/security-and-account-management/authentication-and-permissions/access-policies/)。Alloy 使用的 access policy 在 Grafana Cloud 後台確認只有 `logs:write` 與 `metrics:write`。
+- 新建或輪換 Alloy token 時維持這兩個 scope；不要給 `logs:read`、`logs:delete`。
+
 ## 匯入告警規則
 
 規則以 Prometheus rule 格式存在 `observability/alerts/`，匯入成 Grafana-managed alert rules：
@@ -120,4 +149,4 @@ backend 等級為 WARNING 或 ERROR 的 JSON log，最新的在上面。指標�
    - 再匯入一次 `brewql-loki.yml`，資料來源選 `…-logs`。
 4. 規則以 `env` 分組告警：本機（`local`）與部署（`demo`）各自觸發。不想收本機告警時，在 notification policy 加一條 `env=local` 的 policy 指向不通知的 contact point，或建立 silence。
 
-修改規則時改 repo 的 YAML（CI 以 `promtool check rules` 檢查 Prometheus 規則），再重新匯入。
+修改規則時改 repo 的 YAML（CI 以 `promtool check rules` 檢查 Prometheus 規則，`promtool test rules` 跑 `alerts/tests/` 的單元測試），再重新匯入。

@@ -46,6 +46,8 @@ export default function AskPage({ ask }: Props) {
           送出
         </button>
       </form>
+      {/* Questions are stored for audit (record-audit-log D9); shown before anyone types. */}
+      <p className="audit-notice">提問內容會被記錄以供稽核，請勿輸入個人資料</p>
       {pending && <p role="status">處理中…</p>}
       {failure && <p role="alert">{failure}</p>}
       {answer && <Answer answer={answer} />}

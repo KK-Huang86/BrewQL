@@ -75,9 +75,12 @@ class AskUsage:
         self.output_tokens += call.output_tokens
 
 
+AskStatus = Literal["ok", "error", "refused", "clarify"]
+
+
 @dataclass
 class AskResult:
-    status: Literal["ok", "error", "refused", "clarify"]
+    status: AskStatus
     sql: str | None = None
     columns: list[str] = field(default_factory=list)
     rows: list[list[Any]] = field(default_factory=list)
@@ -88,6 +91,8 @@ class AskResult:
     refusal_source: Literal["input_guardrail", "model"] | None = None
     # Model calls made for this question; 0 when the input guardrail blocked it first.
     attempts: int = 0
+    # Tries that failed before this result, for the audit trail; the result itself is the last try.
+    failed_attempts: list[FailedAttempt] = field(default_factory=list, compare=False)
     # Cost detail; left out of equality so results compare by answer alone.
     usage: AskUsage = field(default_factory=AskUsage, compare=False)
 
@@ -132,6 +137,7 @@ async def _answer(
     while True:
         result, failure, retryable = await _attempt(question, generator, executor, feedback, usage)
         result.attempts = len(feedback) + 1
+        result.failed_attempts = list(feedback)
         if failure is not None:
             _log_failure(result.attempts, failure)
         # Stop on success, refuse/clarify, a failure not worth retrying, or the retry budget.
