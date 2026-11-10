@@ -9,6 +9,7 @@ RUN uv sync --frozen --no-dev --no-install-project
 
 COPY app ./app
 COPY scripts ./scripts
+COPY knowledge ./knowledge
 
 # Run as an unprivileged user.
 RUN useradd --create-home app

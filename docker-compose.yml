@@ -54,6 +54,23 @@ services:
       db:
         condition: service_healthy
 
+  # One-shot RAG knowledge import (rag-knowledge-base 2.3): docker compose run --rm knowledge-import
+  # Only in the "tools" profile, so `up` never starts it. Re-running is free when nothing changed.
+  knowledge-import:
+    build: ./backend
+    profiles: ["tools"]
+    command: ["python", "-m", "scripts.import_knowledge"]
+    environment:
+      KNOWLEDGE_DATABASE_URL: postgresql://genbi_knowledge_writer:${GENBI_KNOWLEDGE_WRITER_PASSWORD}@db:5432/genbi
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_PROFILE: ${AWS_PROFILE:-default}
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-amazon.titan-embed-text-v2:0}
+    volumes:
+      - ${HOME}/.aws:/home/app/.aws:ro
+    depends_on:
+      db:
+        condition: service_healthy
+
   frontend:
     build: ./frontend
     environment:

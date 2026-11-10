@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     # build_app is what refuses to start without them.
     audit_database_url: str = ""
     audit_ip_hmac_key: str = ""
+    # RAG (rag-knowledge-base): Titan model for question and document vectors; the importer's role.
+    embedding_model_id: str = "amazon.titan-embed-text-v2:0"
+    knowledge_database_url: str = ""
 
     @field_validator("bedrock_effort", "bedrock_guardrail_id", "bedrock_guardrail_version", mode="before")
     @classmethod
