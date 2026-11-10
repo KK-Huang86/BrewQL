@@ -106,3 +106,12 @@ def test_unparseable_coordinates_stop_the_build():
 
 def test_no_exits_give_no_stations():
     assert mrt_rows([], BIKES, AS_OF, fixes={}) == []
+
+
+def test_an_exit_number_with_a_letter_counts_as_an_exit():
+    # The official file has 「南港展覽館站出口2A」 next to 「南港展覽館站出口2」.
+    exits = [exit_("板橋站出口2", "2", "25.013000"), exit_("板橋站出口2A", "2A", "25.013000")]
+
+    [row] = mrt_rows(exits, BIKES, AS_OF, fixes={})
+
+    assert (row.name, row.exit_count) == ("板橋", 2)
