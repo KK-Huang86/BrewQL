@@ -20,7 +20,7 @@ Anthropic 沒有 embedding 模型；Titan 在同一個 Bedrock 帳號內、價�
 embedding 呼叫最慢，只做一次；三個 pgvector 查詢以 `asyncio.gather` 並發，各自用連線池的連線。
 
 ### D4. 匯入的冪等與原子性
-每份文件記錄內容雜湊；雜湊相同就跳過 embedding。先在記憶體算好所有向量，再用單一 transaction 做 upsert 與刪除，任何錯誤整批 rollback。
+每份文件記錄內容雜湊；雜湊相同就跳過 embedding。先在記憶體算好所有向量，再用單一 transaction 做 upsert 與刪除，任何錯誤整批 rollback。雜湊包含 embedding 模型 ID（換模型時全部重算，不混用不可比較的向量）。範例以問題向量化（使用者問的是問題，不是 SQL 關鍵字），其他文件以標題加內容向量化。transaction 內先刪除再 upsert，並以 advisory lock 讓同時執行的匯入依序寫入。
 
 ### D5. 權限分離
 匯入用專用角色，只能寫知識庫資料表；API 的唯讀角色可讀知識庫（檢索用），但知識庫不在 SQL 白名單，模型產生的 SQL 無法查詢它。
