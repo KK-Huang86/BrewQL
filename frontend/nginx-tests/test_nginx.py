@@ -44,7 +44,8 @@ server {
     listen 8000;
     location / {
         default_type application/json;
-        return 200 '{"status":"ok","from":"backend"}';
+        # Echo the forwarded source IP so a test can see what the backend would audit.
+        return 200 '{"status":"ok","from":"backend","x_real_ip":"$http_x_real_ip"}';
     }
 }
 """
@@ -106,8 +107,12 @@ class NginxHarness:
     def nginx_running(self) -> bool:
         return docker("inspect", "-f", "{{.State.Running}}", self.nginx).stdout.strip() == "true"
 
-    def request(self, method: str, path: str, body: bytes | None = None) -> tuple[int, dict[str, str], bytes]:
+    def request(
+        self, method: str, path: str, body: bytes | None = None, headers: dict[str, str] | None = None
+    ) -> tuple[int, dict[str, str], bytes]:
         req = urllib.request.Request(f"http://127.0.0.1:{self.port}{path}", data=body, method=method)
+        for key, value in (headers or {}).items():
+            req.add_header(key, value)
         if body is not None:
             req.add_header("Content-Type", "application/json")
         try:
@@ -343,6 +348,27 @@ class AccessLogTest(NginxTestCase):
         self.assertNotIn("s3cret", log)
         self.assertNotIn("祕密", log)
         self.assertNotIn("\\u79d8", log)  # nor its JSON-escaped form
+
+
+class SourceIpTest(NginxTestCase):
+    # record-audit-log D5: the backend groups visitors by X-Real-IP, so nginx must set it to the
+    # address it saw; a client-sent value would let anyone pose as another visitor.
+
+    def forwarded_ip(self, headers: dict[str, str] | None = None) -> str:
+        _, _, body = harness.request("POST", "/api/ask", b'{"question":"q"}', headers)
+        return json.loads(body)["x_real_ip"]
+
+    def seen_by_nginx(self) -> str:
+        return json.loads(harness.access_log()[-1])["remote_addr"]
+
+    def test_backend_gets_the_address_nginx_saw(self):
+        self.assertEqual(self.forwarded_ip(), self.seen_by_nginx())
+
+    def test_client_sent_x_real_ip_is_overwritten(self):
+        forwarded = self.forwarded_ip({"X-Real-IP": "203.0.113.66"})
+
+        self.assertNotEqual(forwarded, "203.0.113.66")
+        self.assertEqual(forwarded, self.seen_by_nginx())
 
 
 if __name__ == "__main__":
