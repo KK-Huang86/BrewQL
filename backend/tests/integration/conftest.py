@@ -36,6 +36,15 @@ def audit_dsn() -> str:
 
 
 @pytest.fixture
+def owner_dsn() -> str:
+    """The database owner's DSN, for tests of what only the owner writes (import-real-cafes D3)."""
+    dsn = os.environ.get("TEST_OWNER_DATABASE_URL")
+    if not dsn:
+        pytest.skip("TEST_OWNER_DATABASE_URL not set")
+    return dsn
+
+
+@pytest.fixture
 def knowledge_dsn() -> str:
     """genbi_knowledge_writer's DSN (rag-knowledge-base D5); db/test-db.sh prints it next to the others."""
     dsn = os.environ.get("TEST_KNOWLEDGE_DATABASE_URL")

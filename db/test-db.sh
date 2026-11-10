@@ -12,6 +12,7 @@ INIT_DIR="$(cd "$(dirname "$0")" && pwd)/init"
 URL="postgresql://genbi_reader:ci-reader-password@127.0.0.1:${PORT}/genbi"
 AUDIT_URL="postgresql://genbi_audit_writer:ci-audit-password@127.0.0.1:${PORT}/genbi"
 KNOWLEDGE_URL="postgresql://genbi_knowledge_writer:ci-knowledge-password@127.0.0.1:${PORT}/genbi"
+OWNER_URL="postgresql://genbi_owner:ci-owner-password@127.0.0.1:${PORT}/genbi"
 
 case "${1:-}" in
   up)
@@ -29,6 +30,7 @@ case "${1:-}" in
         echo "export TEST_DATABASE_URL=${URL}"
         echo "export TEST_AUDIT_DATABASE_URL=${AUDIT_URL}"
         echo "export TEST_KNOWLEDGE_DATABASE_URL=${KNOWLEDGE_URL}"
+        echo "export TEST_OWNER_DATABASE_URL=${OWNER_URL}"
         exit 0
       fi
       sleep 1
