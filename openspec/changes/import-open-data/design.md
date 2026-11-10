@@ -33,6 +33,7 @@ universities (code, name, ownership, level, city, district)          -- PRIMARY 
 
 ### D6. 讓模型會用
 - 知識文件：兩張表的 schema；名詞「每萬人咖啡店數」＝店家數 ÷ 人口 × 10,000；範例一題（新北市每萬人咖啡店數；rag-knowledge-base 限定範例 10 到 15 題，現有 14 題，行政區排行的寫法放在名詞定義）。`STATIC_KNOWLEDGE` 同步。
+- 知識文件寫「以 district 串接」：台北市與新北市沒有同名行政區。第一版寫「以 city + district 串接」時，rag 把城市也當分組條件，q08、q19 退步（見 RESULTS.md）。
 - SQL 白名單加入兩張表。
 - golden set 新增 3 題跨來源題目（含 1 題 hard），以 demo 資料計算標準答案；static 與 rag 各跑 2 次，記入 `RESULTS.md`。
 
