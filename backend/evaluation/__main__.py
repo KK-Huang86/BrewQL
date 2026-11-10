@@ -3,6 +3,7 @@
     uv --directory backend run python -m evaluation --dry-run       # reference SQL only, no model calls
     uv --directory backend run python -m evaluation --only q01,q12  # a subset
     uv --directory backend run python -m evaluation                 # the full, paid run
+    uv --directory backend run python -m evaluation --mode rag      # rag prompt (run the knowledge import first)
 
 Needs the same settings as the API (AWS credentials, BEDROCK_*, DATABASE_URL as genbi_reader).
 """
@@ -13,7 +14,9 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.knowledge import KNOWLEDGE_DIR, KnowledgeError, load_knowledge
 from evaluation.golden import GoldenSetError, load_golden_set
+from evaluation.leaks import ExampleLeak, check_leaks
 from evaluation.metrics import QuestionOutcome, summarize
 from evaluation.preflight import UnsafeDatabaseUrl, check_database_url
 from evaluation.report import RunInfo, write_reports
@@ -29,6 +32,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true", help="only check that reference SQL runs; no model calls")
     parser.add_argument("--only", type=_ids, help="comma-separated question ids, e.g. q01,q12")
     parser.add_argument("--golden", type=Path, default=DEFAULT_GOLDEN, help="golden set YAML file")
+    parser.add_argument("--mode", choices=["static", "rag"], help="prompt mode; defaults to PROMPT_MODE")
     return parser.parse_args(argv)
 
 
@@ -43,12 +47,21 @@ async def main(argv: list[str]) -> int:
 
     args = parse_args(argv)
     try:
-        questions = select(load_golden_set(args.golden), args.only)
+        golden = load_golden_set(args.golden)
+        questions = select(golden, args.only)
     except (GoldenSetError, ValueError) as e:
         print(f"golden set error: {e}", file=sys.stderr)
         return 2
+    try:
+        # Before any paid call: an example that repeats a test question would inflate rag accuracy.
+        check_leaks(golden, load_knowledge(KNOWLEDGE_DIR))
+    except (KnowledgeError, ExampleLeak) as e:
+        print(f"knowledge error: {e}", file=sys.stderr)
+        return 2
 
     settings = Settings()
+    if args.mode:
+        settings = settings.model_copy(update={"prompt_mode": args.mode})
     try:
         check_database_url(settings.database_url, db_port=settings.db_port)
     except UnsafeDatabaseUrl as e:
@@ -75,12 +88,15 @@ async def main(argv: list[str]) -> int:
                 deps.executor,
                 input_guard=deps.input_guard,
                 max_retries=settings.max_sql_retries,
+                retriever=deps.retriever,
             )
 
         started_at = datetime.now(UTC)
         outcomes = await run_eval(questions, ask=ask_one, reference_db=deps.executor, on_progress=_print_progress)
     finally:
         await deps.executor.close()
+        if deps.retriever is not None:
+            await deps.retriever.close()
 
     summary = summarize(outcomes)
     guardrail = f"{settings.bedrock_guardrail_id}:{settings.bedrock_guardrail_version}" if deps.input_guard else None
@@ -90,9 +106,13 @@ async def main(argv: list[str]) -> int:
         guardrail=guardrail,
         max_sql_retries=settings.max_sql_retries,
         golden_file=str(args.golden),
+        prompt_mode=settings.prompt_mode,
     )
     json_path, md_path = write_reports(REPORTS_DIR, info, summary, outcomes)
-    print(f"accuracy {summary.correct}/{summary.total}, p95 {summary.p95_ms} ms, cost ${summary.total_cost_usd}")
+    print(
+        f"mode {settings.prompt_mode}: accuracy {summary.correct}/{summary.total}, "
+        f"p95 {summary.p95_ms} ms, cost ${summary.total_cost_usd}"
+    )
     print(f"reports: {md_path} {json_path}")
     return 0
 

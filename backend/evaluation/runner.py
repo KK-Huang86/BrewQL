@@ -97,6 +97,7 @@ async def _run_one(question: GoldenQuestion, ask: AskFn, reference_db: Reference
         attempts=result.attempts,
         usage=result.usage,
         cost_usd=cost_usd(result.usage),
+        sources=tuple(s.id for s in result.sources),
     )
 
 
