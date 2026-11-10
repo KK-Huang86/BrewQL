@@ -95,7 +95,7 @@ curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
 
 ## 監控
 
-backend 輸出 JSON log 與 Prometheus 指標（`/metrics` 只在 compose 網路內，nginx 對外回 404），由 Grafana Alloy 連同 nginx access log、主機與容器資源推送到 Grafana Cloud。Dashboard 與告警規則以程式碼存在 `observability/`，設定步驟見 [observability/README.md](observability/README.md)。
+backend 輸出 JSON log 與 Prometheus 指標（`/metrics` 只在 compose 網路內，nginx 對外回 404），由 Grafana Alloy 連同 nginx access log、主機與容器資源推送到 Grafana Cloud。Dashboard 與告警規則以程式碼存在 `observability/`，設定步驟與每個面板的意涵見 [observability/README.md](observability/README.md#dashboard-導覽)。
 
 ![提問數、成功率、耗時、成本與結果分布](docs/images/grafana-overview.png)
 
