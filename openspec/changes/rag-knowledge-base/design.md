@@ -26,7 +26,7 @@ embedding 呼叫最慢，只做一次；三個 pgvector 查詢以 `asyncio.gathe
 匯入用專用角色，只能寫知識庫資料表；API 的唯讀角色可讀知識庫（檢索用），但知識庫不在 SQL 白名單，模型產生的 SQL 無法查詢它。
 
 ### D6. 模式開關而非直接替換
-保留 static 模式，才能在同一套測試集上比較，也能在 RAG 出問題時快速退回。
+保留 static 模式，才能在同一套測試集上比較，也能在 RAG 出問題時快速退回。compose 讓 `knowledge-import` 在 backend 之前執行（重建資料庫後不會以空知識庫服務 rag），因此 `PROMPT_MODE=static` 時匯入直接略過，Titan 故障不會擋住退回。
 
 ### D7. 相似度用 cosine distance，先不建向量索引
 文件數量只有數十份，全表掃描即可；之後量大再加 HNSW 索引。
@@ -35,7 +35,7 @@ embedding 呼叫最慢，只做一次；三個 pgvector 查詢以 `asyncio.gathe
 `SCHEMA_CONTEXT` 拆成兩段：固定的回覆規則（回覆類型、拒答與反問條件）與知識（資料表說明、名詞定義）。`static` 模式＝規則＋完整知識，內容與現在相同，評估基準不變；`rag` 模式＝規則＋白名單資料表名稱＋檢索到的知識。拒答與反問的規則不能被檢索漏掉。
 
 ### D9. Embedding 計入成本、故障不退回 static
-Titan V2 依輸入 token 計費，單價放 `pricing.py`；用量併入該題的 usage，稽核與指標自動帶到。檢索失敗時退回 static 會讓評估與正式行為不一致、也藏住故障，所以直接當成相依服務故障（新故障種類），由既有 5xx 與告警處理。
+Titan V2 依輸入 token 計費，單價放 `pricing.py`；用量併入該題的 usage，稽核與指標自動帶到。檢索失敗時退回 static 會讓評估與正式行為不一致、也藏住故障，所以直接當成相依服務故障（新故障種類），由既有 5xx 與告警處理。故障時與其他 outage 一樣只記錄種類與耗時：embedding 已計費但檢索失敗的那次不計入成本（每題約 $0.0000003，遠小於模型費用），不為此改變 outage 的記錄方式。
 
 ### D10. 預設 static，評估後才切換
 本 change 先加上 `rag` 模式但預設不變；4.2 的評估顯示 `rag` 正確率不低於 `static` 後，以獨立 commit 改預設並附數據。
