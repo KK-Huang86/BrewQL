@@ -1,11 +1,15 @@
 ## ADDED Requirements
 
 ### Requirement: 真實店家資料集模式
-系統 SHALL 支援 `DATASET=real` 模式，從 repo 外的本機匯出檔匯入真實店家的公開欄位、google 與 cafenomad 來源的屬性投票、以及比對得到店家的 Cafe Nomad 資料。欄位 SHALL 以白名單挑選。匯入 MUST NOT 包含任何會員或行為資料及其彙總（會員、搜尋、瀏覽、收藏、使用者投票、`favorite_count`、`view_count`）；行為資料 SHALL 以模擬方式依真實店家產生。預設模式 MUST 為 `demo`，兩種模式 SHALL 使用各自的資料庫 volume。
+系統 SHALL 支援 `DATASET=real` 模式，從 repo 外的本機匯出檔匯入真實店家的公開欄位、google 與 cafenomad 來源的屬性投票、以及比對得到店家的 Cafe Nomad 資料。欄位 SHALL 以白名單挑選。匯入 MUST NOT 包含任何會員或行為資料及其彙總（會員、搜尋、瀏覽、收藏、使用者投票、`favorite_count`、`view_count`）；行為資料 SHALL 以模擬方式依真實店家產生。只有城市為台北市或新北市的店家 SHALL 被匯入（位置可由經緯度補上）；其他縣市與位置未知的店家，連同它們的投票，MUST NOT 被匯入。預設模式 MUST 為 `demo`，兩種模式 SHALL 使用各自的資料庫 volume。
 
 #### Scenario: 匯入真實店家
 - **WHEN** 以 `DATASET=real` 與匯出檔目錄啟動空的 real 資料庫
 - **THEN** `cafes` 為真實店家，屬性投票沒有 `user` 來源，會員與行為資料全部是模擬產生
+
+#### Scenario: 外縣市店家
+- **WHEN** 匯出檔中有台中市的店家與它的投票
+- **THEN** 該店家與投票都不匯入，匯入報告列出排除家數
 
 #### Scenario: 未指定模式
 - **WHEN** 未設定 `DATASET`
