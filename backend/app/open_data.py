@@ -77,3 +77,56 @@ def university_rows(rows: Iterable[Row]) -> list[UniversityRow]:
         for row in rows
     ]
     return sorted((r for r in out if r.city in AREA), key=lambda r: r.code)
+
+
+@dataclass(frozen=True)
+class YoubikeRow:
+    station_no: str
+    name: str
+    city: str
+    district: str
+    docks: int
+    lat: Decimal
+    lng: Decimal
+    as_of: date  # the download day: the feeds are live and carry no version
+
+
+# 臺大公館校區 is a campus, not a district; the campus lies in 大安區 (import-transit-open-data D2).
+_YOUBIKE_AREAS = {"臺大公館校區": "大安區"}
+_YOUBIKE_PREFIX = "YouBike2.0_"
+_COORD = Decimal("0.000001")
+
+
+def _coord(value: float | str) -> Decimal:
+    # str() first: Taipei sends floats, and Decimal(float) would keep binary noise.
+    return Decimal(str(value)).quantize(_COORD)
+
+
+def youbike_rows(
+    taipei: Iterable[dict], new_taipei: Iterable[dict], districts: set[tuple[str, str]], as_of: date
+) -> list[YoubikeRow]:
+    """Stations in service, without live bike counts. districts are the (city, district) pairs of
+    district_population: a station anywhere else stops the trim instead of joining nothing."""
+    feeds = [("台北市", row, row["Quantity"], row["latitude"], row["longitude"]) for row in taipei] + [
+        (demo_spelling(row["scity"]), row, row["tot_quantity"], row["lat"], row["lng"]) for row in new_taipei
+    ]
+    out: dict[str, YoubikeRow] = {}
+    for city, row, docks, lat, lng in feeds:
+        if city not in AREA or row["act"] != "1":
+            continue
+        district = _YOUBIKE_AREAS.get(row["sarea"], row["sarea"])
+        if (city, district) not in districts:
+            raise ValueError(f"YouBike station {row['sno']} in an unknown district: {city}{district}")
+        if row["sno"] in out:
+            raise ValueError(f"duplicate YouBike station number: {row['sno']}")
+        out[row["sno"]] = YoubikeRow(
+            row["sno"],
+            row["sna"].removeprefix(_YOUBIKE_PREFIX),
+            city,
+            district,
+            int(docks),
+            _coord(lat),
+            _coord(lng),
+            as_of,
+        )
+    return sorted(out.values(), key=lambda r: r.station_no)
