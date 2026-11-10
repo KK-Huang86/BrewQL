@@ -1,19 +1,42 @@
 ## 1. 前置確認
 
-- [ ] 1.1 確認 Find Coffee 店家資料來源與授權（Google Places／Cafe Nomad）；驗證：記錄可保存與不可散布的欄位
+- [x] 1.1 記錄資料來源授權（Google Places 條款、Cafe Nomad 查無正式條款）與匯入、不匯入的欄位；驗證：design D4、D11 與 README 草稿一致
+  - 結果：欄位白名單記於 D4，授權記於 D11。Google Maps Platform 條款只允許長期保存 `place_id`，其他 Places 內容（店名、地址、評分、評論數）不得散布，因此只放在本機 real volume，公開部署用 demo；這些資料本來就存在 Find Coffee 的資料庫，本 change 不新增對 Google 的呼叫。Cafe Nomad 只找到開發者文件與第三方 App 的來源標示，查無正式資料授權條款，只在本機使用並於 README 標示來源。README 段落在 4.2 依 D4、D11 撰寫
 
-## 2. 匯入
+## 2. 清理與比對（純函式）
 
-- [ ] 2.1 測試 + 實作：地址解析 `city`、`district`；驗證：測試由紅轉綠
-- [ ] 2.2 測試 + 實作：匯入腳本只取公開欄位、重複執行結果相同；驗證：測試由紅轉綠
-- [ ] 2.3 `.gitignore` 忽略匯入檔；驗證：`git status` 看不到匯入檔
+- [x] 2.1 測試 + 實作：地址解析城市與行政區（臺→台、無法解析回傳 None）；驗證：測試由紅轉綠
+  - 結果：`app/real_cafes.py` 的 `parse_address`，城市清單涵蓋全台 22 縣市，行政區必須緊接城市、1～4 字加區／鄉／鎮／市，路名（例如中山北路）不會被當成行政區。11 個測試紅轉綠（紅燈原因為模組不存在），地址皆為虛構。對真實匯出檔只算統計：812 家中 768 家解析成功（台北市 418、新北市 258、台中市 58、桃園市 26、其他 8 縣市各 1），51 個行政區名稱全部是真實行政區；44 家留給 2.2 以經緯度補
+- [x] 2.2 測試 + 實作：無法解析時以 1 公里內最近的已解析店家補上；驗證：測試由紅轉綠
+  - 結果：`locate` 回傳每家店的位置與報告（解析、補上、未知家數），距離用 haversine。只有地址解析成功的店家能當參考點，補上的位置不再傳給別家，避免一路跨過行政區界。3 個測試紅轉綠（紅燈原因為 `Place`、`locate` 不存在）。真實匯出檔：解析 768、補上 42、未知 2。準確度估計：對已解析的店家做留一驗證，1 公里內最近店家的行政區相同 694/727（95%），補上的 42 家約有 2 家可能落在相鄰行政區
+- [x] 2.3 測試 + 實作：店家欄位白名單、NULL 字串轉換、投票排除 user 來源；驗證：測試由紅轉綠，輸出不含 `user_id`、`favorite_count`
+  - 結果：`clean_cafe` 回傳 `CafeRow`（白名單欄位，新出現的匯出欄位自動忽略），`clean_votes` 回傳保留的投票與排除筆數；`NULL` 字串轉 None，寵物欄位 yes/no 轉布林、未知保持 None，其他值報錯。3 個測試紅轉綠（紅燈原因為 `CafeRow` 等不存在），驗證輸出沒有 `user_id`、`favorite_count`、`view_count`、評論與摘要。真實匯出檔：812 家全部清理成功；投票保留 766（google 650、cafenomad 116）、排除 user 136，保留的投票全部對得到店家
+- [x] 2.4 測試 + 實作：Cafe Nomad 以 50 公尺＋店名比對，一家店只對一筆，評分 0 轉 NULL；驗證：測試由紅轉綠
+  - 結果：`match_nomad` 回傳比對到的資料與報告（對不到、重複的筆數）。店名正規化：全形轉半形、去括號內分店名、小寫、去掉通用字（咖啡、咖啡館、coffee、cafe 等）後只留文字與數字；剩下的較短名稱須至少 2 個中文字或 3 個英文字母，且被另一名稱包含。兩輪紅轉綠：第一輪基本比對（紅燈原因為 `match_nomad` 不存在）；真實資料只對到 135 家，診斷發現 50 公尺內有店但店名不合的 267 筆中，有同一家店因「咖啡／coffee」寫法不同而漏掉，第二輪去掉通用字（紅燈 3 個；舊測試的「好咖啡」去掉通用字後只剩一字，以獨立 `test:` commit 改名）。真實匯出檔：1,661 筆中對到 147 家（台北市 108／439 家），對不到 1,511、重複 3；名稱不完全相同的 49 對抽查 25 對皆為同一家店。50～150 公尺內同名的 9 筆未納入，維持 50 公尺
+- [x] 2.5 測試 + 實作：只保留台北市、新北市的店家，外縣市與位置未知的店家連同投票、Cafe Nomad 比對一起排除（D12）；驗證：測試由紅轉綠，real 資料庫只有這兩個城市
+  - 結果：4.1 實測時「台中市有幾家咖啡店？」被拒答（知識文件寫 city 只有台北市、新北市）。使用者確認 real 主要問台北、新北，改為只匯入這兩個城市；曾改寫知識文件讓模型直接查詢其他城市（台中、高雄都能回答），但會改到 demo 的 prompt、需要重跑付費評估，已還原。`prepare` 先對全部店家補位置（外縣市店家仍可當參考點），再只保留 `AREA`，投票與 Cafe Nomad 比對跟著排除，報告新增 `outside_area`。既有報告測試以獨立 `test:` commit 加上新欄位（需求變更），新測試紅轉綠。重建 real：`cafes=711 ... outside_area=101 votes=620 ... nomad_matched=147`，資料庫台北市 439、新北市 272
 
-## 3. 資料集模式
+## 3. 匯入與資料集模式
 
-- [ ] 3.1 compose 支援 `DATASET=demo|real`（各自的 volume，預設 demo）；驗證：兩種模式都能啟動
-- [ ] 3.2 以真實店家 id 重新產生模擬行為資料；驗證：行為資料表無真實使用者
-- [ ] 3.3 CI 與評估固定使用 demo；驗證：CI 設定中無 real 模式
+- [x] 3.1 schema：`pet_friendly`、`has_pet` 可為 NULL，`schema.yaml` 同步；驗證：demo 重建後評估參考 SQL 試跑（`--dry-run`）結果不變
+  - 結果：`01_schema.sql` 拿掉兩欄的 `NOT NULL`（保留預設 FALSE），`schema.yaml` 與 `STATIC_KNOWLEDGE` 補「NULL 表示未知」。整合測試以擁有者帳號在 rollback 的交易內寫入 NULL，紅燈原因為 not-null constraint；另一個測試確認 demo 店家沒有 NULL。測試資料庫與 CI 新增 `TEST_OWNER_DATABASE_URL`（3.2 匯入也要用）。重建測試資料庫後：全部 660 個測試通過，評估 `--dry-run` 22 題參考 SQL 全部 ok，`db/checks` 8 個檔案全部通過
+- [x] 3.2 測試 + 實作：匯入腳本在一個交易內寫入，demo 模式與已有資料時略過，失敗 rollback；驗證：整合測試由紅轉綠
+  - 結果：三個切片各自紅轉綠。`prepare` 把三份匯出串成一批並產生報告，投票對不到店家時報錯；`scripts/import_real_cafes.py`：demo 略過且不讀檔、已有店家略過、找不到唯一的匯出檔或內容無效 exit 2、寫入失敗 exit 1（6 個單元測試）；`app/real_cafes_store.py` 的 `PgRealCafeStore`：一個交易內 `LOCK TABLE cafes` 後確認仍為空，寫入店家、以 `place_id` 對應新 id 後寫入投票與 Cafe Nomad，連線在第一次使用時才建立（demo 不連線）。整合測試在臨時建立的空資料庫（套用 `01_schema.sql`）驗證 id 對應與中途失敗全部 rollback；mutation：拿掉交易與 lock 後 rollback 測試失敗
+- [x] 3.3 `backend/app/real_behavior.sql`：依真實店家產生模擬行為，計數等於明細；驗證：整合測試確認會員、搜尋、瀏覽、收藏皆為模擬且計數等於明細
+  - 結果：路徑由 `db/seed/` 改為 `backend/app/`（匯入容器的 image 只有 backend）；驗證由 `db/checks` 改為整合測試，因為 `db/checks` 檢查的是 demo 的資料故事（例如內湖區落差），real 本來就不成立。SQL 沿用 demo seed 的會員、搜尋（考試季）、瀏覽（依評分與評論數加權）、收藏轉換與回訪，固定 `setseed`；搜尋只落在有真實店家的行政區，比例依店家數；不產生 Cafe Nomad 與投票（用真實匯入的）。在匯入交易內執行，失敗一起 rollback。整合測試紅轉綠：2,000 會員、搜尋超過 4 萬、瀏覽超過 15 萬、搜尋行政區都有店家、計數等於明細、沒有在加入前的搜尋、沒有 user 來源投票。已加入會員數改用 `width_bucket`，測試由 14.6 秒降為 4.3 秒；mutation：拿掉計數更新後測試失敗
+- [x] 3.4 compose：`DATASET`、各自的 volume、`cafe-import` 服務（`REAL_DATA_DIR` 唯讀掛載）；`.gitignore` 加 `db/import/`；`.env.example` 同步；驗證：兩種模式都能啟動，`git status` 看不到匯入檔
+  - 結果：demo seed 移到 `db/init/demo/02_seed.sql`，由 `db/init/02_seed.sh` 在非 real 時執行（Postgres 只執行 init 目錄第一層的檔案）；CI 改跑該腳本。compose：db 帶 `DATASET`、volume 名稱 `genbi_pgdata_${DATASET:-demo}`、新增 `cafe-import`（擁有者連線只給這個容器），backend 等它成功才啟動；db 健康檢查改走 TCP，init 期間 Postgres 只聽 socket，避免匯入在 init 完成前連線。實測：測試資料庫 demo 200 家、671 個測試與 8 個 `db/checks` 通過；`DATASET=real` 匯入報告 `cafes=812 parsed=768 filled=42 unknown=2 votes=766 member_votes_dropped=136 nomad_matched=147 nomad_unmatched=1511 nomad_duplicates=3`，資料庫 demo 店家 0、會員 2,000、搜尋 50,000、瀏覽 202,105、收藏 17,075、user 投票 0、知識文件 32；再次啟動顯示 already has cafes；不帶 `DATASET` 啟動回到 demo（200 家，新 volume `genbi_pgdata_demo`）。`db/import/` 下的檔案 `git status` 看不到。舊 volume `genbi_pgdata` 不再使用
+- [x] 3.5 測試 + 實作：評估遇到非 demo 店家時在付費呼叫前報錯停止；驗證：測試由紅轉綠
+  - 結果：`evaluation/dataset.py` 的 `check_demo_dataset` 以 `genbi_reader` 計算 `place_id` 不是 `demo-` 開頭的店家，評估在建立連線後、`--dry-run` 與任何 Bedrock 呼叫之前檢查，非 demo 時 exit 2。2 個單元測試與 1 個整合測試（測試資料庫的 demo 通過）紅轉綠。實測：本機切到 real 執行 `--dry-run` 印出「812 cafes are not demo cafes」並停止；切回 demo 22 題參考 SQL 全部 ok
 
-## 4. 文件
+## 4. 驗證與文件
 
-- [ ] 4.1 README：兩種模式、資料來源與授權限制；驗證：照 README 切換成功
+- [x] 4.1 實際以 real 模式啟動並提問；驗證：匯入報告的筆數記入本檔，3 個問題的回答與 SQL 抽查合理
+  - 結果：匯入報告見 2.5。3 題皆 ok，且與直接查資料庫一致：「新北市各行政區各有幾家咖啡店？列出前五名」板橋區 62、新莊區 59、三重區 48、永和區 23、樹林區 22；「台北市哪個行政區的咖啡店平均評分最高？」北投區 4.65；「大安區有插座而且不限時的咖啡店有幾家？」51（依名詞定義 maybe 也算）。Bedrock 花費約 $0.02（含 2.5 之前的嘗試）
+- [x] 4.2 README：兩種模式、切換方式、資料來源與授權限制；驗證：照 README 從 demo 切到 real 再切回 demo 成功
+  - 結果：README「本機啟動」新增「資料集：demo 與 real」：切換指令、匯入與不匯入的欄位、Cafe Nomad 比對、Google 條款與 Cafe Nomad 授權限制、real 不作為評估依據；另註明舊 volume `genbi_pgdata` 可刪除。照 README 實測：demo 200 家 → real 711 家（已有店家，略過匯入）→ demo 200 家
+
+## 5. PR 前審查
+
+- [x] 5.1 依 code review（Standards、Spec）修正；驗證：全部測試通過、`openspec validate --strict`、`spectra drift` 為 0
+  - 結果：評估保護改為「有店家且全部是 demo」，空資料庫也停止（fake 改回傳兩個數字，需求變更以獨立 `test:` commit）；模擬瀏覽落在店家上架之後（紅燈：上架 3 天的店有 93,018 筆更早的瀏覽）；Cafe Nomad 對全部店家比對，對到外縣市的另計 `nomad_outside_area`（報告測試以獨立 `test:` commit 加欄位）；`02_seed.sh` 補上整合測試（demo 與 real 兩個驗證測試附 mutation 檢查，補足 compose commit 缺的測試），未知的 `DATASET` 讓初始化失敗；匯入失敗以 `log.exception` 記錄 traceback，連線逾時 10 秒；refactor：批次的店家位置型別不再可為 None、共用查詢常數、`prepare` 改名 `prepare_batch`、compose 的擁有者密碼加上必填檢查、評估保護沿用 `QueryExecutor`。spec 的地址需求與 D3、D5、D7、D9、D10、D12 文字同步實作。未採用：報告改成 dataclass、`dataset` 改成型別、`Place` 拆出座標型別（判斷為不值得增加的結構）；SQL 中 members CTE 重複兩次（CTE 只在單一語句內有效）。重建 real：`cafes=711 ... outside_area=101 votes=620 ... nomad_matched=147 nomad_unmatched=1511 nomad_outside_area=0 nomad_duplicates=3`，早於上架的瀏覽 0 筆

@@ -56,3 +56,6 @@ openspec/.vector-search.db*
 
 # Evaluation runs (notable ones are summarised in backend/evaluation/RESULTS.md)
 backend/evaluation/reports/
+
+# Real cafe exports (import-real-cafes D2): never in the repo
+db/import/

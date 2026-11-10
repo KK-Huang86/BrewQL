@@ -5,7 +5,9 @@ to run them; without it they are skipped so unit tests never need a database.
 """
 
 import os
+from pathlib import Path
 
+import asyncpg
 import pytest
 
 from app.db import PgExecutor
@@ -36,9 +38,37 @@ def audit_dsn() -> str:
 
 
 @pytest.fixture
+def owner_dsn() -> str:
+    """The database owner's DSN, for tests of what only the owner writes (import-real-cafes D3)."""
+    dsn = os.environ.get("TEST_OWNER_DATABASE_URL")
+    if not dsn:
+        pytest.skip("TEST_OWNER_DATABASE_URL not set")
+    return dsn
+
+
+@pytest.fixture
 def knowledge_dsn() -> str:
     """genbi_knowledge_writer's DSN (rag-knowledge-base D5); db/test-db.sh prints it next to the others."""
     dsn = os.environ.get("TEST_KNOWLEDGE_DATABASE_URL")
     if not dsn:
         pytest.skip("TEST_KNOWLEDGE_DATABASE_URL not set")
     return dsn
+
+
+SCHEMA = Path(__file__).resolve().parents[3] / "db" / "init" / "01_schema.sql"
+SCRATCH = "genbi_real_import_test"
+
+
+@pytest.fixture
+async def empty_db(owner_dsn):
+    """A scratch database with db/init/01_schema.sql only: no seed, no roles (import-real-cafes)."""
+    admin = await asyncpg.connect(owner_dsn)
+    await admin.execute(f"DROP DATABASE IF EXISTS {SCRATCH} WITH (FORCE)")
+    await admin.execute(f"CREATE DATABASE {SCRATCH}")
+    dsn = owner_dsn.rsplit("/", 1)[0] + f"/{SCRATCH}"
+    conn = await asyncpg.connect(dsn)
+    await conn.execute(SCHEMA.read_text(encoding="utf-8"))
+    await conn.close()
+    yield dsn
+    await admin.execute(f"DROP DATABASE IF EXISTS {SCRATCH} WITH (FORCE)")
+    await admin.close()

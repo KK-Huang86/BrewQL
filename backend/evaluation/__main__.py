@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from app.knowledge import KNOWLEDGE_DIR, KnowledgeError, load_knowledge
+from evaluation.dataset import NotDemoDataset, check_demo_dataset
 from evaluation.golden import GoldenSetError, load_golden_set
 from evaluation.leaks import ExampleLeak, check_leaks
 from evaluation.metrics import QuestionOutcome, summarize
@@ -69,6 +70,11 @@ async def main(argv: list[str]) -> int:
         return 2
     deps = build_dependencies(settings)
     try:
+        try:
+            await check_demo_dataset(deps.executor)
+        except NotDemoDataset as e:
+            print(f"database error: {e}", file=sys.stderr)
+            return 2
         if args.dry_run:
             checks = await dry_run(questions, reference_db=deps.executor)
             for c in checks:

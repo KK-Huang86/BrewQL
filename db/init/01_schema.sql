@@ -10,8 +10,8 @@ CREATE TABLE cafes (
     user_ratings_total INTEGER NOT NULL DEFAULT 0,
     limited_time       TEXT CHECK (limited_time IN ('yes', 'maybe', 'no')),
     has_socket         TEXT CHECK (has_socket IN ('yes', 'maybe', 'no')),
-    pet_friendly       BOOLEAN NOT NULL DEFAULT FALSE,
-    has_pet            BOOLEAN NOT NULL DEFAULT FALSE,
+    pet_friendly       BOOLEAN DEFAULT FALSE,   -- NULL: unknown (real cafes, import-real-cafes D8)
+    has_pet            BOOLEAN DEFAULT FALSE,
     favorite_count     INTEGER NOT NULL DEFAULT 0,   -- kept equal to rows in favorites
     view_count         INTEGER NOT NULL DEFAULT 0,   -- kept equal to rows in cafe_views
     created_at         TIMESTAMPTZ NOT NULL DEFAULT now()

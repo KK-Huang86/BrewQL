@@ -37,6 +37,7 @@ jobs:
       TEST_DATABASE_URL: postgresql://genbi_reader:ci-reader-password@localhost:5432/genbi
       TEST_AUDIT_DATABASE_URL: postgresql://genbi_audit_writer:ci-audit-password@localhost:5432/genbi
       TEST_KNOWLEDGE_DATABASE_URL: postgresql://genbi_knowledge_writer:ci-knowledge-password@localhost:5432/genbi
+      TEST_OWNER_DATABASE_URL: postgresql://genbi_owner:ci-owner-password@localhost:5432/genbi
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
@@ -45,7 +46,7 @@ jobs:
       - name: Seed demo database
         run: |
           psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f db/init/01_schema.sql
-          psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f db/init/02_seed.sql
+          bash db/init/02_seed.sh
           bash db/init/03_readonly_role.sh
           bash db/init/04_audit.sh
           bash db/init/05_knowledge.sh
