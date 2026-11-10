@@ -1,6 +1,5 @@
 """HTTP API: health check and question endpoint."""
 
-import asyncio
 import logging
 import time
 import uuid
@@ -20,9 +19,9 @@ from app.audit import (
     AuditRecord,
     AuditWriter,
     PgAuditWriter,
-    log_record,
     record_from_outage,
     record_from_result,
+    store,
     visitor_id,
 )
 from app.charts import Chart, choose_chart
@@ -34,7 +33,6 @@ from app.metrics import AskMetrics, Unavailable
 from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
-audit_log = logging.getLogger("app.audit")
 # HMAC-SHA256 key for visitor IDs; shorter keys make the IPv4 space cheap to brute-force (D5).
 MIN_VISITOR_KEY_LENGTH = 32
 
@@ -128,23 +126,10 @@ def create_app(
         # Internal only: nginx never forwards it; Alloy scrapes it on the compose network (D9).
         return Response(metrics.render(), media_type=CONTENT_TYPE_LATEST)
 
-    async def audit(record: AuditRecord) -> None:
-        # Log first: if the write fails, the second copy already exists (record-audit-log D3).
-        log_record(record)
-        if audit_writer is None:
-            return
-        # One try, bounded: the answer must not wait on, or fail with, the audit database (D4).
-        try:
-            await asyncio.wait_for(audit_writer.write(record), timeout=audit_timeout_seconds)
-        except Exception as exc:
-            metrics.audit_write_failures.inc()
-            audit_log.error(
-                "audit write failed",
-                # Type only: a database error's text can quote the row, and the row holds the question.
-                extra={"request_id": str(record.request_id), "error": type(exc).__name__},
-            )
+    async def record_audit(record: AuditRecord) -> None:
+        await store(record, audit_writer, timeout_seconds=audit_timeout_seconds, failures=metrics.audit_write_failures)
 
-    def visitor(request: Request) -> str | None:
+    def visitor_of(request: Request) -> str | None:
         # nginx overwrites X-Real-IP with the connecting address; direct calls (SSH tunnel) have none.
         ip = request.headers.get("x-real-ip") or (request.client.host if request.client else None)
         return visitor_id(ip, visitor_key) if visitor_key else None
@@ -166,14 +151,14 @@ def create_app(
             log.exception(outage.log_message)
             seconds = time.perf_counter() - started
             metrics.record_unavailable(outage.kind, seconds)
-            await audit(
+            await record_audit(
                 record_from_outage(
-                    request_id, body.question, outage.kind, visitor=visitor(request), elapsed_ms=int(seconds * 1000)
+                    request_id, body.question, outage.kind, visitor=visitor_of(request), elapsed_ms=int(seconds * 1000)
                 )
             )
             return _error(outage.status_code, outage.message)
         metrics.record(result, time.perf_counter() - started)
-        await audit(record_from_result(request_id, body.question, result, visitor=visitor(request)))
+        await record_audit(record_from_result(request_id, body.question, result, visitor=visitor_of(request)))
         chart = choose_chart(result.columns, result.rows) if result.status == "ok" else None
         return AskResponse(**asdict(result), chart=chart)
 

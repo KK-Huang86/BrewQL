@@ -75,9 +75,12 @@ class AskUsage:
         self.output_tokens += call.output_tokens
 
 
+AskStatus = Literal["ok", "error", "refused", "clarify"]
+
+
 @dataclass
 class AskResult:
-    status: Literal["ok", "error", "refused", "clarify"]
+    status: AskStatus
     sql: str | None = None
     columns: list[str] = field(default_factory=list)
     rows: list[list[Any]] = field(default_factory=list)

@@ -1,6 +1,6 @@
 """Audit trail for /api/ask (record-audit-log): one record per question, written by the handler.
 
-Builds the record only; where it goes (the ask_audit log line and table) is the handler's job.
+Builds the record and stores both copies: the ask_audit log line and the ask_audit table.
 """
 
 import asyncio
@@ -9,13 +9,15 @@ import hmac
 import json
 import logging
 import uuid
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from typing import Any, Protocol
 
 import asyncpg
+from prometheus_client import Counter
 
+from app.llm import ErrorKind
 from app.metrics import Unavailable
-from app.pipeline import AskResult
+from app.pipeline import AskResult, AskStatus
 from app.pricing import cost_usd
 
 log = logging.getLogger(__name__)
@@ -26,12 +28,12 @@ class AuditRecord:
     request_id: uuid.UUID
     visitor: str | None
     question: str
-    status: str
+    status: AskStatus
     sql: str | None = None
     # Earlier tries as plain dicts: {error_kind, reason, sql}, ready for JSON and JSONB.
     failed_attempts: list[dict[str, Any]] = field(default_factory=list)
     refusal_source: str | None = None
-    error_kind: str | None = None
+    error_kind: ErrorKind | Unavailable | None = None
     guardrail_reasons: tuple[str, ...] = ()
     model_id: str | None = None
     input_tokens: int = 0
@@ -95,23 +97,50 @@ class AuditWriter(Protocol):
 
 def log_record(record: AuditRecord) -> None:
     """The second copy (D6): one ask_audit line, the only log allowed to carry the question text."""
-    fields = asdict(record)
-    fields["request_id"] = str(record.request_id)
-    log.info("ask_audit", extra={"event": "ask_audit", **fields})
+    line = asdict(record)
+    line["request_id"] = str(record.request_id)
+    log.info("ask_audit", extra={"event": "ask_audit", **line})
 
 
-_INSERT = """
-INSERT INTO ask_audit (
-    request_id, visitor, question, sql, failed_attempts, status, refusal_source, error_kind,
-    guardrail_reasons, model_id, input_tokens, output_tokens, guardrail_units, estimated_cost_usd,
-    elapsed_ms, row_count
-) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-ON CONFLICT (request_id) DO NOTHING
-"""
+async def store(record: AuditRecord, writer: AuditWriter | None, *, timeout_seconds: float, failures: Counter) -> None:
+    """Both copies of one record: the log line first (D3), then one bounded write that never raises (D4)."""
+    log_record(record)
+    if writer is None:
+        return
+    try:
+        await asyncio.wait_for(writer.write(record), timeout=timeout_seconds)
+    except Exception as exc:
+        failures.inc()
+        log.error(
+            "audit write failed",
+            # Type only: a database error's text can quote the row, and the row holds the question.
+            extra={"request_id": str(record.request_id), "error": type(exc).__name__},
+        )
+
+
+# Every record field is a column, in the same order; created_at is filled by the database.
+_COLUMNS = tuple(f.name for f in fields(AuditRecord))
+_INSERT = (
+    f"INSERT INTO ask_audit ({', '.join(_COLUMNS)}) "
+    f"VALUES ({', '.join(f'${i}' for i in range(1, len(_COLUMNS) + 1))}) "
+    "ON CONFLICT (request_id) DO NOTHING"
+)
+
+
+def _column_values(record: AuditRecord) -> list[Any]:
+    values = []
+    for name in _COLUMNS:
+        value = getattr(record, name)
+        if name == "failed_attempts":
+            value = json.dumps(value, ensure_ascii=False)  # jsonb takes text
+        elif name == "guardrail_reasons":
+            value = list(value)  # text[] takes a list
+        values.append(value)
+    return values
 
 
 class PgAuditWriter:
-    """Appends to ask_audit as genbi_audit_writer (D2); errors propagate for the handler to report (D4)."""
+    """Appends to ask_audit as genbi_audit_writer (D2); errors propagate for store() to report (D4)."""
 
     def __init__(self, dsn: str) -> None:
         self._dsn = dsn
@@ -128,25 +157,7 @@ class PgAuditWriter:
     async def write(self, record: AuditRecord) -> None:
         pool = await self._get_pool()
         # One autocommitted INSERT: it lands whole or not at all, and a re-send is a no-op (request_id).
-        await pool.execute(
-            _INSERT,
-            record.request_id,
-            record.visitor,
-            record.question,
-            record.sql,
-            json.dumps(record.failed_attempts, ensure_ascii=False),
-            record.status,
-            record.refusal_source,
-            record.error_kind,
-            list(record.guardrail_reasons),
-            record.model_id,
-            record.input_tokens,
-            record.output_tokens,
-            record.guardrail_units,
-            record.estimated_cost_usd,
-            record.elapsed_ms,
-            record.row_count,
-        )
+        await pool.execute(_INSERT, *_column_values(record))
 
     async def close(self) -> None:
         if self._pool is not None:
