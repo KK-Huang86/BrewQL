@@ -452,7 +452,7 @@
         "overrides": []
       },
       "options": {},
-      "description": "unavailable_* 是 5xx（Guardrail、Bedrock、資料庫無法使用）；generation、guardrail、query 是答題過程的失敗"
+      "description": "unavailable_* 是 5xx（Guardrail、知識檢索、Bedrock、資料庫無法使用）；generation、guardrail、query 是答題過程的失敗"
     },
     {
       "type": "row",

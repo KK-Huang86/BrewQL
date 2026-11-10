@@ -6,6 +6,9 @@ Prices are USD, on-demand, us-east-1, checked 2026-11-08:
 - Claude Haiku 4.5: the AWS page shows no per-token figures, so the rates come from public price
   trackers (e.g. futureagi.com, verified 2026-10-22). Geo profiles such as us.* cost 10% more than
   global. Reconcile against Cost Explorer (observe-with-grafana) before trusting them for budgets.
+- Titan Text Embeddings V2: $0.02 per million input tokens, from AWS's launch post
+  (https://aws.amazon.com/blogs/machine-learning/get-started-with-amazon-titan-text-embeddings-v2-a-new-state-of-the-art-embeddings-model-on-amazon-bedrock/),
+  checked 2026-11-10; some trackers list $0.20, ten times the AWS figure, and are not used.
 Change prices here only.
 """
 
@@ -24,6 +27,11 @@ MODEL_PRICES: dict[str, ModelPrice] = {
     "us.anthropic.claude-haiku-4-5-20251001-v1:0": ModelPrice(input_per_mtok=1.10, output_per_mtok=5.50),
     "global.anthropic.claude-haiku-4-5-20251001-v1:0": ModelPrice(input_per_mtok=1.00, output_per_mtok=5.00),
     "anthropic.claude-haiku-4-5-20251001-v1:0": ModelPrice(input_per_mtok=1.00, output_per_mtok=5.00),
+}
+
+# Embedding models: USD per million input tokens (rag-knowledge-base D9).
+EMBEDDING_PRICES_PER_MTOK: dict[str, float] = {
+    "amazon.titan-embed-text-v2:0": 0.02,
 }
 
 # Per 1,000 text units (1 unit = up to 1,000 characters); each policy is billed separately.
@@ -51,9 +59,19 @@ def model_cost_usd(usage: AskUsage) -> float | None:
     return (usage.input_tokens * price.input_per_mtok + usage.output_tokens * price.output_per_mtok) / 1_000_000
 
 
+def embedding_cost_usd(usage: AskUsage) -> float | None:
+    """Embedding dollars (rag mode), 0 without one, or None when the embedding model is not in the table."""
+    if usage.embedding_tokens == 0:
+        return 0.0
+    price = EMBEDDING_PRICES_PER_MTOK.get(usage.embedding_model_id or "")
+    if price is None:
+        return None
+    return usage.embedding_tokens * price / 1_000_000
+
+
 def cost_usd(usage: AskUsage) -> float | None:
     """Dollars for one question, or None when a model is missing from the table or guardrail units are unknown."""
-    guardrail, model = guardrail_cost_usd(usage), model_cost_usd(usage)
-    if guardrail is None or model is None:
+    parts = (guardrail_cost_usd(usage), model_cost_usd(usage), embedding_cost_usd(usage))
+    if any(part is None for part in parts):
         return None
-    return model + guardrail
+    return sum(parts)

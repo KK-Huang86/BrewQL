@@ -54,7 +54,7 @@ class QueryExecutor(Protocol):
     async def close(self) -> None: ...
 
 
-Stage = Literal["input_guard", "model", "db"]
+Stage = Literal["input_guard", "retrieval", "model", "db"]
 
 
 @dataclass(frozen=True)
@@ -73,6 +73,9 @@ class AskUsage:
     guardrail: GuardrailUsage = field(default_factory=GuardrailUsage)
     # Why the input guardrail blocked the question (fixed reason codes); empty when it passed.
     guardrail_reasons: tuple[str, ...] = ()
+    # rag mode only: the question's embedding (rag-knowledge-base D9).
+    embedding_model_id: str | None = None
+    embedding_tokens: int = 0
     elapsed_ms: int = 0
     # One entry per call, in order; retries add their own model and db entries. Left out of
     # equality: timings differ on every run, while usage compares by what was billed.
@@ -161,7 +164,10 @@ async def _answer(
     context: str | None = None
     sources: list[Source] = []
     if retriever is not None:
-        found = await retriever.retrieve(question)
+        # A failure propagates as an outage (D9): no silent fallback to the static prompt.
+        with usage.timed("retrieval"):
+            found = await retriever.retrieve(question)
+        usage.embedding_model_id, usage.embedding_tokens = found.embedding_model_id, found.embedding_tokens
         context = rag_context(found)
         sources = [Source(id=d.id, kind=d.kind, title=d.title) for d in found.all()]
     feedback: list[FailedAttempt] = []

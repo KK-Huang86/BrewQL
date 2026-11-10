@@ -32,6 +32,7 @@ from app.knowledge import KnowledgeKind
 from app.llm import ErrorKind
 from app.metrics import AskMetrics, Unavailable
 from app.pipeline import MAX_QUESTION_CHARS, InputGuard, KnowledgeRetriever, QueryExecutor, SqlGenerator, ask
+from app.retrieval import RetrievalUnavailable
 
 log = logging.getLogger(__name__)
 # HMAC-SHA256 key for visitor IDs; shorter keys make the IPv4 space cheap to brute-force (D5).
@@ -89,6 +90,11 @@ def _outage(exc: Exception) -> _Outage:
     """A dependency the pipeline could not reach: how it is counted, answered and logged."""
     if isinstance(exc, InputGuardUnavailable):
         return _Outage("unavailable_guardrail", 502, "輸入檢查暫時無法使用，請稍後再試", "input guardrail unavailable")
+    if isinstance(exc, RetrievalUnavailable):
+        # Titan or the knowledge search failed in rag mode; the SQL model was never called (D9).
+        return _Outage(
+            "unavailable_retrieval", 502, "知識檢索暫時無法使用，請稍後再試", "knowledge retrieval unavailable"
+        )
     if isinstance(exc, DatabaseUnavailable):
         return _Outage("unavailable_db", 503, "資料庫暫時無法使用，請稍後再試", "database unavailable")
     # Bedrock/network failures: full detail goes to the log, a generic message to the client.

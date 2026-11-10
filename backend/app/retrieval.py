@@ -6,8 +6,8 @@ from typing import Protocol
 
 import asyncpg
 
+from app.embeddings import Embedding
 from app.knowledge import KnowledgeKind
-from app.knowledge_sync import Embedder
 
 
 class RetrievalUnavailable(Exception):
@@ -29,6 +29,9 @@ class RetrievalResult:
     schema: tuple[Retrieved, ...] = ()
     glossary: tuple[Retrieved, ...] = ()
     example: tuple[Retrieved, ...] = ()
+    # What embedding the question cost; priced with the rest of the question (D9).
+    embedding_model_id: str | None = None
+    embedding_tokens: int = 0
 
     def all(self) -> tuple[Retrieved, ...]:
         return self.schema + self.glossary + self.example
@@ -49,6 +52,10 @@ class TopN:
 DEFAULT_TOP_N = TopN()
 
 
+class QueryEmbedder(Protocol):
+    async def embed_with_usage(self, text: str) -> Embedding: ...
+
+
 class VectorSearch(Protocol):
     async def nearest(self, vector: list[float], kind: KnowledgeKind, limit: int) -> list[Retrieved]: ...
 
@@ -56,7 +63,7 @@ class VectorSearch(Protocol):
 
 
 class Retriever:
-    def __init__(self, embedder: Embedder, search: VectorSearch, *, top_n: TopN = DEFAULT_TOP_N):
+    def __init__(self, embedder: QueryEmbedder, search: VectorSearch, *, top_n: TopN = DEFAULT_TOP_N):
         self._embedder = embedder
         self._search = search
         self._top_n = top_n
@@ -64,7 +71,8 @@ class Retriever:
     async def retrieve(self, question: str) -> RetrievalResult:
         try:
             # The slowest call, so once per question; the three searches share its vector.
-            vector = await self._embedder.embed(question)
+            embedding = await self._embedder.embed_with_usage(question)
+            vector = embedding.vector
             schema, glossary, example = await asyncio.gather(
                 self._search.nearest(vector, "schema", self._top_n.schema),
                 self._search.nearest(vector, "glossary", self._top_n.glossary),
@@ -72,7 +80,13 @@ class Retriever:
             )
         except Exception as e:
             raise RetrievalUnavailable(f"{type(e).__name__}: {e}") from e
-        return RetrievalResult(schema=tuple(schema), glossary=tuple(glossary), example=tuple(example))
+        return RetrievalResult(
+            schema=tuple(schema),
+            glossary=tuple(glossary),
+            example=tuple(example),
+            embedding_model_id=embedding.model_id,
+            embedding_tokens=embedding.input_tokens,
+        )
 
     async def close(self) -> None:
         await self._search.close()
