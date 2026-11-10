@@ -19,7 +19,7 @@
 ## 3. 模型與評估
 
 - [x] 3.1 知識文件與 `STATIC_KNOWLEDGE`：兩張表、「交通便利度」名詞；驗證：知識文件測試通過
-  - 結果：兩張表的說明已在 2.1、2.2 加入；本任務新增名詞 `glossary-transit`（`STATIC_KNOWLEDGE` 同步），內容：站數的算法、捷運與 YouBike 分開列、先各自彙總再串接（避免筆數相乘）、沒有捷運站的區要從 `district_population` 開始 LEFT JOIN。知識文件測試通過；名詞中的 SQL 以 `genbi_reader` 在測試資料庫執行成功，新北有 14 區沒有臺北捷運站（含有機場捷運的林口區）
+  - 結果：兩張表的說明已在 2.1、2.2 加入；本任務新增名詞 `glossary-transit`（`STATIC_KNOWLEDGE` 同步），內容：站數的算法、捷運與 YouBike 分開列、先各自彙總再串接（避免筆數相乘）、沒有捷運站的區要從 `district_population` 開始 LEFT JOIN。知識文件測試通過；名詞中的 SQL 以 `genbi_reader` 在測試資料庫執行成功，新北有 20 區沒有臺北捷運站（含有機場捷運的林口區；先前寫 14 區是查詢加了 LIMIT 15 而誤算，code review 補整合測試時更正）
 - [x] 3.2 golden set 新增 2 題交通題目；驗證：`--dry-run` 全部 ok
   - 結果：測試紅轉綠（紅燈 `assert 0 >= 2`）。q30（medium）：捷運站最多的 3 區與店數，答案 大安區 10 站 40 家、中正區 9 站 25 家、北投區 9 站 0 家；q31（hard）：YouBike 車柱數前 3 區（大安、板橋、中山）中每個車柱搜尋次數最高的區，答案中山區（6,949 ÷ 5,551）。原本的題目在 demo 資料沒有答案，spec 情境與 D5 同步修改。`--dry-run` 27 題 SQL 全部 ok
 - [x] 3.3 static 與 rag 各跑 2 次評估；驗證：結果與 token 變化記入 `RESULTS.md`

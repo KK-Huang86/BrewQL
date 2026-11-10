@@ -58,3 +58,16 @@ async def test_transit_rows_keep_coordinates_and_download_day(reader):
     assert (str(station["lat"]), str(station["lng"])) == ("25.046778", "121.517707")
     assert (bike["docks"], str(bike["lat"]), str(bike["lng"])) == (28, "25.026050", "121.543600")
     assert str(station["as_of"]) == str(bike["as_of"]) == "2026-11-11"
+
+
+async def test_districts_without_an_mrt_station_count_zero_instead_of_vanishing(reader):
+    # Spec scenario 各區交通站數, written the way glossary-transit teaches: start from
+    # district_population and LEFT JOIN the per-district station count.
+    rows = await reader.fetch(
+        "WITH m AS (SELECT district, count(*) AS n FROM mrt_stations GROUP BY district) "
+        "SELECT p.district, coalesce(m.n, 0) AS mrt_stations FROM district_population p LEFT JOIN m USING (district)"
+    )
+
+    assert len(rows) == 41
+    assert sum(r["mrt_stations"] == 0 for r in rows) == 20  # all in 新北市, e.g. 林口區 (Airport MRT only)
+    assert sum(r["mrt_stations"] for r in rows) == 119
