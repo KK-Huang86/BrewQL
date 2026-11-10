@@ -18,7 +18,8 @@
 
 - [x] 3.1 schema：`pet_friendly`、`has_pet` 可為 NULL，`schema.yaml` 同步；驗證：demo 重建後評估參考 SQL 試跑（`--dry-run`）結果不變
   - 結果：`01_schema.sql` 拿掉兩欄的 `NOT NULL`（保留預設 FALSE），`schema.yaml` 與 `STATIC_KNOWLEDGE` 補「NULL 表示未知」。整合測試以擁有者帳號在 rollback 的交易內寫入 NULL，紅燈原因為 not-null constraint；另一個測試確認 demo 店家沒有 NULL。測試資料庫與 CI 新增 `TEST_OWNER_DATABASE_URL`（3.2 匯入也要用）。重建測試資料庫後：全部 660 個測試通過，評估 `--dry-run` 22 題參考 SQL 全部 ok，`db/checks` 8 個檔案全部通過
-- [ ] 3.2 測試 + 實作：匯入腳本在一個交易內寫入，demo 模式與已有資料時略過，失敗 rollback；驗證：整合測試由紅轉綠
+- [x] 3.2 測試 + 實作：匯入腳本在一個交易內寫入，demo 模式與已有資料時略過，失敗 rollback；驗證：整合測試由紅轉綠
+  - 結果：三個切片各自紅轉綠。`prepare` 把三份匯出串成一批並產生報告，投票對不到店家時報錯；`scripts/import_real_cafes.py`：demo 略過且不讀檔、已有店家略過、找不到唯一的匯出檔或內容無效 exit 2、寫入失敗 exit 1（6 個單元測試）；`app/real_cafes_store.py` 的 `PgRealCafeStore`：一個交易內 `LOCK TABLE cafes` 後確認仍為空，寫入店家、以 `place_id` 對應新 id 後寫入投票與 Cafe Nomad，連線在第一次使用時才建立（demo 不連線）。整合測試在臨時建立的空資料庫（套用 `01_schema.sql`）驗證 id 對應與中途失敗全部 rollback；mutation：拿掉交易與 lock 後 rollback 測試失敗
 - [ ] 3.3 `db/seed/real_behavior.sql`：依真實店家產生模擬行為，計數等於明細；驗證：`db/checks` 在 real 資料庫通過
 - [ ] 3.4 compose：`DATASET`、各自的 volume、`cafe-import` 服務（`REAL_DATA_DIR` 唯讀掛載）；`.gitignore` 加 `db/import/`；`.env.example` 同步；驗證：兩種模式都能啟動，`git status` 看不到匯入檔
 - [ ] 3.5 測試 + 實作：評估遇到非 demo 店家時在付費呼叫前報錯停止；驗證：測試由紅轉綠
