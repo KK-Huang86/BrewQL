@@ -21,7 +21,8 @@
 - [x] 3.2 測試 + 實作：流程的 static／rag 模式、固定規則與白名單名稱保底、`sources`；static 模式的 prompt 與現在逐字相同；驗證：測試由紅轉綠
   - 結果：`SCHEMA_CONTEXT` 拆成 `REPLY_RULES` + `STATIC_KNOWLEDGE`，拆分前後逐字比對相同；`rag_context` 組成規則、全部白名單表名、檢索到的 schema／名詞／範例。流程在輸入防護之後檢索一次（重試共用、被擋下的問題不花 embedding），結果帶 `sources`；`PROMPT_MODE`（`static` 預設／`rag`）、compose 與 `.env.example` 同步。新增測試 16 個紅轉綠（prompt 組成 4、generator 2、流程 6、API 與設定 3＋既有 1），紅燈原因為介面不存在；`test_api.py` 7 個完整回應比對因新增 `sources` 欄位另以 `test:` commit 更新（需求變更）。實機同一題「台北市有幾家工作友善的咖啡店？」：static 3,157 input tokens、rag 2,108（-33%），兩者都答 57 家。後端 597 個測試通過
 - [ ] 3.4 測試 + 實作：embedding token 與費用計入用量與成本、檢索失敗回 5xx 且不呼叫模型；驗證：測試由紅轉綠
-- [ ] 3.3 測試：知識庫資料表不在白名單、查詢會被拒絕；驗證：測試綠燈
+- [x] 3.3 測試：知識庫資料表不在白名單、查詢會被拒絕；驗證：測試綠燈
+  - 結果：`tests/test_knowledge_not_queryable.py` 6 個案例（直接查、加 schema 前綴、CTE 內、子查詢都被 SQL 防護拒絕；不在白名單；模型產生的知識庫 SQL 回 `guardrail` 錯誤且不送到資料庫）。驗證型測試一寫就綠；mutation：把 `knowledge_documents` 加進白名單後 6 個全部失敗。資料庫層 `genbi_reader` 可以讀知識庫（檢索需要，2.1 的整合測試已證明），所以白名單是唯一的防線
 
 ## 4. 評估
 
