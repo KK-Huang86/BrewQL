@@ -5,7 +5,7 @@ Rows mirror the official files' columns; the numbers are made up.
 
 from decimal import Decimal
 
-from app.open_data import PopulationRow, population_rows
+from app.open_data import PopulationRow, UniversityRow, population_rows, university_rows
 
 POPULATION_HEADER = {"statistic_yyy": "統計年", "site_id": "區域別", "people_total": "年底人口數", "area": "土地面積"}
 
@@ -33,3 +33,37 @@ def test_population_as_of_is_the_end_of_the_roc_year():
     [row] = population_rows([population("臺北市中正區", year="113")])
 
     assert row.as_of == "2024-12-31"
+
+
+def university(code: str, name: str, city: str, district: str, ownership: str = "私立") -> dict[str, str]:
+    # The official header keeps line breaks inside some column names.
+    return {
+        "序號": "1",
+        "學校\n代碼": code,
+        "公私立": ownership,
+        "體制": "一般大學",
+        "學校名稱": name,
+        "學校英文名稱": "Example University",
+        "職稱": "校長",
+        "姓名": "王小明",
+        "縣市別": city,
+        "第三級\n行政區": district,
+        "郵遞\n區號": "106",
+        "學校地址": f"{city}{district}範例路 1 號",
+        "學校總機": "(02)1234-5678",
+        "學校傳真": "(02)1234-5679",
+        "網址": "https://example.edu.tw",
+    }
+
+
+def test_universities_keep_taipei_and_new_taipei_schools_without_personal_details():
+    rows = [
+        university("0002", "範例科技大學", "新北市", "板橋區"),
+        university("0001", "範例大學", "臺北市", "大安區", ownership="公立"),
+        university("0003", "台中範例大學", "臺中市", "西屯區"),
+    ]
+
+    assert university_rows(rows) == [
+        UniversityRow("0001", "範例大學", "公立", "一般大學", "台北市", "大安區"),
+        UniversityRow("0002", "範例科技大學", "私立", "一般大學", "新北市", "板橋區"),
+    ]
