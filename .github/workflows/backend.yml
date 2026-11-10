@@ -48,6 +48,7 @@ jobs:
           psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -f db/init/02_seed.sql
           bash db/init/03_readonly_role.sh
           bash db/init/04_audit.sh
+          bash db/init/05_knowledge.sh
       - name: Check the demo data story
         run: PSQL="psql -U $POSTGRES_USER -d $POSTGRES_DB" bash db/checks/run.sh
       - name: Install
