@@ -6,7 +6,16 @@ from decimal import Decimal
 
 import pytest
 
-from app.real_cafes import CafeRow, Place, clean_cafe, clean_votes, locate, match_nomad, parse_address
+from app.real_cafes import (
+    CafeRow,
+    Place,
+    clean_cafe,
+    clean_votes,
+    locate,
+    match_nomad,
+    parse_address,
+    prepare,
+)
 
 
 @pytest.mark.parametrize(
@@ -216,3 +225,27 @@ def test_generic_words_like_coffee_do_not_stop_a_match(cafe_name, nomad_name):
 )
 def test_a_name_left_too_short_after_removing_generic_words_never_matches(cafe_name, nomad_name):
     assert match_nomad([cafe(1, cafe_name)], [nomad("n1", nomad_name)]).kept == []
+
+
+def test_prepare_joins_the_three_exports_into_one_batch_with_a_report():
+    cafes = [
+        {**EXPORT_ROW, "id": "1", "name": "晨光咖啡", "address": "台北市信義區信義路五段 7 號"},
+        {**EXPORT_ROW, "id": "2", "name": "午後咖啡", "address": "信義路五段 9 號", "lat": str(LAT + 300 / 111_000)},
+    ]
+    votes = [vote("google", cafe_id="1"), vote("user", user_id="99", cafe_id="2")]
+
+    batch = prepare(cafes, votes, [nomad("n1", "晨光咖啡"), nomad("n2", "沒有這家店", north_m=5_000)])
+
+    assert [(c.source_id, loc) for c, loc in batch.cafes] == [(1, ("台北市", "信義區")), (2, ("台北市", "信義區"))]
+    assert [v.cafe_source_id for v in batch.votes] == [1]
+    assert [n.cafenomad_id for n in batch.nomad] == ["n1"]
+    assert batch.report == {
+        "cafes": 2, "parsed": 1, "filled": 1, "unknown": 0,
+        "votes": 1, "member_votes_dropped": 1,
+        "nomad_matched": 1, "nomad_unmatched": 1, "nomad_duplicates": 0,
+    }  # fmt: skip
+
+
+def test_prepare_refuses_a_vote_for_a_cafe_not_in_the_export():
+    with pytest.raises(ValueError, match="vote for unknown cafe 404"):
+        prepare([EXPORT_ROW], [vote("google", cafe_id="404")], [])
