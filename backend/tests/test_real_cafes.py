@@ -193,3 +193,26 @@ def test_a_cafe_takes_only_its_nearest_nomad_row():
 
     assert [r.cafenomad_id for r in matched.kept] == ["near"]
     assert matched.duplicates == 1
+
+
+@pytest.mark.parametrize(
+    ("cafe_name", "nomad_name"),
+    [
+        ("NOTCH咖啡 內湖店", "NOTCH內湖店"),
+        ("JokeR coffee", "joker咖啡"),
+        ("小巷 Café", "小巷咖啡館"),
+    ],
+)
+def test_generic_words_like_coffee_do_not_stop_a_match(cafe_name, nomad_name):
+    assert len(match_nomad([cafe(1, cafe_name)], [nomad("n1", nomad_name)]).kept) == 1
+
+
+@pytest.mark.parametrize(
+    ("cafe_name", "nomad_name"),
+    [
+        ("好食紀", "好咖啡"),  # only 好 is left of 好咖啡: one character proves nothing
+        ("Pinot Coffee", "IN Cafe"),  # two Latin letters, in is inside pinot
+    ],
+)
+def test_a_name_left_too_short_after_removing_generic_words_never_matches(cafe_name, nomad_name):
+    assert match_nomad([cafe(1, cafe_name)], [nomad("n1", nomad_name)]).kept == []
