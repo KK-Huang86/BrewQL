@@ -16,7 +16,15 @@ from fastapi.responses import JSONResponse, Response
 from prometheus_client import CONTENT_TYPE_LATEST
 from pydantic import BaseModel, StringConstraints, field_serializer
 
-from app.audit import AuditRecord, AuditWriter, log_record, record_from_outage, record_from_result, visitor_id
+from app.audit import (
+    AuditRecord,
+    AuditWriter,
+    PgAuditWriter,
+    log_record,
+    record_from_outage,
+    record_from_result,
+    visitor_id,
+)
 from app.charts import Chart, choose_chart
 from app.daily_limit import DailyQuestionLimit
 from app.db import DatabaseUnavailable
@@ -27,6 +35,8 @@ from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGener
 
 log = logging.getLogger(__name__)
 audit_log = logging.getLogger("app.audit")
+# HMAC-SHA256 key for visitor IDs; shorter keys make the IPv4 space cheap to brute-force (D5).
+MIN_VISITOR_KEY_LENGTH = 32
 
 
 class AskRequest(BaseModel):
@@ -99,6 +109,8 @@ def create_app(
         yield
         # Release pooled connections so restarts don't leave sessions open on Postgres.
         await executor.close()
+        if audit_writer is not None:
+            await audit_writer.close()
 
     app = FastAPI(title="BrewQL", lifespan=lifespan)
     # Dev only: in deployment nginx serves the UI and /api on one origin, so no CORS is needed.
@@ -206,6 +218,11 @@ def build_app() -> FastAPI:
 
     configure_logging()
     settings = Settings()
+    # D4: every question must leave an audit trail, so a missing setting stops startup.
+    if not settings.audit_database_url:
+        raise RuntimeError("AUDIT_DATABASE_URL is required (genbi_audit_writer connection)")
+    if len(settings.audit_ip_hmac_key) < MIN_VISITOR_KEY_LENGTH:
+        raise RuntimeError(f"AUDIT_IP_HMAC_KEY must be at least {MIN_VISITOR_KEY_LENGTH} characters")
     deps = build_dependencies(settings)
     return create_app(
         generator=deps.generator,
@@ -215,4 +232,6 @@ def build_app() -> FastAPI:
         max_sql_retries=settings.max_sql_retries,
         daily_limit=DailyQuestionLimit(settings.daily_question_limit),
         model_id=settings.bedrock_model_id,
+        audit_writer=PgAuditWriter(settings.audit_database_url),
+        visitor_key=settings.audit_ip_hmac_key.encode(),
     )

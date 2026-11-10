@@ -36,6 +36,9 @@ services:
       BEDROCK_GUARDRAIL_VERSION: ${BEDROCK_GUARDRAIL_VERSION:-}
       MAX_SQL_RETRIES: ${MAX_SQL_RETRIES:-1}
       DAILY_QUESTION_LIMIT: ${DAILY_QUESTION_LIMIT:-500}
+      # Append-only audit role (record-audit-log D2); the backend refuses to start without these.
+      AUDIT_DATABASE_URL: postgresql://genbi_audit_writer:${GENBI_AUDIT_WRITER_PASSWORD}@db:5432/genbi
+      AUDIT_IP_HMAC_KEY: ${AUDIT_IP_HMAC_KEY:?set AUDIT_IP_HMAC_KEY in .env (32+ characters)}
     volumes:
       # Local dev: reuse host AWS credentials read-only. On EC2 the instance role is used instead.
       - ${HOME}/.aws:/home/app/.aws:ro

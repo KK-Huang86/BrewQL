@@ -90,6 +90,8 @@ def record_from_outage(
 class AuditWriter(Protocol):
     async def write(self, record: AuditRecord) -> None: ...
 
+    async def close(self) -> None: ...
+
 
 def log_record(record: AuditRecord) -> None:
     """The second copy (D6): one ask_audit line, the only log allowed to carry the question text."""
