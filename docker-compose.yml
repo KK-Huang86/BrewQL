@@ -8,6 +8,8 @@ services:
       GENBI_READER_PASSWORD: ${GENBI_READER_PASSWORD:?set GENBI_READER_PASSWORD in .env}
       GENBI_AUDIT_WRITER_PASSWORD: ${GENBI_AUDIT_WRITER_PASSWORD:?set GENBI_AUDIT_WRITER_PASSWORD in .env}
       GENBI_KNOWLEDGE_WRITER_PASSWORD: ${GENBI_KNOWLEDGE_WRITER_PASSWORD:?set GENBI_KNOWLEDGE_WRITER_PASSWORD in .env}
+      # demo (default) seeds simulated data; real leaves it to cafe-import (import-real-cafes D1).
+      DATASET: ${DATASET:-demo}
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d:ro
       - pgdata:/var/lib/postgresql/data
@@ -17,7 +19,8 @@ services:
     labels:
       brewql.metrics: "true"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d genbi"]
+      # Over TCP: during init Postgres listens only on its socket, so this stays false until init is done.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d genbi"]
       interval: 5s
       retries: 20
 
@@ -58,6 +61,26 @@ services:
         condition: service_healthy
       knowledge-import:
         condition: service_completed_successfully
+      cafe-import:
+        condition: service_completed_successfully
+
+  # One-shot real cafe import (import-real-cafes D3): DATASET=demo skips it; DATASET=real imports the
+  # exports in REAL_DATA_DIR (outside the repo, read-only) into an empty real database, in one
+  # transaction with simulated members and behaviour. A real database that has cafes is left alone;
+  # to import a newer export: DATASET=real docker compose down -v, then up again.
+  cafe-import:
+    build: ./backend
+    command: ["python", "-m", "scripts.import_real_cafes"]
+    environment:
+      DATASET: ${DATASET:-demo}
+      # The owner writes cafes; only this one-shot container gets it, never the backend.
+      REAL_IMPORT_DATABASE_URL: postgresql://${POSTGRES_USER:-genbi_owner}:${POSTGRES_PASSWORD}@db:5432/genbi
+      REAL_DATA_DIR: /real-data
+    volumes:
+      - ${REAL_DATA_DIR:-./db/import}:/real-data:ro
+    depends_on:
+      db:
+        condition: service_healthy
 
   # One-shot RAG knowledge import (rag-knowledge-base): runs on every `up` before the backend, so a
   # rebuilt database never serves rag with an empty knowledge base. Unchanged documents cost nothing;
@@ -138,4 +161,6 @@ services:
       - backend
 
 volumes:
+  # One volume per dataset, so switching never mixes real cafes into demo (import-real-cafes D1).
   pgdata:
+    name: genbi_pgdata_${DATASET:-demo}

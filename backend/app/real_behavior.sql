@@ -1,6 +1,6 @@
 -- Simulated members and behaviour for real cafes (import-real-cafes D9). Runs inside the import
 -- transaction, after the real cafes, votes and Cafe Nomad rows are written. Follows the demo seed
--- (db/init/02_seed.sql) without its stories: each district is searched in proportion to its cafes.
+-- (db/init/demo/02_seed.sql) without its stories: each district is searched in proportion to its cafes.
 -- No real member, search, view, favorite or member vote ever reaches this database.
 SELECT setseed(0.42);
 
