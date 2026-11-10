@@ -46,3 +46,12 @@ async def test_without_dataset_the_demo_seed_runs(empty_db):
 
     assert done.returncode == 0, done.stderr
     assert await cafe_count(empty_db) == 200
+
+
+async def test_an_unknown_dataset_stops_init(empty_db):
+    # A typo would otherwise seed demo into a volume named after it.
+    done = run_seed(empty_db, "reel")
+
+    assert done.returncode != 0
+    assert "DATASET must be demo or real" in done.stderr
+    assert await cafe_count(empty_db) == 0
