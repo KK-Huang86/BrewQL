@@ -77,3 +77,39 @@ async def test_a_failure_after_the_cafes_leaves_the_database_empty(empty_db):
     finally:
         await store.close()
     assert await fetch(empty_db, "SELECT 1 FROM cafe_attribute_votes") == []
+
+
+async def test_members_and_their_behaviour_are_simulated_for_the_real_cafes(empty_db):
+    store = PgRealCafeStore(empty_db)
+    try:
+        await store.write(batch())
+    finally:
+        await store.close()
+
+    [counts] = await fetch(
+        empty_db,
+        """
+        SELECT (SELECT count(*) FROM users) AS users,
+               (SELECT count(*) FROM search_logs) AS searches,
+               (SELECT count(*) FROM cafe_views) AS views,
+               (SELECT count(*) FROM favorites) AS favorites,
+               -- searches only name districts that have real cafes
+               (SELECT count(*) FROM search_logs s
+                WHERE NOT EXISTS (SELECT 1 FROM cafes c WHERE c.city = s.city AND c.district = s.district))
+                 AS searches_elsewhere,
+               -- the counters on cafes equal the detail rows, as in demo
+               (SELECT count(*) FROM cafes c
+                WHERE c.view_count <> (SELECT count(*) FROM cafe_views v WHERE v.cafe_id = c.id)
+                   OR c.favorite_count <> (SELECT count(*) FROM favorites f WHERE f.cafe_id = c.id))
+                 AS counters_off,
+               -- nobody searches or views before joining
+               (SELECT count(*) FROM search_logs s JOIN users u ON u.id = s.user_id
+                WHERE s.created_at < u.created_at) AS before_joining,
+               -- the real votes stay as imported: no member votes appear
+               (SELECT count(*) FROM cafe_attribute_votes WHERE source = 'user') AS member_votes
+        """,
+    )
+    assert counts["users"] == 2000
+    assert counts["searches"] > 40_000 and counts["views"] > 150_000 and counts["favorites"] > 0
+    assert (counts["searches_elsewhere"], counts["counters_off"], counts["before_joining"]) == (0, 0, 0)
+    assert counts["member_votes"] == 0
