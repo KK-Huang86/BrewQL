@@ -5,13 +5,16 @@ Builds the record only; where it goes (the ask_audit log line and table) is the 
 
 import hashlib
 import hmac
+import logging
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, Protocol
 
 from app.metrics import Unavailable
 from app.pipeline import AskResult
 from app.pricing import cost_usd
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -78,3 +81,14 @@ def record_from_outage(
         error_kind=kind,
         elapsed_ms=elapsed_ms,
     )
+
+
+class AuditWriter(Protocol):
+    async def write(self, record: AuditRecord) -> None: ...
+
+
+def log_record(record: AuditRecord) -> None:
+    """The second copy (D6): one ask_audit line, the only log allowed to carry the question text."""
+    fields = asdict(record)
+    fields["request_id"] = str(record.request_id)
+    log.info("ask_audit", extra={"event": "ask_audit", **fields})
