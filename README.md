@@ -110,6 +110,26 @@ real 只匯入公開的店家資訊：
 - Cafe Nomad（[cafenomad.tw](https://cafenomad.tw)）的資料沒有查到正式的授權條款，只在本機使用。
 - real 的資料比 demo 稀疏（例如寵物欄位大多未知），分布也不同，回答只供展示，不作為評估依據。
 
+### 公開資料
+
+兩種資料集都會載入政府公開資料的快照，以行政區和店家、搜尋資料串接，可以問「每萬人咖啡店數」「有大專校院的行政區」這類問題。只收台北市、新北市。
+
+| 資料表 | 來源 | 資料時間 |
+|---|---|---|
+| `district_population`（人口、土地面積） | 內政部戶政司「各鄉鎮市區人口密度」（[data.gov.tw/dataset/8410](https://data.gov.tw/dataset/8410)） | 民國 114 年底 |
+| `universities`（學校代碼、名稱、公私立、體制、行政區） | 教育部「全國大學校院名錄」（[data.gov.tw/dataset/33207](https://data.gov.tw/dataset/33207)） | 108 學年度（官方之後沒有更新，少數學校可能已合併或改名） |
+
+- 授權：[政府資料開放授權條款第 1 版](https://data.gov.tw/license)，可以散布，需標示來源。
+- 快照在 `db/init/open_data/`，由 `06_open_data.sh` 在資料庫初始化時載入。既有資料庫要 `docker compose down -v` 重建才會有這兩張表。
+- 快照不收個人資訊：大專校院名錄的校長姓名、電話、傳真、地址都不收。
+- 官方更新時重產快照（下載檔放 repo 外；同樣的下載檔重跑，結果不變）：
+
+```bash
+curl -L -o /tmp/population.csv "https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/D1450798-F85B-4063-9761-A24B8929A684/resource/B7938B44-1E42-4ED2-A980-31629877B152/download"
+curl -L -o /tmp/universities.csv "https://ws.moe.edu.tw/001/Upload/4/relfile/0/5038/55f39b31-27a0-4009-866a-ea260eb45eaf.csv"
+uv --directory backend run python -m scripts.prepare_open_data /tmp/population.csv /tmp/universities.csv ../db/init/open_data
+```
+
 ### Bedrock 憑證
 
 1. 建立只允許 `bedrock:InvokeModel` 的 IAM user（或使用 IAM Identity Center），以 `aws configure --profile brewql` 存入本機。
