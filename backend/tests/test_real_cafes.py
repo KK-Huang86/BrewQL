@@ -266,3 +266,15 @@ def test_only_taipei_and_new_taipei_cafes_are_kept_with_their_votes():
     assert [v.cafe_source_id for v in batch.votes] == [1, 2]
     assert batch.nomad == []  # its only match was the Taichung cafe
     assert (batch.report["cafes"], batch.report["outside_area"], batch.report["unknown"]) == (2, 2, 1)
+
+
+def test_nomad_rows_of_cafes_outside_the_area_are_counted_apart_from_unmatched():
+    cafes = [
+        {**EXPORT_ROW, "id": "1", "address": "台北市信義區信義路五段 7 號"},
+        {**EXPORT_ROW, "id": "3", "place_id": "p3", "address": "臺中市西屯區台灣大道 1 號", "lat": "24.16"},
+    ]
+    taichung = nomad("n3", "測試咖啡", north_m=(24.16 - LAT) * 111_000)
+
+    batch = prepare(cafes, [], [taichung, nomad("n9", "沒有這家店", north_m=5_000)])
+
+    assert (batch.report["nomad_outside_area"], batch.report["nomad_unmatched"]) == (1, 1)
