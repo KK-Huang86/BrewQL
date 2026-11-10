@@ -149,3 +149,27 @@ CREATE TABLE universities (
     city      TEXT NOT NULL,
     district  TEXT NOT NULL
 );
+
+-- Transit open data (import-transit-open-data): stations in service on the download day (as_of).
+-- Joined to the rest by district; lat/lng are kept for the distance view of cafe-transit-distance.
+CREATE TABLE youbike_stations (
+    station_no TEXT PRIMARY KEY,                  -- official sno
+    name       TEXT NOT NULL,                     -- without the YouBike2.0_ prefix
+    city       TEXT NOT NULL,
+    district   TEXT NOT NULL,                     -- 臺大公館校區 stations count as 大安區
+    docks      INTEGER NOT NULL CHECK (docks >= 0),
+    lat        NUMERIC(9, 6) NOT NULL,
+    lng        NUMERIC(9, 6) NOT NULL,
+    as_of      DATE NOT NULL                      -- download day of the live feed
+);
+
+-- Taipei Metro (TRTC) stations built from their exits; no Airport MRT or light rail.
+CREATE TABLE mrt_stations (
+    name       TEXT PRIMARY KEY,                  -- e.g. 板橋, 台北車站
+    city       TEXT NOT NULL,
+    district   TEXT NOT NULL,
+    exit_count INTEGER NOT NULL CHECK (exit_count > 0),
+    lat        NUMERIC(9, 6) NOT NULL,            -- average of the exits
+    lng        NUMERIC(9, 6) NOT NULL,
+    as_of      DATE NOT NULL                      -- download day of the exit file
+);

@@ -9,7 +9,8 @@
 
 ## 2. 載入與防護
 
-- [ ] 2.1 `01_schema.sql` 新增兩張表、`06_open_data.sh` 載入並授權；驗證：整合測試以 `genbi_reader` 查得到兩張表
+- [x] 2.1 `01_schema.sql` 新增兩張表、`06_open_data.sh` 載入並授權；驗證：整合測試以 `genbi_reader` 查得到兩張表
+  - 結果：3 個整合測試紅轉綠（紅燈為 `relation "youbike_stations" does not exist`），驗證兩城市站數、台北車站在中正區且 8 個出口、座標 6 位小數與下載日。CI 本來就執行 `06_open_data.sh`，不需改 workflow。`test_schema_context` 要求 `01_schema.sql` 每個欄位都有說明，因此與第一階段相同，`STATIC_KNOWLEDGE` 的兩張表說明在這裡一起加入（屬於 3.1）。`db/checks` 全部通過
 - [ ] 2.2 測試 + 實作：SQL 白名單加入兩張表；驗證：測試由紅轉綠
 - [ ] 2.3 `09_open_data_join.sql` 加入兩張表；驗證：demo 通過，mutation 改壞一站行政區時失敗
 
