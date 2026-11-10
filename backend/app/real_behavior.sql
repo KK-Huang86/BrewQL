@@ -84,19 +84,26 @@ window_start AS (
     SELECT min(created_at) AS at FROM search_logs
 ),
 raw AS (
-    SELECT g,
-           ws.at + random() * (now() - ws.at) AS at,
-           random() AS r_user, random() AS r_cafe, random() AS r_source
-    FROM generate_series(1, 185000) g, window_start ws
+    SELECT g, random() AS r_at, random() AS r_user, random() AS r_cafe, random() AS r_source
+    FROM generate_series(1, 185000) g
+),
+picked AS (
+    SELECT r.*, p.ids[width_bucket(r.r_cafe, p.bounds)] AS cafe_id FROM raw r, picker p
+),
+-- Real cafes keep their listing date, so a view falls between the later of the window start and
+-- the listing, and now: a cafe listed last week has no views from last spring.
+timed AS (
+    SELECT k.*, greatest(ws.at, c.created_at) + k.r_at * (now() - greatest(ws.at, c.created_at)) AS at
+    FROM picked k JOIN cafes c ON c.id = k.cafe_id, window_start ws
 )
 INSERT INTO cafe_views (user_id, cafe_id, source, created_at)
-SELECT m.ids[1 + floor(r.r_user * width_bucket(r.at, m.joined_at))::int],
-       p.ids[width_bucket(r.r_cafe, p.bounds)],
-       CASE WHEN r.r_source < 0.65 THEN 'search' ELSE 'rich_menu' END,
-       r.at
-FROM raw r, members m, picker p
-WHERE width_bucket(r.at, m.joined_at) > 0
-ORDER BY r.g;
+SELECT m.ids[1 + floor(t.r_user * width_bucket(t.at, m.joined_at))::int],
+       t.cafe_id,
+       CASE WHEN t.r_source < 0.65 THEN 'search' ELSE 'rich_menu' END,
+       t.at
+FROM timed t, members m
+WHERE width_bucket(t.at, m.joined_at) > 0
+ORDER BY t.g;
 
 -- Favorites follow a view within two hours: about 12% of search views, 4% of rich menu views.
 INSERT INTO favorites (user_id, cafe_id, source, created_at)
