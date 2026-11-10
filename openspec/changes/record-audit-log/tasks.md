@@ -5,7 +5,8 @@
 
 ## 2. 後端
 
-- [ ] 2.1 測試 + 實作：`AskResult.failed_attempts` 保留重試前失敗的嘗試；驗證：測試由紅轉綠
+- [x] 2.1 測試 + 實作：`AskResult.failed_attempts` 保留重試前失敗的嘗試；驗證：測試由紅轉綠
+  - 結果：`test_pipeline_retry.py` 新增 3 個案例（重試成功後保留被拒的 SQL、用完重試時最後一次是結果本身不重複記錄、第一次就成功時為空）。紅燈原因為沒有該欄位；欄位 `compare=False`，`AskResponse` 忽略多餘欄位，API 回應不變。後端 438 個測試通過。
 - [ ] 2.2 測試 + 實作：`app/audit.py` 把一次提問轉成稽核紀錄（各種結果、5xx、HMAC visitor、不含結果資料）；驗證：測試由紅轉綠
 - [ ] 2.3 測試 + 實作：handler 在回應前先輸出 `ask_audit` JSON log、再寫入稽核；每日上限的 429 不記錄；其他 log 不含問題原文；驗證：測試由紅轉綠
 - [ ] 2.4 測試 + 實作：稽核寫入失敗或逾時仍回應使用者，記錄含 request id 的錯誤 log、`brewql_audit_write_failures_total` 加 1（從 0 開始）；驗證：測試由紅轉綠
