@@ -18,7 +18,8 @@
 
 ## 3. 模型與評估
 
-- [ ] 3.1 知識文件與 `STATIC_KNOWLEDGE`：兩張表、「交通便利度」名詞；驗證：知識文件測試通過
+- [x] 3.1 知識文件與 `STATIC_KNOWLEDGE`：兩張表、「交通便利度」名詞；驗證：知識文件測試通過
+  - 結果：兩張表的說明已在 2.1、2.2 加入；本任務新增名詞 `glossary-transit`（`STATIC_KNOWLEDGE` 同步），內容：站數的算法、捷運與 YouBike 分開列、先各自彙總再串接（避免筆數相乘）、沒有捷運站的區要從 `district_population` 開始 LEFT JOIN。知識文件測試通過；名詞中的 SQL 以 `genbi_reader` 在測試資料庫執行成功，新北有 14 區沒有臺北捷運站（含有機場捷運的林口區）
 - [ ] 3.2 golden set 新增 2 題交通題目；驗證：`--dry-run` 全部 ok
 - [ ] 3.3 static 與 rag 各跑 2 次評估；驗證：結果與 token 變化記入 `RESULTS.md`
 

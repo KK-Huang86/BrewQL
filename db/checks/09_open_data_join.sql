@@ -1,7 +1,8 @@
 -- Open data joins by name (import-open-data D5): every district that cafes, searches,
 -- universities, YouBike and MRT stations (import-transit-open-data D4) use has a population row,
--- so a spelling mismatch (臺/台, a renamed district) fails here instead of silently dropping rows from a per-capita answer. Real-mode cafes with an
--- unknown location (NULL city) are skipped: they join nothing by design.
+-- so a spelling mismatch (臺/台, a renamed district) fails here instead of silently dropping rows
+-- from a per-capita answer. Real-mode cafes with an unknown location (NULL city) are skipped: they
+-- join nothing by design.
 DO $$
 DECLARE
     missing text;

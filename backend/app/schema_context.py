@@ -186,6 +186,12 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
   寫法：count(*)::numeric / p.population * 10000
   FROM cafes c JOIN district_population p USING (district) GROUP BY c.district, p.population
   整個城市：該城市店數 ÷ sum(population)；搜尋次數等其他指標的「每萬人」寫法相同
+- 交通便利度：以行政區的站數衡量，以 district 串接：捷運站數 count(*) FROM mrt_stations；
+  YouBike 站數 count(*) 或車柱數 sum(docks) FROM youbike_stations；沒指定時分開列，不要自創加權分數
+  先把每張表各自依 district 彙總再串接，不要直接 JOIN cafes 與站點表，否則筆數會相乘
+  要包含沒有捷運站的行政區時，從 district_population 開始 LEFT JOIN，站數用 coalesce(..., 0)
+  寫法：WITH m AS (SELECT district, count(*) AS n FROM mrt_stations GROUP BY district)
+  SELECT p.district, coalesce(m.n, 0) AS mrt_stations FROM district_population p LEFT JOIN m USING (district)
 """
 
 SCHEMA_CONTEXT = REPLY_RULES + STATIC_KNOWLEDGE
