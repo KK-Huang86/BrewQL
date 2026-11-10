@@ -124,6 +124,23 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
 - views：當天瀏覽次數
 - new_favorites：當天新增收藏數
 
+## 資料表 district_population：行政區人口與面積（政府公開資料，台北市、新北市每區一列）
+
+- city：城市，值為 '台北市' 或 '新北市'，可與 cafes、search_logs 以 city + district 串接
+- district：行政區，例如 '大安區'、'板橋區'
+- population：年底人口數
+- area_km2：土地面積（平方公里）
+- as_of：人口統計日期（date），目前為 2025-12-31
+
+## 資料表 universities：大專校院（政府公開資料，108 學年度名錄，台北市、新北市每校一列）
+
+- code：教育部學校代碼（主鍵）
+- name：學校名稱
+- ownership：'公立' 或 '私立'
+- level：體制，例如 '一般大學'、'技專校院'
+- city：城市，值為 '台北市' 或 '新北市'
+- district：行政區
+
 ## 名詞定義
 
 - 工作友善：limited_time IN ('no', 'maybe') AND has_socket IN ('yes', 'maybe')

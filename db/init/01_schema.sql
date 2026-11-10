@@ -128,3 +128,24 @@ LEFT JOIN searches s USING (day)
 LEFT JOIN signups u USING (day)
 LEFT JOIN views v USING (day)
 LEFT JOIN favs f USING (day);
+
+-- Government open data (import-open-data): fixed snapshots for Taipei and New Taipei, loaded by
+-- 06_open_data.sh from db/init/open_data. city and district use the demo spelling, so they join
+-- cafes and search_logs directly.
+CREATE TABLE district_population (
+    city       TEXT NOT NULL,
+    district   TEXT NOT NULL,
+    population INTEGER NOT NULL CHECK (population > 0),
+    area_km2   NUMERIC(8, 4) NOT NULL CHECK (area_km2 > 0),
+    as_of      DATE NOT NULL,                     -- population at the end of this day
+    PRIMARY KEY (city, district)
+);
+
+CREATE TABLE universities (
+    code      TEXT PRIMARY KEY,                   -- MOE school code
+    name      TEXT NOT NULL,
+    ownership TEXT NOT NULL CHECK (ownership IN ('公立', '私立')),
+    level     TEXT NOT NULL,                      -- MOE 體制, e.g. 一般大學, 技專校院
+    city      TEXT NOT NULL,
+    district  TEXT NOT NULL
+);

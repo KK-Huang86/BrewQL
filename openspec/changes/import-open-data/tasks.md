@@ -6,7 +6,7 @@
 
 ## 2. 載入與防護
 
-- [ ] 2.1 `01_schema.sql` 新增兩張表，`06_open_data.sh` 載入快照並授權 `genbi_reader`，CI 與測試資料庫一併執行；驗證：整合測試以 `genbi_reader` 查得到兩張表
+- [x] 2.1 `01_schema.sql` 新增兩張表，`06_open_data.sh` 載入快照並授權 `genbi_reader`，CI 與測試資料庫一併執行；驗證：整合測試以 `genbi_reader` 查得到兩張表
 - [ ] 2.2 測試 + 實作：SQL 白名單加入兩張表；驗證：測試由紅轉綠
 - [ ] 2.3 `db/checks` 新增串接檢查（D5）；驗證：demo 通過，mutation 改壞一個行政區名稱時失敗
 
