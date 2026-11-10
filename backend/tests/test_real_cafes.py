@@ -6,7 +6,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.real_cafes import CafeRow, Place, clean_cafe, clean_votes, locate, parse_address
+from app.real_cafes import CafeRow, Place, clean_cafe, clean_votes, locate, match_nomad, parse_address
 
 
 @pytest.mark.parametrize(
@@ -135,3 +135,61 @@ def test_votes_from_members_are_dropped_whole_and_no_user_id_survives():
     assert votes.dropped_member_votes == 1
     assert all("user_id" not in asdict(v) for v in votes.kept)
     assert votes.kept[0].cafe_source_id == 42
+
+
+def cafe(source_id, name, north_m=0.0):
+    return clean_cafe({**EXPORT_ROW, "id": str(source_id), "name": name, "lat": str(LAT + north_m / 111_000)})
+
+
+def nomad(cafenomad_id, name, north_m=0.0, **override):
+    row = {
+        "id": "1", "cafenomad_id": cafenomad_id, "name": name, "city": "taipei", "address": "台北市測試路 1 號",
+        "lat": str(LAT + north_m / 111_000), "lng": str(LNG), "socket": "yes", "limited_time": "NULL",
+        "standing_desk": "no", "wifi": "4.5", "seat": "0", "quiet": "NULL", "tasty": "5.0", "cheap": "3.0",
+        "music": "4.0", "url": "https://example.com", "mrt": "NULL", "open_time": "NULL",
+        "synced_at": "2026-04-16 03:36:42.864021+00", "created_at": "2026-04-16 03:36:42.864021+00",
+    }  # fmt: skip
+    return {**row, **override}
+
+
+def test_nomad_row_within_50_m_with_a_matching_name_joins_that_cafe():
+    matched = match_nomad([cafe(1, "測試咖啡")], [nomad("n1", "測試咖啡", north_m=30, mrt="忠孝復興站")])
+
+    [row] = matched.kept
+    assert (row.cafe_source_id, row.cafenomad_id, row.mrt) == (1, "n1", "忠孝復興站")
+    # 0 means nobody rated it, like NULL (D7).
+    assert (row.wifi, row.seat, row.quiet, row.tasty) == (Decimal("4.5"), None, None, Decimal("5.0"))
+    assert (row.socket, row.limited_time, row.standing_desk) == ("yes", None, "no")
+    assert (matched.unmatched, matched.duplicates) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    ("cafe_name", "nomad_name"),
+    [
+        ("Simple Kaffa 華山店", "ｓｉｍｐｌｅ　ｋａｆｆａ"),  # full width, spaces, case
+        ("好咖啡", "好咖啡（信義店）"),  # branch in brackets
+        ("好咖啡 信義店", "好咖啡"),  # one name contains the other
+    ],
+)
+def test_names_match_after_normalising(cafe_name, nomad_name):
+    assert len(match_nomad([cafe(1, cafe_name)], [nomad("n1", nomad_name)]).kept) == 1
+
+
+@pytest.mark.parametrize(
+    ("north_m", "nomad_name"),
+    [(80, "測試咖啡"), (10, "隔壁茶館")],  # too far / a different shop next door
+)
+def test_nomad_row_that_is_too_far_or_differently_named_is_dropped(north_m, nomad_name):
+    matched = match_nomad([cafe(1, "測試咖啡")], [nomad("n1", nomad_name, north_m=north_m)])
+
+    assert matched.kept == []
+    assert matched.unmatched == 1
+
+
+def test_a_cafe_takes_only_its_nearest_nomad_row():
+    matched = match_nomad(
+        [cafe(1, "測試咖啡")], [nomad("far", "測試咖啡", north_m=40), nomad("near", "測試咖啡", north_m=5)]
+    )
+
+    assert [r.cafenomad_id for r in matched.kept] == ["near"]
+    assert matched.duplicates == 1
