@@ -190,6 +190,9 @@ def mrt_rows(
         raise ValueError("no YouBike stations to take MRT districts from")
     if stale := set(fixes) - set(stations):
         raise ValueError(f"MRT district fixes for stations not in the file: {sorted(stale)}")
+    known = {(bike.city, bike.district) for bike in youbike}  # already checked against district_population
+    if unknown := sorted(f"{city}{district}" for city, district in fixes.values() if (city, district) not in known):
+        raise ValueError(f"MRT district fixes to unknown districts: {unknown}")
     out = []
     for name, points in stations.items():
         where = _Point(_mean([p.lat for p in points]), _mean([p.lng for p in points]))
