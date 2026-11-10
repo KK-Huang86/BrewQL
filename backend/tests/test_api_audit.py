@@ -209,7 +209,7 @@ def test_failed_write_still_answers_and_is_reported_once(events, caplog):
     writer = FailingWriter(exc=OSError("connection refused"))
     c, _ = make_client(events, writer=writer)
 
-    with caplog.at_level(logging.ERROR, logger="app.audit"):
+    with caplog.at_level(logging.INFO, logger="app.audit"):
         response = c.post("/api/ask", json={"question": QUESTION})
 
     assert response.status_code == 200
