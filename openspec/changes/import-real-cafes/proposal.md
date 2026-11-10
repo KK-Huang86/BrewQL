@@ -4,15 +4,18 @@
 
 ## What Changes
 
-- 新增匯入腳本：從 Find Coffee 匯出檔讀入店家，只取 `cafes`（與 `cafe_nomad_cache`）的公開欄位，由地址解析 `city`、`district`
-- 新增資料集模式 `DATASET=demo|real`（預設 `demo`）：`real` 使用另一個資料庫 volume，模擬的行為資料（搜尋、瀏覽、收藏）以真實店家 id 重新產生
-- 匯入檔與匯入後的資料只存在本機或 EC2，不進 repo
-- README：說明兩種模式、資料來源授權與限制
+- 新增資料集模式 `DATASET=demo|real`（預設 `demo`），兩種模式使用各自的資料庫 volume
+- 新增一次性匯入服務 `cafe-import`：從本機匯出檔（repo 外的目錄，唯讀掛載）讀入店家、屬性投票與 Cafe Nomad 資料，只取公開欄位，由地址解析 `city`、`district`；`demo` 模式直接略過
+- `real` 模式的會員、搜尋、瀏覽、收藏一律以模擬方式依真實店家產生
+- 評估遇到非 demo 資料庫時報錯停止，CI 固定使用 demo
+- README：兩種模式、資料來源授權與限制
 
 ### Non-goals
 
-- 匯入任何真實會員或行為資料（搜尋、瀏覽、收藏、LINE 識別碼）
+- 匯入任何真實會員或行為資料（會員、搜尋、瀏覽、收藏、使用者投票、LINE 識別碼），包括它們的彙總數字（`favorite_count`、`view_count`）
 - 讓評估（golden set、CI）使用真實資料
+- 經緯度欄位與距離計算（留給 `import-open-data` 第二階段）
+- 公開部署真實店家資料（`deploy-public-demo` 使用 demo）
 
 ## Capabilities
 
@@ -26,21 +29,21 @@
 
 ## Impact
 
-- 新增：`db/import/` 腳本、compose 的資料集切換、README 章節
-- 授權：Google Places 來源的資料受條款限制，不可散布，只能保留在私人環境；Cafe Nomad 資料需先確認授權
-- 依賴 ticket：`eval-golden-set`（評估先固定在模擬資料）、`deploy-public-demo`（部署後再決定線上是否使用真實店家）
+- 新增：`backend/app/real_cafes.py`（清理與比對）、`backend/scripts/import_real_cafes.py`、`db/seed/real_behavior.sql`、compose 的 `cafe-import` 服務與資料集切換、README 章節
+- 修改：`cafes.pet_friendly`、`has_pet` 改為可為 NULL（真實資料多數未知）；知識文件 `schema.yaml` 同步說明
+- 既有 demo volume 名稱改變，需要 `docker compose down -v` 重建一次
+- 授權：Google Places 來源的欄位只能保留在私人環境；Cafe Nomad 查不到正式授權條款，只在本機使用並標示來源
+- 依賴 ticket：`eval-golden-set`（評估固定在模擬資料）、`rag-knowledge-base`（schema 知識文件）
 
-## 匯出檔現況（2026-11-08 檢查）
+## 匯出檔現況（2026-11-10 檢查）
 
 本機匯出檔（pgAdmin CSV，有標頭，空值寫成字串 `NULL`）不進 repo，只記錄檢查結果：
 
-- `cafes`（店家主表）：812 家、27 欄，格式正常。
-  - 地址同時有「臺北市」與「台北市」，匯入時統一寫法；部分英文地址無法解析行政區，改用經緯度對行政區界判斷。
-  - `has_socket`、`limited_time` 約一半為 NULL，`has_pet`、`pet_friendly` 幾乎全為 NULL；真實資料比示範資料稀疏，評估結果不可直接比較。
-  - `reviews`（Google 評論原文）、`photo_reference`、`photo_s3_url` 依 Google 條款不匯入；`view_count` 全為 0。
-- `cafe_cafeattributevote`（屬性投票）：902 筆、7 欄，`cafe_id` 全部對得到 `cafes`。
-  - 屬性 socket、limited_time、quiet、cheap、pet_friendly、has_pet；值 yes/maybe/no/unknown。
-  - 來源 google 650、cafenomad 116、user 136；user 來源帶 `user_id`，屬於真實使用者行為，只匯入不含 `user_id` 的彙總。
-- `cafe_nomad_cache`（Cafe Nomad 社群資料）：1,661 筆、21 欄，格式正常。
-  - 有 wifi、seat、quiet、tasty、cheap、music 評分與捷運站 `mrt`（約 1/3 有值）。
-  - 沒有對應 `cafes` 的 id，需以店名＋座標比對；授權需先確認。
+- `cafes`（店家主表）：812 家、27 欄。
+  - 地址可解析城市與行政區的有 764 家：臺北市 418、新北市 258、臺中市 58、桃園市 26、其他 4；48 家無法解析（中文地址缺城市或格式不同）。
+  - 地址同時有「臺北市」與「台北市」，統一成 demo 的「台北市」寫法。
+  - 經緯度、評分全部有值；`has_socket`、`limited_time` 約一半為 NULL，`has_pet`、`pet_friendly` 幾乎全為 NULL。
+  - `reviews`、`photo_reference`、`photo_s3_url`、`ai_summary`（由評論產生，174 家有值）依 Google 條款不匯入；`favorite_count`（34 家大於 0）是真實使用者的收藏彙總，不匯入；`view_count` 全為 0。
+- `cafe_cafeattributevote`（屬性投票）：902 筆，`cafe_id` 全部對得到 `cafes`。
+  - 來源 google 650、cafenomad 116、user 136；user 來源全部帶 `user_id`，屬於真實使用者行為，不匯入。
+- `cafe_nomad_cache`（Cafe Nomad 社群資料）：1,661 筆，全部是台北（`city = taipei`），沒有 `cafes` 的 id，需以座標與店名比對。
