@@ -49,3 +49,9 @@
   title: 比較或排名（各行政區、前幾名）
   content: |
     只回傳一個類別欄與一個主要指標欄，除非問題要求更多欄位
+
+- id: glossary-rating
+  title: 評分（沒指明來源的評分、平均評分、評分最高）
+  content: |
+    沒指明來源時指 Google 評分：cafes.rating（v_cafe_profile 也有同一欄），不需要反問
+    Cafe Nomad 社群評分（wifi、seat、quiet、tasty、cheap、music）只在問題明確提到網路、座位、安靜等項目時使用
