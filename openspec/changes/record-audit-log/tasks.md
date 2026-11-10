@@ -13,7 +13,8 @@
   - 結果：`tests/test_api_audit.py` 8 個案例（先 log 後寫入、log 欄位與紀錄一致、每題不同 request id、5xx 記為 outage、每日上限 429 不記錄、visitor 取自 `X-Real-IP` 或連線位址、重試流程中只有 `ask_audit` 那一行含問題原文）。紅燈原因為 `create_app` 沒有稽核參數；綠燈前修正兩個測試本身的錯誤期望（另外 commit）。問題外洩測試做過 mutation：在 handler 多 log 一次問題即失敗。後端 455 個測試通過。
 - [x] 2.4 測試 + 實作：稽核寫入失敗或逾時仍回應使用者，記錄含 request id 的錯誤 log、`brewql_audit_write_failures_total` 加 1（從 0 開始）；驗證：測試由紅轉綠
   - 結果：`tests/test_api_audit.py` 新增 4 個案例（指標從 0 開始；寫入失敗仍回 200、只呼叫一次、指標加 1、錯誤 log 的 request id 對得上 `ask_audit` 那行且不含問題；寫入卡住時逾時、仍回 200；5xx 的回應不受稽核失敗影響）。紅燈原因為寫入失敗變成 500、指標不存在；綠燈前修正測試擷取 log 的等級（另外 commit）。錯誤 log 只記例外類型：資料庫錯誤訊息可能引用整筆資料而含問題。後端 459 個測試通過。
-- [ ] 2.5 測試 + 實作：Postgres 稽核寫入（`ON CONFLICT DO NOTHING`、2 秒逾時）；驗證：整合測試寫入兩次同一 request id 只有一筆
+- [x] 2.5 測試 + 實作：Postgres 稽核寫入（`ON CONFLICT DO NOTHING`、2 秒逾時）；驗證：整合測試寫入兩次同一 request id 只有一筆
+  - 結果：`PgAuditWriter`（asyncpg pool `max_size=2`、第一次寫入才連線）；`tests/integration/test_audit_writer.py` 4 個案例（每個欄位寫入正確、未知值保持 NULL、同一 request id 寫兩次只有一筆、連不上時丟出例外交給 handler 回報）。2 秒上限由 handler 的 `wait_for` 與角色的 `statement_timeout` 共同負責。mutation：拿掉 `ON CONFLICT DO NOTHING` 重複寫入測試即失敗。整合測試 41 個、單元測試 460 個通過。
 - [ ] 2.6 測試 + 實作：缺少 `AUDIT_DATABASE_URL` 或 `AUDIT_IP_HMAC_KEY`（少於 32 字元）時啟動失敗；compose 與 `.env.example` 同步；驗證：測試由紅轉綠
 
 ## 3. 來源 IP 與畫面
