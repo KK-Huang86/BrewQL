@@ -78,4 +78,4 @@ def university_rows(rows: Iterable[Row]) -> list[UniversityRow]:
         )
         for row in rows
     ]
-    return sorted((r for r in out if r.city in AREA), key=lambda r: int(r.code))
+    return sorted((r for r in out if r.city in AREA), key=lambda r: r.code)
