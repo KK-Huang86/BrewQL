@@ -326,11 +326,13 @@ def prepare(cafe_rows: Iterable[Row], vote_rows: Iterable[Row], nomad_rows: Iter
         if v.cafe_source_id not in known:
             raise ValueError(f"vote for unknown cafe {v.cafe_source_id}")
     area_votes = [v for v in votes.kept if v.cafe_source_id in in_area]
-    nomad = match_nomad(cafes, nomad_rows)
+    # Matched against every cafe, so a row of a cafe outside the area is not reported as unmatched.
+    nomad = match_nomad(all_cafes, nomad_rows)
+    area_nomad = [n for n in nomad.kept if n.cafe_source_id in in_area]
     return RealBatch(
         cafes=kept,
         votes=area_votes,
-        nomad=nomad.kept,
+        nomad=area_nomad,
         report={
             "cafes": len(cafes),
             "parsed": located.parsed,
@@ -339,8 +341,9 @@ def prepare(cafe_rows: Iterable[Row], vote_rows: Iterable[Row], nomad_rows: Iter
             "outside_area": len(all_cafes) - len(cafes),
             "votes": len(area_votes),
             "member_votes_dropped": votes.dropped_member_votes,
-            "nomad_matched": len(nomad.kept),
+            "nomad_matched": len(area_nomad),
             "nomad_unmatched": nomad.unmatched,
+            "nomad_outside_area": len(nomad.kept) - len(area_nomad),
             "nomad_duplicates": nomad.duplicates,
         },
     )
