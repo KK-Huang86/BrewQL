@@ -6,6 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-genbi_owner}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       GENBI_READER_PASSWORD: ${GENBI_READER_PASSWORD:?set GENBI_READER_PASSWORD in .env}
+      GENBI_AUDIT_WRITER_PASSWORD: ${GENBI_AUDIT_WRITER_PASSWORD:?set GENBI_AUDIT_WRITER_PASSWORD in .env}
     volumes:
       - ./db/init:/docker-entrypoint-initdb.d:ro
       - pgdata:/var/lib/postgresql/data
