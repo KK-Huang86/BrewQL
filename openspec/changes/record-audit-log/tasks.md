@@ -22,7 +22,8 @@
 
 - [x] 3.1 測試 + 實作：nginx 以 `X-Real-IP $remote_addr` 覆寫來源 IP；驗證：nginx 容器測試中使用者送的 `X-Real-IP` 被蓋掉
   - 結果：`/api/ask` 加 `proxy_set_header X-Real-IP $remote_addr`；fake backend 回傳收到的 `X-Real-IP`，`SourceIpTest` 2 個測試紅轉綠（使用者送 `203.0.113.66` 被換成 nginx 看到的位址）；nginx 測試 18 個全過
-- [ ] 3.2 測試 + 實作：提問畫面顯示稽核提示；驗證：前端測試由紅轉綠
+- [x] 3.2 測試 + 實作：提問畫面顯示稽核提示；驗證：前端測試由紅轉綠
+  - 結果：提問框下方固定顯示「提問內容會被記錄以供稽核，請勿輸入個人資料」（`.audit-notice`，與修正次數同樣的淡色小字）；`AskPage.test.tsx` 新增 1 個案例紅轉綠（紅燈原因為找不到文字）；前端 62 個測試、lint、build 通過
 
 ## 4. Grafana
 
