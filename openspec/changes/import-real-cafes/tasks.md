@@ -1,6 +1,7 @@
 ## 1. 前置確認
 
-- [ ] 1.1 記錄資料來源授權（Google Places 條款、Cafe Nomad 查無正式條款）與匯入、不匯入的欄位；驗證：design D4、D11 與 README 草稿一致
+- [x] 1.1 記錄資料來源授權（Google Places 條款、Cafe Nomad 查無正式條款）與匯入、不匯入的欄位；驗證：design D4、D11 與 README 草稿一致
+  - 結果：欄位白名單記於 D4，授權記於 D11。Google Maps Platform 條款只允許長期保存 `place_id`，其他 Places 內容（店名、地址、評分、評論數）不得散布，因此只放在本機 real volume，公開部署用 demo；這些資料本來就存在 Find Coffee 的資料庫，本 change 不新增對 Google 的呼叫。Cafe Nomad 只找到開發者文件與第三方 App 的來源標示，查無正式資料授權條款，只在本機使用並於 README 標示來源。README 段落在 4.2 依 D4、D11 撰寫
 
 ## 2. 清理與比對（純函式）
 
