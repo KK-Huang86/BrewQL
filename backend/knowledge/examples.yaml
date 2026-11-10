@@ -51,6 +51,12 @@
     JOIN cafe_nomad_cache n ON n.cafe_id = p.id
     WHERE p.quiet >= 4 AND n.standing_desk = 'yes'
 
+- id: example-city-average-rating
+  question: 各城市咖啡店的平均評分是多少？取到小數點後兩位
+  sql: >-
+    SELECT city, round(avg(rating), 2) AS avg_rating FROM cafes
+    WHERE rating IS NOT NULL GROUP BY city ORDER BY avg_rating DESC
+
 - id: example-district-wifi
   question: 新北市各行政區的 Cafe Nomad 網路平均評分是多少？取到小數點後兩位
   sql: >-

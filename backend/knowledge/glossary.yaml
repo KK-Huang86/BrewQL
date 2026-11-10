@@ -53,5 +53,5 @@
 - id: glossary-rating
   title: 評分（沒指明來源的評分、平均評分、評分最高）
   content: |
-    沒指明來源時指 Google 評分：cafes.rating（v_cafe_profile 也有同一欄），不需要反問
-    Cafe Nomad 社群評分（wifi、seat、quiet、tasty、cheap、music）只在問題明確提到網路、座位、安靜等項目時使用
+    沒指明來源的評分就是 Google 評分 rating（cafes 或 v_cafe_profile），直接查詢，不要反問評分來源。
+    社群評分只在問題指名某個項目（例如網路、安靜）時使用。
