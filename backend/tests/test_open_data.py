@@ -3,6 +3,7 @@
 Rows mirror the official files' columns; the numbers are made up.
 """
 
+from datetime import date
 from decimal import Decimal
 
 import pytest
@@ -26,15 +27,15 @@ def test_population_keeps_taipei_and_new_taipei_districts_in_the_demo_spelling()
     ]
 
     assert population_rows(rows) == [
-        PopulationRow("台北市", "大安區", 290000, Decimal("11.3614"), "2025-12-31"),
-        PopulationRow("新北市", "板橋區", 549762, Decimal("23.1373"), "2025-12-31"),
+        PopulationRow("台北市", "大安區", 290000, Decimal("11.3614"), date(2025, 12, 31)),
+        PopulationRow("新北市", "板橋區", 549762, Decimal("23.1373"), date(2025, 12, 31)),
     ]
 
 
 def test_population_as_of_is_the_end_of_the_roc_year():
     [row] = population_rows([population("臺北市中正區", year="113")])
 
-    assert row.as_of == "2024-12-31"
+    assert row.as_of == date(2024, 12, 31)
 
 
 def university(code: str, name: str, city: str, district: str, ownership: str = "私立") -> dict[str, str]:
