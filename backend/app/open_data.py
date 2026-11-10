@@ -6,12 +6,12 @@ same file.
 """
 
 import re
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
-from app.real_cafes import AREA, demo_spelling
+from app.real_cafes import AREA, demo_spelling, distance_m
 
 Row = dict[str, str]
 
@@ -99,7 +99,10 @@ _COORD = Decimal("0.000001")
 
 def _coord(value: float | str) -> Decimal:
     # str() first: Taipei sends floats, and Decimal(float) would keep binary noise.
-    return Decimal(str(value)).quantize(_COORD)
+    try:
+        return Decimal(str(value)).quantize(_COORD)
+    except InvalidOperation:
+        raise ValueError(f"not a coordinate: {value!r}") from None
 
 
 def youbike_rows(
@@ -130,3 +133,68 @@ def youbike_rows(
             as_of,
         )
     return sorted(out.values(), key=lambda r: r.station_no)
+
+
+@dataclass(frozen=True)
+class MrtRow:
+    name: str
+    city: str
+    district: str
+    exit_count: int
+    lat: Decimal  # average of the station's exits
+    lng: Decimal
+    as_of: date  # the download day: the exit file carries no version
+
+
+# Exits are 「板橋站出口1」, 「板橋站出口」 (an unnumbered accessible exit) or 「台北車站M1」, whose
+# station is officially called 台北車站 (import-transit-open-data D3).
+_MRT_EXIT = re.compile(r"^(?:(?P<main>台北車站)M\d+|(?P<station>.+?)站出口\d*)$")
+# Farther than this from every YouBike station, the nearest one says nothing about the district.
+_MRT_MAX_BIKE_M = 1000
+
+# Stations whose nearest YouBike station lies across a district border, checked against the
+# station addresses on the Taipei Metro website (filled in task 1.3).
+MRT_DISTRICT_FIXES: dict[str, tuple[str, str]] = {}
+
+
+@dataclass(frozen=True)
+class _Point:
+    lat: Decimal
+    lng: Decimal
+
+
+def mrt_rows(
+    exits: Iterable[Row],
+    youbike: list[YoubikeRow],
+    as_of: date,
+    fixes: Mapping[str, tuple[str, str]] = MRT_DISTRICT_FIXES,
+) -> list[MrtRow]:
+    """One row per station. The exit file has no district, so a station borrows the district of
+    its nearest YouBike station, unless fixes names it; no boundary map needed."""
+    stations: dict[str, list[_Point]] = {}
+    for row in exits:
+        match = _MRT_EXIT.match(row["出入口名稱"])
+        if match is None:
+            raise ValueError(f"MRT exit name in an unknown format: {row['出入口名稱']!r}")
+        name = match["main"] or match["station"]
+        stations.setdefault(name, []).append(_Point(_coord(row["緯度"]), _coord(row["經度"])))
+    if stations and not youbike:
+        raise ValueError("no YouBike stations to take MRT districts from")
+    if stale := set(fixes) - set(stations):
+        raise ValueError(f"MRT district fixes for stations not in the file: {sorted(stale)}")
+    out = []
+    for name, points in stations.items():
+        where = _Point(_mean([p.lat for p in points]), _mean([p.lng for p in points]))
+        if name in fixes:
+            city, district = fixes[name]
+        else:
+            nearest = min(youbike, key=lambda bike: distance_m(where, bike))
+            if distance_m(where, nearest) > _MRT_MAX_BIKE_M:
+                raise ValueError(f"MRT station {name} has no YouBike station within {_MRT_MAX_BIKE_M} m")
+            city, district = nearest.city, nearest.district
+        out.append(MrtRow(name, city, district, len(points), where.lat, where.lng, as_of))
+    return sorted(out, key=lambda r: r.name)
+
+
+def _mean(values: list[Decimal]) -> Decimal:
+    return (sum(values) / len(values)).quantize(_COORD)
