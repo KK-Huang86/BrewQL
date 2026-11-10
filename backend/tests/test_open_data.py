@@ -75,3 +75,10 @@ def test_population_row_without_city_and_district_stops_the_trim():
     # A format change in the official file must fail loudly, not shrink the snapshot.
     with pytest.raises(ValueError, match="臺北市"):
         population_rows([population("臺北市")])
+
+
+def test_population_rows_outside_the_area_need_not_name_a_district():
+    # The official file lists 東沙群島 and 南沙群島 without a city; they are outside the area anyway.
+    rows = [population("東沙群島"), population("臺北市中正區")]
+
+    assert [r.district for r in population_rows(rows)] == ["中正區"]
