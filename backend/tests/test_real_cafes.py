@@ -167,8 +167,8 @@ def test_nomad_row_within_50_m_with_a_matching_name_joins_that_cafe():
     ("cafe_name", "nomad_name"),
     [
         ("Simple Kaffa 華山店", "ｓｉｍｐｌｅ　ｋａｆｆａ"),  # full width, spaces, case
-        ("好咖啡", "好咖啡（信義店）"),  # branch in brackets
-        ("好咖啡 信義店", "好咖啡"),  # one name contains the other
+        ("晨光咖啡", "晨光咖啡（信義店）"),  # branch in brackets
+        ("晨光咖啡 信義店", "晨光咖啡"),  # one name contains the other
     ],
 )
 def test_names_match_after_normalising(cafe_name, nomad_name):
