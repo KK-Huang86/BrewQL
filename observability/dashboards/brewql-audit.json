@@ -1,0 +1,550 @@
+{
+  "title": "BrewQL 稽核",
+  "uid": "brewql-audit",
+  "description": "BrewQL 提問稽核紀錄（record-audit-log D7）。由 repo 的 observability/dashboards/brewql-audit.json 匯入；只給管理者，問題原文只出現在這裡。",
+  "tags": [
+    "brewql",
+    "audit"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "prom",
+        "label": "Prometheus",
+        "query": "prometheus",
+        "regex": ".*-prom$"
+      },
+      {
+        "type": "datasource",
+        "name": "loki",
+        "label": "Loki",
+        "query": "loki",
+        "regex": ".*-logs$"
+      },
+      {
+        "type": "query",
+        "name": "env",
+        "label": "環境",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${prom}"
+        },
+        "query": {
+          "query": "label_values(up{project=\"brewql\"}, env)",
+          "refId": "env"
+        },
+        "definition": "label_values(up{project=\"brewql\"}, env)",
+        "refresh": 2,
+        "current": {
+          "text": "local",
+          "value": "local"
+        }
+      },
+      {
+        "type": "custom",
+        "name": "status",
+        "label": "狀態",
+        "query": "ok,clarify,refused,error",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      },
+      {
+        "type": "textbox",
+        "name": "visitor",
+        "label": "訪客（開頭）",
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "稽核紀錄",
+      "id": 1,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "title": "提問紀錄數",
+      "id": 2,
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "description": "所選範圍內的 ask_audit log 行數（套用狀態與訪客篩選）。",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(count_over_time({project=\"brewql\", env=\"$env\", service=\"backend\"} | json | __error__=\"\" | event=\"ask_audit\" | status=~\"$status\" | visitor=~\"$visitor.*\" [$__range]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "訪客數",
+      "id": 3,
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "description": "不同 visitor（IP 的 HMAC）數量；沒有來源 IP 的提問不計。",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 6,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "count(sum by (visitor) (count_over_time({project=\"brewql\", env=\"$env\", service=\"backend\"} | json | __error__=\"\" | event=\"ask_audit\" | status=~\"$status\" | visitor=~\"$visitor.*\" | visitor!=\"\" [$__range])))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "稽核寫入失敗",
+      "id": 4,
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${prom}"
+      },
+      "description": "沒寫進 ask_audit 資料表的提問數（D4）。大於 0 時這些提問只剩 Loki 這一份。",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(brewql_audit_write_failures_total{project=\"brewql\", env=\"$env\"}[$__range]))",
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${prom}"
+          },
+          "instant": true,
+          "range": false
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "估算成本",
+      "id": 5,
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "description": "ask_audit 的 estimated_cost_usd 加總；單價未知的提問不計（與指標的估算成本互相對照）。",
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": 18,
+        "y": 1
+      },
+      "targets": [
+        {
+          "expr": "sum(sum_over_time({project=\"brewql\", env=\"$env\", service=\"backend\"} | json | __error__=\"\" | event=\"ask_audit\" | status=~\"$status\" | visitor=~\"$visitor.*\" | unwrap estimated_cost_usd | __error__=\"\" [$__range]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "queryType": "instant"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "table",
+      "title": "最近的提問",
+      "id": 6,
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "description": "每一題一列，最新的在上面。完整歷史在 ask_audit 資料表（見 README）。",
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "expr": "{project=\"brewql\", env=\"$env\", service=\"backend\"} | json | __error__=\"\" | event=\"ask_audit\" | status=~\"$status\" | visitor=~\"$visitor.*\"",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "時間",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "問題"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 320
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "訪客"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          }
+        ]
+      },
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "source": "Line",
+            "format": "json",
+            "replace": false,
+            "keepTime": true
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "includeByName": {
+              "Time": true,
+              "visitor": true,
+              "status": true,
+              "question": true,
+              "sql": true,
+              "refusal_source": true,
+              "error_kind": true,
+              "row_count": true,
+              "elapsed_ms": true,
+              "request_id": true
+            },
+            "indexByName": {
+              "Time": 0,
+              "visitor": 1,
+              "status": 2,
+              "question": 3,
+              "sql": 4,
+              "refusal_source": 5,
+              "error_kind": 6,
+              "row_count": 7,
+              "elapsed_ms": 8,
+              "request_id": 9
+            },
+            "renameByName": {
+              "Time": "時間",
+              "visitor": "訪客",
+              "status": "狀態",
+              "question": "問題",
+              "sql": "SQL",
+              "refusal_source": "拒答來源",
+              "error_kind": "錯誤種類",
+              "row_count": "筆數",
+              "elapsed_ms": "耗時 ms",
+              "request_id": "request id"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "prompt caching 評估",
+      "id": 7,
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "panels": []
+    },
+    {
+      "type": "table",
+      "title": "重複的問題",
+      "id": 8,
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "description": "同一個問題文字（去頭尾空白）出現 2 次以上。重複多、且平均 input token 高，代表快取答案或 prompt caching 值得做。",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 20
+      },
+      "targets": [
+        {
+          "expr": "sum by (question) (count_over_time({project=\"brewql\", env=\"$env\", service=\"backend\"} | json | __error__=\"\" | event=\"ask_audit\" [$__range])) > 1",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "queryType": "instant"
+        },
+        {
+          "expr": "avg by (question) (avg_over_time({project=\"brewql\", env=\"$env\", service=\"backend\"} | json | __error__=\"\" | event=\"ask_audit\" | unwrap input_tokens | __error__=\"\" [$__range]))",
+          "refId": "B",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "queryType": "instant"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "次數",
+            "desc": true
+          }
+        ]
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "transformations": [
+        {
+          "id": "merge",
+          "options": {}
+        },
+        {
+          "id": "filterByValue",
+          "options": {
+            "type": "exclude",
+            "match": "any",
+            "filters": [
+              {
+                "fieldName": "Value #A",
+                "config": {
+                  "id": "isNull",
+                  "options": {}
+                }
+              }
+            ]
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "renameByName": {
+              "question": "問題",
+              "Value #A": "次數",
+              "Value #B": "平均 input token"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "每題 input token",
+      "id": 9,
+      "datasource": {
+        "type": "loki",
+        "uid": "${loki}"
+      },
+      "description": "每一題送給模型的 input token（重試時含兩次呼叫）。資料表說明佔了大部分，是 prompt caching 能省下的部分。",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "targets": [
+        {
+          "expr": "max by (question) (max_over_time({project=\"brewql\", env=\"$env\", service=\"backend\"} | json | __error__=\"\" | event=\"ask_audit\" | input_tokens > 0 | unwrap input_tokens | __error__=\"\" [$__interval]))",
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "${loki}"
+          },
+          "queryType": "range",
+          "legendFormat": "{{question}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "points",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    }
+  ]
+}
