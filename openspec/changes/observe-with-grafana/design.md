@@ -76,8 +76,9 @@ Grafana Cloud 免費方案一個帳號只有一個 stack，BrewQL 會和其他�
 - **容器**：`prometheus.exporter.cadvisor`，讀 Docker socket、containerd socket 與 `/sys`、`/var/lib/docker` 唯讀，只保留有 `brewql.metrics=true` 標籤的容器（`db`、`backend`、`frontend`、`alloy`），以 `service` 標籤區分。
   - Docker 29 預設的 containerd image store（`overlayfs` driver）下，cAdvisor 要透過 containerd 找容器的檔案層：Alloy v1.10 的 cAdvisor 認不得這種儲存方式，所以 Alloy 固定為 v1.14.0 並掛載 `/run/containerd/containerd.sock`（實測 v1.10、v1.13 都抓不到容器）。
   - 網路卡只收 `eth|ens|enp|eno` 開頭的實體網卡；veth、bridge 與 tunnel 裝置只會增加 series。
-- 額度：免費方案的 active series 有上限，與其他專案共用（D8a）。以 relabel 只保留 dashboard 與告警用到的指標（主機 CPU、記憶體、負載、檔案系統、磁碟 I/O、網路；容器 CPU、working set 記憶體、網路），丟掉其餘；BrewQL 全部 series 目標在 1,000 以內。
+- 額度：免費方案的 active series 有上限，與其他專案共用（D8a）。以 relabel 只保留 dashboard 與告警用到的指標（主機 CPU、記憶體、負載、檔案系統、磁碟 I/O、網路；容器 CPU、working set 記憶體），丟掉其餘；BrewQL 全部 series 目標在 1,000 以內。
 - 本機 Docker Desktop 上的「主機」是 Docker 的 Linux VM，不是 Mac 本身；主機數字要到部署的 EC2 才有意義，本機只驗證管線能通。
+- 不收容器網路：cAdvisor 要讀每個容器 process 的 `/proc/<pid>/net/dev`，Alloy 必須開 `pid: host` 才看得到，權限擴大到主機上所有 process；對外流量由主機網路與 nginx access log 看即可。
 - 不在 backend 加 Python process 指標：容器層已經看得到 backend 的 CPU 與記憶體。
 
 ### D9. `/metrics` 不對外

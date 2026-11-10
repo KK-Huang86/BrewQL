@@ -54,7 +54,7 @@
 - **THEN** 提問仍然正常回答
 
 ### Requirement: 主機與容器資源
-Alloy SHALL 收集主機的 CPU、記憶體、負載、檔案系統、磁碟與網路，以及這個 compose 專案每個容器的 CPU、記憶體與網路，以 `service` 標籤區分容器。Alloy MUST 只保留 dashboard 與告警用到的指標，掛載的主機路徑 MUST 為唯讀。
+Alloy SHALL 收集主機的 CPU、記憶體、負載、檔案系統、磁碟與網路，以及這個 compose 專案每個容器的 CPU 與記憶體，以 `service` 標籤區分容器。Alloy MUST 只保留 dashboard 與告警用到的指標，掛載的主機路徑 MUST 為唯讀。
 
 #### Scenario: 容器資源
 - **WHEN** 加 `--profile observability` 啟動 compose

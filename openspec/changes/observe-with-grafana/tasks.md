@@ -11,7 +11,7 @@
 - [x] 2.2 Alloy（D1、D2、D8、D8a、D11）：所有 log 與指標帶 `project="brewql"`；`observability/alloy/config.alloy`、compose `observability` profile、Grafana Cloud 變數同步 `.env.example`（只列名稱）；CI 以 `alloy fmt` 檢查設定；驗證：不加 profile 時 `docker compose up` 與提問正常；使用者設定 `.env` 後加 profile，Grafana Cloud 查得到 backend 與 nginx 的 log 與 `brewql_*` 指標
   - 結果（2026-11-09）：不加 profile 時 `docker compose config --services` 只有 db、backend、frontend；加 profile 後 Alloy 推送 metrics 1,560 筆、失敗 0，logs 34 筆、Loki 回 204；使用者在 Grafana Cloud Explore 查到 `{project="brewql"}` 的 nginx JSON log 與 `brewql_ask_seconds_bucket{project="brewql",service="backend"}`
 - [x] 2.3 主機與容器資源（D8b）：Alloy 加 `prometheus.exporter.unix` 與 `prometheus.exporter.cadvisor`，唯讀掛載，relabel 只保留用到的指標；驗證：Grafana Cloud 查得到主機記憶體與檔案系統、`db`／`backend`／`frontend` 的 CPU 與記憶體，BrewQL 的 active series 少於 1,000
-  - 結果（2026-11-09，本機 Docker Desktop）：Grafana Cloud 查到 `node_memory_MemAvailable_bytes{project="brewql",service="host",instance="brewql-alloy"}` 一條，以及 `db`、`backend`、`frontend`、`alloy` 的 `container_memory_working_set_bytes`；估算 BrewQL series：容器 12、主機約 180、backend 約 20 起，低於 1,000。容器網路流量在 Docker Desktop 上沒有資料，部署到 EC2 時再確認
+  - 結果（2026-11-09，本機 Docker Desktop）：Grafana Cloud 查到 `node_memory_MemAvailable_bytes{project="brewql",service="host",instance="brewql-alloy"}` 一條，以及 `db`、`backend`、`frontend`、`alloy` 的 `container_memory_working_set_bytes`；估算 BrewQL series：容器 12、主機約 180、backend 約 20 起，低於 1,000。容器網路流量只有主機層（`id="/"`）的資料：cAdvisor 需要 Alloy 開 `pid: host` 才讀得到各容器的網路，決定不收（見 design D8b）
 - [x] 2.4 Alloy 故障不影響服務（D2）：Grafana Cloud URL 設成無法連線時提問照常；驗證：記錄結果
   - 結果（2026-11-09）：Alloy 的 Prometheus 與 Loki URL 改成 `unreachable.invalid` 後，Alloy log 出現 `Failed to send batch, retrying`、重試 84 筆、送出 0 筆；同時經 nginx 提問「台北市有幾家咖啡店？」回 `ok [[160]]`，約 3 秒，與平常相同。改回正確設定後恢復推送
 
