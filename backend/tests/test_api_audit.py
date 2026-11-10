@@ -72,9 +72,13 @@ class Writer:
 def events():
     handler = Events()
     logger = logging.getLogger("app.audit")
+    # Production logs at INFO (configure_logging); without it the INFO audit line never reaches handlers.
+    previous = logger.level
+    logger.setLevel(logging.INFO)
     logger.addHandler(handler)
     yield handler
     logger.removeHandler(handler)
+    logger.setLevel(previous)
 
 
 def make_client(events, generator=None, daily_limit=None, max_sql_retries=0):
@@ -112,7 +116,8 @@ def test_audit_log_line_carries_the_record(events, caplog):
     [line] = [r for r in caplog.records if getattr(r, "event", None) == "ask_audit"]
     [record] = writer.records
     assert line.request_id == str(record.request_id)
-    assert (line.question, line.sql, line.status) == (QUESTION, "SELECT count(*) AS n FROM cafes LIMIT 1000", "ok")
+    # The executed SQL, as the guard rewrote it (LIMIT added).
+    assert (line.question, line.sql, line.status) == (QUESTION, "SELECT COUNT(*) AS n FROM cafes LIMIT 1000", "ok")
 
 
 def test_each_question_gets_its_own_request_id(events):
