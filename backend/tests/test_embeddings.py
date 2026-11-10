@@ -5,7 +5,7 @@ import json
 
 import pytest
 
-from app.embeddings import EmbeddingError, TitanEmbedder
+from app.embeddings import Embedding, EmbeddingError, TitanEmbedder
 
 MODEL = "amazon.titan-embed-text-v2:0"
 
@@ -56,3 +56,9 @@ async def test_blank_text_is_refused_before_calling_bedrock(text):
         await TitanEmbedder(client, model_id=MODEL, dimension=1024).embed(text)
 
     assert client.calls == []
+
+
+async def test_usage_reports_the_billed_tokens_and_model():
+    embedding = await TitanEmbedder(FakeRuntime(), model_id=MODEL, dimension=1024).embed_with_usage("工作友善")
+
+    assert embedding == Embedding(vector=[0.5] * 1024, input_tokens=7, model_id=MODEL)
