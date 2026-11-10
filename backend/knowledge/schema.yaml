@@ -110,8 +110,8 @@
 - id: schema-district_population
   title: 資料表 district_population：行政區人口與面積（政府公開資料，台北市、新北市每區一列）
   content: |
-    - city：城市，值為 '台北市' 或 '新北市'，可與 cafes、search_logs 以 city + district 串接
-    - district：行政區，例如 '大安區'、'板橋區'
+    - city：城市，值為 '台北市' 或 '新北市'
+    - district：行政區，例如 '大安區'、'板橋區'；兩城市沒有同名行政區，以 district 與 cafes、search_logs 串接
     - population：年底人口數
     - area_km2：土地面積（平方公里）
     - as_of：人口統計日期（date），目前為 2025-12-31

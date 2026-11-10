@@ -126,8 +126,8 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
 
 ## 資料表 district_population：行政區人口與面積（政府公開資料，台北市、新北市每區一列）
 
-- city：城市，值為 '台北市' 或 '新北市'，可與 cafes、search_logs 以 city + district 串接
-- district：行政區，例如 '大安區'、'板橋區'
+- city：城市，值為 '台北市' 或 '新北市'
+- district：行政區，例如 '大安區'、'板橋區'；兩城市沒有同名行政區，以 district 與 cafes、search_logs 串接
 - population：年底人口數
 - area_km2：土地面積（平方公里）
 - as_of：人口統計日期（date），目前為 2025-12-31
@@ -161,9 +161,9 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
   - 最近半年：最近 6 個月，例如 created_at >= now() - interval '6 months'
 - 趨勢：依時間分組（通常每月，用 date_trunc 或 to_char(..., 'YYYY-MM')），並依時間排序
 - 比較或排名（例如各行政區、前幾名）：只回傳一個類別欄與一個主要指標欄，除非問題要求更多欄位
-- 每萬人咖啡店數：咖啡店數 ÷ 人口 × 10000，人口來自 district_population，以 city + district 串接
+- 每萬人咖啡店數：咖啡店數 ÷ 人口 × 10000，人口來自 district_population，以 district 串接
   寫法：count(*)::numeric / p.population * 10000
-  FROM cafes c JOIN district_population p USING (city, district) GROUP BY c.district, p.population
+  FROM cafes c JOIN district_population p USING (district) GROUP BY c.district, p.population
   整個城市：該城市店數 ÷ sum(population)；搜尋次數等其他指標的「每萬人」寫法相同
 """
 

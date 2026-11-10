@@ -59,7 +59,7 @@
 - id: glossary-cafes-per-10k
   title: 每萬人咖啡店數（人均、依人口比較）
   content: |
-    咖啡店數 ÷ 人口 × 10000，人口來自 district_population.population，以 city + district 串接。
+    咖啡店數 ÷ 人口 × 10000，人口來自 district_population.population，以 district 串接。
     寫法：count(*)::numeric / p.population * 10000
-    FROM cafes c JOIN district_population p USING (city, district) GROUP BY c.district, p.population
+    FROM cafes c JOIN district_population p USING (district) GROUP BY c.district, p.population
     整個城市：該城市店數 ÷ sum(population)；搜尋次數等其他指標的「每萬人」寫法相同。
