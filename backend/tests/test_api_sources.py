@@ -28,9 +28,10 @@ def test_static_answer_has_empty_sources():
     assert post().json()["sources"] == []
 
 
-def test_prompt_mode_defaults_to_static_and_rejects_unknown_values(monkeypatch):
+def test_prompt_mode_defaults_to_rag_and_rejects_unknown_values(monkeypatch):
+    # rag became the default after the evaluation (RESULTS.md 2026-11-10: 52/52 like static, ~25% cheaper).
     monkeypatch.delenv("PROMPT_MODE", raising=False)
-    assert Settings(_env_file=None).prompt_mode == "static"
+    assert Settings(_env_file=None).prompt_mode == "rag"
 
     with pytest.raises(ValidationError):
         Settings(_env_file=None, prompt_mode="vector")
