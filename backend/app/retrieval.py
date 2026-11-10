@@ -6,7 +6,7 @@ from typing import Protocol
 
 import asyncpg
 
-from app.embeddings import Embedding
+from app.embeddings import Embedding, vector_literal
 from app.knowledge import KnowledgeKind
 
 
@@ -119,10 +119,9 @@ class PgVectorSearch:
 
     async def nearest(self, vector: list[float], kind: KnowledgeKind, limit: int) -> list[Retrieved]:
         pool = await self._get_pool()
-        literal = "[" + ",".join(repr(float(x)) for x in vector) + "]"
         async with pool.acquire() as conn, conn.transaction(readonly=True):
             await conn.execute(f"SET LOCAL statement_timeout = {int(self._statement_timeout_ms)}")
-            rows = await conn.fetch(_NEAREST, literal, kind, limit)
+            rows = await conn.fetch(_NEAREST, vector_literal(vector), kind, limit)
         return [Retrieved(r["id"], r["kind"], r["title"], r["content"], float(r["distance"])) for r in rows]
 
     async def close(self) -> None:

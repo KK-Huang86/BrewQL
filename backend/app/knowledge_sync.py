@@ -12,6 +12,7 @@ from typing import Protocol
 
 import asyncpg
 
+from app.embeddings import vector_literal
 from app.knowledge import KnowledgeDoc
 
 log = logging.getLogger(__name__)
@@ -145,5 +146,4 @@ class PgKnowledgeStore:
 
 
 def _row(e: EmbeddedDoc) -> tuple:
-    vector = "[" + ",".join(repr(float(x)) for x in e.embedding) + "]"
-    return (e.doc.id, e.doc.kind, e.doc.title, e.doc.content, e.content_hash, vector)
+    return (e.doc.id, e.doc.kind, e.doc.title, e.doc.content, e.content_hash, vector_literal(e.embedding))

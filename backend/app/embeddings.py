@@ -4,8 +4,12 @@ import asyncio
 import json
 from dataclasses import dataclass
 
-DEFAULT_EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0"
 EMBEDDING_DIMENSION = 1024  # must match knowledge_documents.embedding (db/init/05_knowledge.sh)
+
+
+def vector_literal(vector: list[float]) -> str:
+    """pgvector's text form, e.g. "[0.1,0.2]"; cast with ::vector in SQL."""
+    return "[" + ",".join(repr(float(x)) for x in vector) + "]"
 
 
 class EmbeddingError(ValueError):
