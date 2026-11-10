@@ -40,7 +40,7 @@ mrt_stations     (name, city, district, exit_count, lat, lng, as_of)         -- 
 - 名詞：「每萬人 YouBike 站數」不新增（已有每萬人寫法可套用），新增「交通便利度」名詞說明可用站數或車柱數衡量，避免模型自創指標。
 - 範例：`examples.yaml` 已有 15 題，達 `rag-knowledge-base` 的上限，不新增範例。
 - `STATIC_KNOWLEDGE`（`schema_context.py`）同步。
-- golden set 新增 2 題（含 1 題 hard，例如「沒有捷運站的行政區中，搜尋次數最多的前 3 區」）；static 與 rag 各跑 2 次，記入 `RESULTS.md`。
+- golden set 新增 2 題（含 1 題 hard）；static 與 rag 各跑 2 次，記入 `RESULTS.md`。原本想出「沒有捷運站的行政區中搜尋最多的區」，但 demo 的店家與搜尋只在 10 個行政區，全部有捷運站，答案會是空的；改成「捷運站最多的 3 區各有幾家店」（北投區 0 家，考 LEFT JOIN 與補 0）與「YouBike 車柱數前 3 區中，每個車柱搜尋次數最高的區」（考先各自彙總再串接）。
 
 ## Risks / Trade-offs
 
