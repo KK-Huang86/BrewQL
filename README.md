@@ -56,6 +56,10 @@ cp .env.example .env
 #           以及 AWS_PROFILE、BEDROCK_MODEL_ID
 
 docker compose up --build
+
+# RAG 知識庫：把 backend/knowledge/*.yaml 向量化寫入 pgvector（呼叫 Titan Embeddings，30 份約 $0.0001）。
+# 重建資料庫後、或修改知識文件後執行；內容沒變的文件不會重算
+docker compose --profile tools run --rm knowledge-import
 ```
 
 | 服務 | 網址 |
