@@ -34,4 +34,5 @@
 
 ## 5. 驗證
 
-- [ ] 5.1 `docker compose down -v` 重建後實際提問各種類型，比對 DB 與 Loki 的紀錄一致；README 補上稽核說明與管理者用 psql 查詢的方式；驗證：每種結果都有一筆且兩份紀錄欄位相同
+- [x] 5.1 `docker compose down -v` 重建後實際提問各種類型，比對 DB 與 Loki 的紀錄一致；README 補上稽核說明與管理者用 psql 查詢的方式；驗證：每種結果都有一筆且兩份紀錄欄位相同
+  - 結果：重建後經 nginx 提問 7 題，`ask_audit` 7 筆：`ok`、`clarify`、`refused`（模型）、`refused`（輸入防護，`prompt_attack`、只計 Guardrail 成本）、`error`（3 筆 `unavailable_guardrail` 502，起因是 shell 殘留 `AWS_PROFILE=brewql-deployer`）。4 筆仍在容器 log 的 `ask_audit` 行與資料表逐欄相同（15 個欄位）；3 筆 502 的 log 因重建 backend 容器只剩 Loki，由稽核 dashboard 看到。重試後仍失敗的 `generation`／`guardrail`／`query` 無法穩定觸發，由單元測試涵蓋。README 新增「稽核」一節與 3 個 psql 查詢（皆實際執行）
