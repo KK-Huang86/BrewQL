@@ -1,30 +1,11 @@
 """Writing a real cafe batch (import-real-cafes D3) into a scratch database built from db/init/01_schema.sql."""
 
-from pathlib import Path
-
 import asyncpg
 import pytest
 
 from app.real_cafes import prepare
 from app.real_cafes_store import PgRealCafeStore
 from tests.test_real_cafes import EXPORT_ROW, LAT, nomad, vote
-
-SCHEMA = Path(__file__).resolve().parents[3] / "db" / "init" / "01_schema.sql"
-SCRATCH = "genbi_real_import_test"
-
-
-@pytest.fixture
-async def empty_db(owner_dsn):
-    admin = await asyncpg.connect(owner_dsn)
-    await admin.execute(f"DROP DATABASE IF EXISTS {SCRATCH} WITH (FORCE)")
-    await admin.execute(f"CREATE DATABASE {SCRATCH}")
-    dsn = owner_dsn.rsplit("/", 1)[0] + f"/{SCRATCH}"
-    conn = await asyncpg.connect(dsn)
-    await conn.execute(SCHEMA.read_text(encoding="utf-8"))
-    await conn.close()
-    yield dsn
-    await admin.execute(f"DROP DATABASE IF EXISTS {SCRATCH} WITH (FORCE)")
-    await admin.close()
 
 
 def batch(nomad_override=None):
