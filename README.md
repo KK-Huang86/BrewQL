@@ -171,18 +171,18 @@ npm --prefix frontend run build
 | 9 | — | `limit-public-traffic` | nginx 只轉發 `/api/ask`、每 IP 限流與連線上限、全域每日提問上限（皆為環境變數） ✅ |
 | 10 | — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 ✅ |
 | 11 | — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 ✅ |
-| 12 | 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
-| 13 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例 |
-| 14 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票彙總、Cafe Nomad），與模擬資料兩種模式並存 |
-| 15 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接） |
-| 16 | — | `import-open-data` | 公開資料第二階段：YouBike 站點、捷運出入口與進出人次（距離預先計算） |
-| 17 | 10 | `edit-and-rerun-sql` | 編輯 SQL 後重新執行（同樣經過 SQL 防護） |
-| 18 | 11 | `show-definitions-and-steps` | 顯示本次使用的名詞定義；LangGraph 流程與 SSE 步驟串流 |
-| 19 | 12 | `model-comparison-report` | 模型比較報告：Haiku 與 Sonnet、錯誤分類與改善、prompt caching 成本優化 |
+| 12 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例 |
+| 13 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票彙總、Cafe Nomad），與模擬資料兩種模式並存 |
+| 14 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接） |
+| 15 | — | `import-open-data` | 公開資料第二階段：YouBike 站點、捷運出入口與進出人次（距離預先計算） |
+| 16 | 10 | `edit-and-rerun-sql` | 編輯 SQL 後重新執行（同樣經過 SQL 防護） |
+| 17 | 11 | `show-definitions-and-steps` | 顯示本次使用的名詞定義；LangGraph 流程與 SSE 步驟串流 |
+| 18 | 12 | `model-comparison-report` | 模型比較報告：Haiku 與 Sonnet、錯誤分類與改善、prompt caching 成本優化 |
+| 19 | 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
 
 依「順序」由上而下執行，`#` 是原始 ticket 編號（文件與程式註解中的「ticket 9」等指此編號）：
 
-- 先在本機完成評估與圖表，再補齊公開前必要的限流、監控與稽核後部署；之後的 ticket 完成時重新部署即可。
+- 先在本機完成評估、圖表與公開前必要的限流、監控與稽核；部署放在最後，等 RAG、真實資料匯入、prompt caching 與模型調校都完成再上線。
 - RAG 排在匯入真實與公開資料之前：資料表變多後 schema 說明與成本會持續上升，先有檢索才能證明資料增加而成本不暴增。
-- 模型比較報告放最後，等 RAG 與真實資料都完成，比較的面向最完整。
-- Prompt caching 列入考量：每題都帶約 3,000 tokens 相同的 schema 說明，快取這段前綴可降低輸入成本與延遲，且不會有答案過期問題（不同於答案快取）。重複率與每題 input token 已可從稽核 dashboard（「重複的問題」、「每題 input token」）取得；待部署後累積真實流量、RAG 定下 prompt 結構後評估，並先確認 Haiku 可快取的最短 prompt 長度。
+- 模型比較報告放在部署前，等 RAG 與真實資料都完成，比較的面向最完整，調校結果直接帶上線。
+- Prompt caching 列入考量：每題都帶約 3,000 tokens 相同的 schema 說明，快取這段前綴可降低輸入成本與延遲，且不會有答案過期問題（不同於答案快取）。重複率與每題 input token 已可從稽核 dashboard（「重複的問題」、「每題 input token」）取得；待 RAG 定下 prompt 結構、匯入真實資料後，在 `model-comparison-report` 評估並實作，並先確認 Haiku 可快取的最短 prompt 長度。
