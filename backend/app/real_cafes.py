@@ -5,10 +5,12 @@ Pure functions only: the import script reads the files and writes the database.
 
 import math
 import re
+import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
+from typing import Protocol
 
 # Every city and county in Taiwan, in the demo spelling ("台", D5).
 _CITIES = (
@@ -76,7 +78,15 @@ def _nearest(place: Place, anchors: list[tuple[Place, Location]]) -> Location | 
     return best[1] if best else None
 
 
-def distance_m(a: Place, b: Place) -> float:
+class HasCoordinates(Protocol):
+    @property
+    def lat(self) -> float: ...
+
+    @property
+    def lng(self) -> float: ...
+
+
+def distance_m(a: HasCoordinates, b: HasCoordinates) -> float:
     """Great-circle (haversine) distance in metres."""
     lat1, lat2 = math.radians(a.lat), math.radians(b.lat)
     dlat, dlng = lat2 - lat1, math.radians(b.lng - a.lng)
@@ -179,3 +189,98 @@ def _yes_no(row: Row, column: str) -> bool | None:
     if value not in ("yes", "no"):
         raise ValueError(f"{column}: expected yes, no or NULL, got {value!r}")
     return value == "yes"
+
+
+# --- Cafe Nomad ----------------------------------------------------------------------------------
+
+# A Cafe Nomad row is the same shop when it is this close and the names agree (D7).
+MATCH_RADIUS_M = 50.0
+_RATINGS = ("wifi", "seat", "quiet", "tasty", "cheap", "music")
+_BRACKETS = re.compile(r"[(（][^)）]*[)）]")
+_NOT_WORD = re.compile(r"[\W_]+")
+
+
+@dataclass(frozen=True)
+class NomadRow:
+    cafe_source_id: int
+    cafenomad_id: str
+    name: str
+    wifi: Decimal | None
+    seat: Decimal | None
+    quiet: Decimal | None
+    tasty: Decimal | None
+    cheap: Decimal | None
+    music: Decimal | None
+    socket: str | None
+    limited_time: str | None
+    standing_desk: str | None
+    mrt: str | None
+    synced_at: datetime
+
+
+@dataclass(frozen=True)
+class NomadMatch:
+    kept: list[NomadRow]
+    unmatched: int  # no cafe close enough with an agreeing name
+    duplicates: int  # matched a cafe that a nearer row already took
+
+
+def match_nomad(cafes: Sequence[CafeRow], rows: Iterable[Row]) -> NomadMatch:
+    """Join Cafe Nomad rows to cafes: within 50 m, names agree, one row per cafe (the nearest)."""
+    names = [_normalise(c.name) for c in cafes]
+    best: dict[int, tuple[float, NomadRow]] = {}  # cafe source id -> nearest matching row
+    unmatched = duplicates = 0
+    for row in rows:
+        here = Place(address="", lat=float(row["lat"]), lng=float(row["lng"]))
+        name = _normalise(row["name"])
+        found = min(
+            (
+                (d, cafe)
+                for cafe, cafe_name in zip(cafes, names, strict=True)
+                if (d := distance_m(here, cafe)) <= MATCH_RADIUS_M and _names_agree(name, cafe_name)
+            ),
+            key=lambda pair: pair[0],
+            default=None,
+        )
+        if found is None:
+            unmatched += 1
+            continue
+        d, cafe = found
+        current = best.get(cafe.source_id)
+        if current is not None:
+            duplicates += 1
+            if current[0] <= d:
+                continue
+        best[cafe.source_id] = (d, _nomad_row(cafe.source_id, row))
+    return NomadMatch(kept=[row for _, row in best.values()], unmatched=unmatched, duplicates=duplicates)
+
+
+def _normalise(name: str) -> str:
+    # Full width to half width, branch names in brackets out, then only letters and digits, lower case.
+    name = _BRACKETS.sub("", unicodedata.normalize("NFKC", name))
+    return _NOT_WORD.sub("", name).lower()
+
+
+def _names_agree(a: str, b: str) -> bool:
+    return bool(a) and bool(b) and (a in b or b in a)
+
+
+def _nomad_row(cafe_source_id: int, row: Row) -> NomadRow:
+    ratings = {column: _rating(row, column) for column in _RATINGS}
+    return NomadRow(
+        cafe_source_id=cafe_source_id,
+        cafenomad_id=row["cafenomad_id"],
+        name=row["name"],
+        **ratings,
+        socket=_value(row, "socket"),
+        limited_time=_value(row, "limited_time"),
+        standing_desk=_value(row, "standing_desk"),
+        mrt=_value(row, "mrt"),
+        synced_at=datetime.fromisoformat(row["synced_at"]),
+    )
+
+
+def _rating(row: Row, column: str) -> Decimal | None:
+    # 0 means nobody rated it yet, the same as NULL (D7).
+    value = _value(row, column)
+    return None if value is None or Decimal(value) == 0 else Decimal(value)
