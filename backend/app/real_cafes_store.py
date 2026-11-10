@@ -42,7 +42,7 @@ class PgRealCafeStore:
         async with self._lock:
             if self._pool is None:
                 # Created on first use: demo mode never connects.
-                self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=1)
+                self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=1, timeout=10)
         return self._pool
 
     async def has_cafes(self) -> bool:

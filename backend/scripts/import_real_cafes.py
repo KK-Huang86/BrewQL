@@ -52,7 +52,7 @@ async def main(directory: Path, *, dataset: str, store: RealCafeStore) -> int:
     try:
         await store.write(batch)
     except Exception as e:
-        log.error("real cafe import failed", extra={"error": type(e).__name__})
+        log.exception("real cafe import failed", extra={"error": type(e).__name__})
         print(f"import failed, nothing written: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
     print(" ".join(f"{k}={v}" for k, v in batch.report.items()))
