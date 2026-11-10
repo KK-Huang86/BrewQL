@@ -1,5 +1,6 @@
 """HTTP API: health check and question endpoint."""
 
+import asyncio
 import logging
 import time
 import uuid
@@ -25,6 +26,7 @@ from app.metrics import AskMetrics, Unavailable
 from app.pipeline import MAX_QUESTION_CHARS, InputGuard, QueryExecutor, SqlGenerator, ask
 
 log = logging.getLogger(__name__)
+audit_log = logging.getLogger("app.audit")
 
 
 class AskRequest(BaseModel):
@@ -87,6 +89,7 @@ def create_app(
     model_id: str | None = None,
     audit_writer: AuditWriter | None = None,
     visitor_key: bytes | None = None,
+    audit_timeout_seconds: float = 2.0,
 ) -> FastAPI:
     # model_id only pre-creates the token series at 0; the reply's own model ID is what gets counted.
     metrics = AskMetrics(daily_limit, model_id=model_id)
@@ -116,8 +119,18 @@ def create_app(
     async def audit(record: AuditRecord) -> None:
         # Log first: if the write fails, the second copy already exists (record-audit-log D3).
         log_record(record)
-        if audit_writer is not None:
-            await audit_writer.write(record)
+        if audit_writer is None:
+            return
+        # One try, bounded: the answer must not wait on, or fail with, the audit database (D4).
+        try:
+            await asyncio.wait_for(audit_writer.write(record), timeout=audit_timeout_seconds)
+        except Exception as exc:
+            metrics.audit_write_failures.inc()
+            audit_log.error(
+                "audit write failed",
+                # Type only: a database error's text can quote the row, and the row holds the question.
+                extra={"request_id": str(record.request_id), "error": type(exc).__name__},
+            )
 
     def visitor(request: Request) -> str | None:
         # nginx overwrites X-Real-IP with the connecting address; direct calls (SSH tunnel) have none.

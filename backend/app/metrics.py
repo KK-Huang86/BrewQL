@@ -58,6 +58,10 @@ class AskMetrics:
         self.unpriced = Counter(
             "brewql_unpriced_questions", "Questions whose cost is unknown, so the cost total is low", registry=r
         )
+        # An unlabelled counter is exported at 0 from the start, so the alert sees the first failure.
+        self.audit_write_failures = Counter(
+            "brewql_audit_write_failures", "Audit records that could not be stored (record-audit-log D4)", registry=r
+        )
         self._start_at_zero(model_id)
         self.daily_limit_hits = None
         if daily_limit is not None:
