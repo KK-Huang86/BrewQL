@@ -309,25 +309,35 @@ class RealBatch:
     report: dict[str, int]
 
 
+# Real mode covers the cities demo and the knowledge documents describe (D12).
+AREA = ("台北市", "新北市")
+
+
 def prepare(cafe_rows: Iterable[Row], vote_rows: Iterable[Row], nomad_rows: Iterable[Row]) -> RealBatch:
-    cafes = [clean_cafe(row) for row in cafe_rows]
-    located = locate([Place(c.address, c.lat, c.lng) for c in cafes])
+    all_cafes = [clean_cafe(row) for row in cafe_rows]
+    # Located over every cafe: a cafe outside the area can still vouch for a neighbour's district.
+    located = locate([Place(c.address, c.lat, c.lng) for c in all_cafes])
+    kept = [(c, loc) for c, loc in zip(all_cafes, located.locations, strict=True) if loc and loc[0] in AREA]
+    cafes = [c for c, _ in kept]
+    in_area = {c.source_id for c in cafes}
     votes = clean_votes(vote_rows)
-    known = {c.source_id for c in cafes}
+    known = {c.source_id for c in all_cafes}
     for v in votes.kept:
         if v.cafe_source_id not in known:
             raise ValueError(f"vote for unknown cafe {v.cafe_source_id}")
+    area_votes = [v for v in votes.kept if v.cafe_source_id in in_area]
     nomad = match_nomad(cafes, nomad_rows)
     return RealBatch(
-        cafes=list(zip(cafes, located.locations, strict=True)),
-        votes=votes.kept,
+        cafes=kept,
+        votes=area_votes,
         nomad=nomad.kept,
         report={
             "cafes": len(cafes),
             "parsed": located.parsed,
             "filled": located.filled,
             "unknown": located.unknown,
-            "votes": len(votes.kept),
+            "outside_area": len(all_cafes) - len(cafes),
+            "votes": len(area_votes),
             "member_votes_dropped": votes.dropped_member_votes,
             "nomad_matched": len(nomad.kept),
             "nomad_unmatched": nomad.unmatched,
