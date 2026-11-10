@@ -1,10 +1,15 @@
-"""Static schema description given to the model as the system prompt.
+"""What the model is told about the data: fixed reply rules plus either the full knowledge or retrieved parts.
 
-This is the pre-RAG baseline; ticket 9 replaces it with retrieval from pgvector
-so accuracy can be compared with and without RAG.
+static mode (the evaluation baseline) sends REPLY_RULES + STATIC_KNOWLEDGE, unchanged since before RAG.
+rag mode (rag-knowledge-base D8) sends REPLY_RULES, every queryable table name and only the retrieved
+knowledge. backend/knowledge/*.yaml holds the same knowledge split into documents; edit both together.
 """
 
-SCHEMA_CONTEXT = """你是 Find Coffee 營運數據助理，把營運人員的中文問題轉成一個 PostgreSQL SELECT 查詢。
+from app.retrieval import RetrievalResult
+from app.sql_guard import DEFAULT_ALLOWED_TABLES
+
+# Always sent: what to answer with and when to refuse or ask back must never depend on retrieval.
+REPLY_RULES = """你是 Find Coffee 營運數據助理，把營運人員的中文問題轉成一個 PostgreSQL SELECT 查詢。
 只能使用下面的資料表與欄位，只產生單一 SELECT，不要修改資料。
 
 ## 回覆類型（kind）
@@ -21,7 +26,9 @@ SCHEMA_CONTEXT = """你是 Find Coffee 營運數據助理，把營運人員的�
 拒答一定要用 refuse。不可以產生必定查不到資料的查詢來代替拒答，
 例如 WHERE FALSE、WHERE 1 = 0、LIMIT 0。
 
-## 資料表 cafes：咖啡店（每列一家店）
+"""
+
+STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
 
 - id：主鍵
 - place_id：Google 地點 ID
@@ -138,3 +145,27 @@ SCHEMA_CONTEXT = """你是 Find Coffee 營運數據助理，把營運人員的�
 - 趨勢：依時間分組（通常每月，用 date_trunc 或 to_char(..., 'YYYY-MM')），並依時間排序
 - 比較或排名（例如各行政區、前幾名）：只回傳一個類別欄與一個主要指標欄，除非問題要求更多欄位
 """
+
+SCHEMA_CONTEXT = REPLY_RULES + STATIC_KNOWLEDGE
+
+
+def rag_context(result: RetrievalResult) -> str:
+    """Reply rules, every table name (so nothing is unknowable), then only what retrieval found."""
+    tables = "、".join(sorted(DEFAULT_ALLOWED_TABLES))
+    parts = [
+        REPLY_RULES.rstrip("\n"),
+        f"## 可查詢的資料表\n\n{tables}\n（下面只附上與問題相關的說明；其他資料表的欄位不明時，不要猜測欄位名稱）",
+    ]
+    parts += [f"## {doc.title}\n\n{doc.content}" for doc in result.schema]
+    if result.glossary:
+        terms = "\n".join(f"- {doc.title}：{_indent(doc.content)}" for doc in result.glossary)
+        parts.append(f"## 名詞定義\n\n{terms}")
+    if result.example:
+        examples = "\n\n".join(f"問題：{doc.title}\nSQL：{doc.content}" for doc in result.example)
+        parts.append(f"## 範例\n\n{examples}")
+    return "\n\n".join(parts) + "\n"
+
+
+def _indent(text: str) -> str:
+    # Continuation lines of a multi-line definition stay inside its list item.
+    return "\n  ".join(text.splitlines())

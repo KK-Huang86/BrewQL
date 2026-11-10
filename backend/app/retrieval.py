@@ -52,6 +52,8 @@ DEFAULT_TOP_N = TopN()
 class VectorSearch(Protocol):
     async def nearest(self, vector: list[float], kind: KnowledgeKind, limit: int) -> list[Retrieved]: ...
 
+    async def close(self) -> None: ...
+
 
 class Retriever:
     def __init__(self, embedder: Embedder, search: VectorSearch, *, top_n: TopN = DEFAULT_TOP_N):
@@ -71,6 +73,9 @@ class Retriever:
         except Exception as e:
             raise RetrievalUnavailable(f"{type(e).__name__}: {e}") from e
         return RetrievalResult(schema=tuple(schema), glossary=tuple(glossary), example=tuple(example))
+
+    async def close(self) -> None:
+        await self._search.close()
 
 
 _NEAREST = """

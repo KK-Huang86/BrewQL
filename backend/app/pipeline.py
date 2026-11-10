@@ -9,7 +9,10 @@ from typing import Any, Literal, Protocol
 
 from app.db import QueryError
 from app.input_guard import GuardrailUsage, GuardVerdict
+from app.knowledge import KnowledgeKind
 from app.llm import ErrorKind, FailedAttempt, ModelUsage, Reply, ReplyError
+from app.retrieval import RetrievalResult
+from app.schema_context import rag_context
 from app.sql_guard import SqlGuardError, validate_sql
 
 log = logging.getLogger(__name__)
@@ -22,7 +25,24 @@ class InvalidQuestion(ValueError):
 
 
 class SqlGenerator(Protocol):
-    async def generate(self, question: str, feedback: Sequence[FailedAttempt] = ()) -> Reply: ...
+    # context is passed only in rag mode; without it the generator uses the static schema.
+    async def generate(
+        self, question: str, feedback: Sequence[FailedAttempt] = (), *, context: str | None = None
+    ) -> Reply: ...
+
+
+class KnowledgeRetriever(Protocol):
+    async def retrieve(self, question: str) -> RetrievalResult: ...
+    async def close(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class Source:
+    """One knowledge document a rag answer was given (rag-knowledge-base: report the knowledge used)."""
+
+    id: str
+    kind: KnowledgeKind
+    title: str
 
 
 class InputGuard(Protocol):
@@ -93,6 +113,8 @@ class AskResult:
     attempts: int = 0
     # Tries that failed before this result, for the audit trail; the result itself is the last try.
     failed_attempts: list[FailedAttempt] = field(default_factory=list, compare=False)
+    # Knowledge given to the model in rag mode; empty in static mode.
+    sources: list[Source] = field(default_factory=list)
     # Cost detail; left out of equality so results compare by answer alone.
     usage: AskUsage = field(default_factory=AskUsage, compare=False)
 
@@ -104,13 +126,14 @@ async def ask(
     *,
     input_guard: InputGuard | None = None,
     max_retries: int = 0,
+    retriever: KnowledgeRetriever | None = None,
 ) -> AskResult:
     question = question.strip()
     if not 1 <= len(question) <= MAX_QUESTION_CHARS:
         raise InvalidQuestion(f"問題需為 1~{MAX_QUESTION_CHARS} 字")
     started = time.perf_counter()
     usage = AskUsage()
-    result = await _answer(question, generator, executor, input_guard, max_retries, usage)
+    result = await _answer(question, generator, executor, input_guard, max_retries, usage, retriever)
     usage.elapsed_ms = int((time.perf_counter() - started) * 1000)
     result.usage = usage
     return result
@@ -123,6 +146,7 @@ async def _answer(
     input_guard: InputGuard | None,
     max_retries: int,
     usage: AskUsage,
+    retriever: KnowledgeRetriever | None,
 ) -> AskResult:
     # First gate: a blocked question never reaches the model. Failures propagate (fail closed).
     # Checked once: retries reuse the same question, so screening it again only adds cost.
@@ -133,11 +157,19 @@ async def _answer(
         if verdict.blocked:
             usage.guardrail_reasons = verdict.reasons
             return AskResult(status="refused", message=verdict.message, refusal_source="input_guardrail")
+    # Retrieved once, after the guard: retries reuse it and a blocked question costs no embedding.
+    context: str | None = None
+    sources: list[Source] = []
+    if retriever is not None:
+        found = await retriever.retrieve(question)
+        context = rag_context(found)
+        sources = [Source(id=d.id, kind=d.kind, title=d.title) for d in found.all()]
     feedback: list[FailedAttempt] = []
     while True:
-        result, failure, retryable = await _attempt(question, generator, executor, feedback, usage)
+        result, failure, retryable = await _attempt(question, generator, executor, feedback, usage, context)
         result.attempts = len(feedback) + 1
         result.failed_attempts = list(feedback)
+        result.sources = sources
         if failure is not None:
             _log_failure(result.attempts, failure)
         # Stop on success, refuse/clarify, a failure not worth retrying, or the retry budget.
@@ -164,11 +196,17 @@ async def _attempt(
     executor: QueryExecutor,
     feedback: Sequence[FailedAttempt],
     usage: AskUsage,
+    context: str | None,
 ) -> tuple[AskResult, FailedAttempt | None, bool]:
     """One model call and, for SQL, guard + execution: (result, failure if any, whether a retry may help)."""
     try:
         with usage.timed("model"):
-            reply = await generator.generate(question, feedback)
+            # Static mode keeps the old call shape, so generators without rag support still work.
+            reply = await (
+                generator.generate(question, feedback, context=context)
+                if context is not None
+                else generator.generate(question, feedback)
+            )
     except ReplyError as e:
         usage.add(e.usage)  # an unusable reply was still billed
         failure = FailedAttempt(error_kind="generation", reason=str(e))

@@ -37,6 +37,9 @@ services:
       BEDROCK_GUARDRAIL_VERSION: ${BEDROCK_GUARDRAIL_VERSION:-}
       MAX_SQL_RETRIES: ${MAX_SQL_RETRIES:-1}
       DAILY_QUESTION_LIMIT: ${DAILY_QUESTION_LIMIT:-500}
+      # static or rag (rag-knowledge-base); rag needs the knowledge-import to have run.
+      PROMPT_MODE: ${PROMPT_MODE:-static}
+      EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-amazon.titan-embed-text-v2:0}
       # Append-only audit role (record-audit-log D2); the backend refuses to start without these.
       AUDIT_DATABASE_URL: postgresql://genbi_audit_writer:${GENBI_AUDIT_WRITER_PASSWORD}@db:5432/genbi
       AUDIT_IP_HMAC_KEY: ${AUDIT_IP_HMAC_KEY:?set AUDIT_IP_HMAC_KEY in .env (32+ characters)}
