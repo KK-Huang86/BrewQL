@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.real_cafes import parse_address
+from app.real_cafes import Place, locate, parse_address
 
 
 @pytest.mark.parametrize(
@@ -32,3 +32,44 @@ def test_city_and_district_come_from_the_address_in_the_demo_spelling(address, e
 )
 def test_address_without_city_and_district_gives_none(address):
     assert parse_address(address) is None
+
+
+# Near Taipei 101: 0.001 degree of latitude is about 111 m.
+LAT, LNG = 25.0330, 121.5654
+
+
+def place(address, north_m=0.0):
+    return Place(address=address, lat=LAT + north_m / 111_000, lng=LNG)
+
+
+def test_unparsed_address_takes_the_nearest_parsed_cafe_within_one_kilometre():
+    located = locate(
+        [
+            place("台北市信義區信義路五段 7 號"),
+            place("台北市大安區基隆路 1 號", north_m=900),
+            place("信義路五段 9 號", north_m=300),  # 300 m from 信義區, 600 m from 大安區
+        ]
+    )
+
+    assert located.locations == [("台北市", "信義區"), ("台北市", "大安區"), ("台北市", "信義區")]
+    assert (located.parsed, located.filled, located.unknown) == (2, 1, 0)
+
+
+def test_unparsed_address_with_no_parsed_cafe_within_one_kilometre_stays_unknown():
+    located = locate([place("台北市信義區信義路五段 7 號"), place("某條路 1 號", north_m=1_200)])
+
+    assert located.locations == [("台北市", "信義區"), None]
+    assert (located.parsed, located.filled, located.unknown) == (1, 0, 1)
+
+
+def test_a_filled_location_is_not_passed_on_to_another_cafe():
+    # Only addresses vouch for a district; chaining fills could walk across a district border.
+    located = locate(
+        [
+            place("台北市信義區信義路五段 7 號"),
+            place("某條路 1 號", north_m=800),
+            place("某條路 2 號", north_m=1_600),  # 800 m from the filled cafe, 1.6 km from the parsed one
+        ]
+    )
+
+    assert located.locations == [("台北市", "信義區"), ("台北市", "信義區"), None]
