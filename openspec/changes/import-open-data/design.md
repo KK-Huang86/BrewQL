@@ -23,7 +23,7 @@
 district_population (city, district, population, area_km2, as_of)   -- PRIMARY KEY (city, district)
 universities (code, name, ownership, level, city, district)          -- PRIMARY KEY (code)
 ```
-`as_of` 記錄資料時間（例如 `2025-12-31`），模型與 README 都能說明「人口是 114 年底」。`ownership` 為「公立／私立」，`level` 為官方的體制欄位原值。
+`as_of` 記錄資料時間（例如 `2025-12-31`），模型與 README 都能說明「人口是 114 年底」。`ownership` 為「公立／私立」，`level` 為官方的體制欄位原值。`code` 照官方下載檔保留：檔案裡數字代碼的前導 0 已經不見（政大是 `1`，不是 `0001`），快照不自行補 0，只當主鍵使用。
 
 ### D4. 載入與權限
 `db/init/06_open_data.sh` 在兩種資料集都執行（公開資料與店家來源無關），以 `\copy` 載入快照並 GRANT SELECT 給 `genbi_reader`。與 demo seed 相同，快照放在 init 目錄的子資料夾，Postgres 不會直接執行。CI 與測試資料庫跑同一支腳本。
