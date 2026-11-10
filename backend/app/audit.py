@@ -3,12 +3,16 @@
 Builds the record only; where it goes (the ask_audit log line and table) is the handler's job.
 """
 
+import asyncio
 import hashlib
 import hmac
+import json
 import logging
 import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
+
+import asyncpg
 
 from app.metrics import Unavailable
 from app.pipeline import AskResult
@@ -92,3 +96,56 @@ def log_record(record: AuditRecord) -> None:
     fields = asdict(record)
     fields["request_id"] = str(record.request_id)
     log.info("ask_audit", extra={"event": "ask_audit", **fields})
+
+
+_INSERT = """
+INSERT INTO ask_audit (
+    request_id, visitor, question, sql, failed_attempts, status, refusal_source, error_kind,
+    guardrail_reasons, model_id, input_tokens, output_tokens, guardrail_units, estimated_cost_usd,
+    elapsed_ms, row_count
+) VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+ON CONFLICT (request_id) DO NOTHING
+"""
+
+
+class PgAuditWriter:
+    """Appends to ask_audit as genbi_audit_writer (D2); errors propagate for the handler to report (D4)."""
+
+    def __init__(self, dsn: str) -> None:
+        self._dsn = dsn
+        self._pool: asyncpg.Pool | None = None
+        self._lock = asyncio.Lock()
+
+    async def _get_pool(self) -> asyncpg.Pool:
+        # Created on first write so the app starts without a database; a failed connect retries next time.
+        async with self._lock:
+            if self._pool is None:
+                self._pool = await asyncpg.create_pool(self._dsn, min_size=1, max_size=2)
+        return self._pool
+
+    async def write(self, record: AuditRecord) -> None:
+        pool = await self._get_pool()
+        # One autocommitted INSERT: it lands whole or not at all, and a re-send is a no-op (request_id).
+        await pool.execute(
+            _INSERT,
+            record.request_id,
+            record.visitor,
+            record.question,
+            record.sql,
+            json.dumps(record.failed_attempts, ensure_ascii=False),
+            record.status,
+            record.refusal_source,
+            record.error_kind,
+            list(record.guardrail_reasons),
+            record.model_id,
+            record.input_tokens,
+            record.output_tokens,
+            record.guardrail_units,
+            record.estimated_cost_usd,
+            record.elapsed_ms,
+            record.row_count,
+        )
+
+    async def close(self) -> None:
+        if self._pool is not None:
+            await self._pool.close()
