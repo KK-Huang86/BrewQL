@@ -146,9 +146,9 @@ class MrtRow:
     as_of: date  # the download day: the exit file carries no version
 
 
-# Exits are 「板橋站出口1」, 「板橋站出口」 (an unnumbered accessible exit) or 「台北車站M1」, whose
-# station is officially called 台北車站 (import-transit-open-data D3).
-_MRT_EXIT = re.compile(r"^(?:(?P<main>台北車站)M\d+|(?P<station>.+?)站出口\d*)$")
+# Exits are 「板橋站出口1」, 「南港展覽館站出口2A」, 「板橋站出口」 (an unnumbered accessible exit) or
+# 「台北車站M1」, whose station is officially called 台北車站 (import-transit-open-data D3).
+_MRT_EXIT = re.compile(r"^(?:(?P<main>台北車站)M\d+|(?P<station>.+?)站出口(?:\d+[A-Z]?)?)$")
 # Farther than this from every YouBike station, the nearest one says nothing about the district.
 _MRT_MAX_BIKE_M = 1000
 
