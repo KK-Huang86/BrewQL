@@ -1,6 +1,7 @@
 """The real cafe import command (import-real-cafes D3): skip, refuse, or write one batch."""
 
 import csv
+import logging
 
 from app.real_cafes import RealBatch
 from scripts.import_real_cafes import main
@@ -97,3 +98,13 @@ async def test_failed_write_exits_1_and_says_nothing_was_written(tmp_path, capsy
 
     assert code == 1
     assert "nothing written" in capsys.readouterr().err
+
+
+async def test_failed_write_is_logged_with_its_traceback(tmp_path, caplog):
+    # The rollback's cause must be findable in the logs, not only on stderr (CODING_STANDARDS data rule 8).
+    with caplog.at_level(logging.ERROR, logger="scripts.import_real_cafes"):
+        await main(export_dir(tmp_path), dataset="real", store=FakeStore(fail=True))
+
+    [record] = caplog.records
+    assert record.exc_info is not None
+    assert "connection reset" in str(record.exc_info[1])
