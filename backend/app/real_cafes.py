@@ -198,6 +198,10 @@ MATCH_RADIUS_M = 50.0
 _RATINGS = ("wifi", "seat", "quiet", "tasty", "cheap", "music")
 _BRACKETS = re.compile(r"[(（][^)）]*[)）]")
 _NOT_WORD = re.compile(r"[\W_]+")
+# Words most shop names share; left in, "咖啡" vs "coffee" alone would stop a match. Longest first.
+_GENERIC = re.compile(r"咖啡館|咖啡廳|咖啡店|咖啡|珈琲|coffee|caffe|cafe|café")
+# What is left must say something: one Han character or two Latin letters match too much.
+_MIN_HAN, _MIN_LATIN = 2, 3
 
 
 @dataclass(frozen=True)
@@ -256,13 +260,19 @@ def match_nomad(cafes: Sequence[CafeRow], rows: Iterable[Row]) -> NomadMatch:
 
 
 def _normalise(name: str) -> str:
-    # Full width to half width, branch names in brackets out, then only letters and digits, lower case.
-    name = _BRACKETS.sub("", unicodedata.normalize("NFKC", name))
-    return _NOT_WORD.sub("", name).lower()
+    # Full width to half width, branch names in brackets out, lower case, generic words out,
+    # then only letters and digits.
+    name = _BRACKETS.sub("", unicodedata.normalize("NFKC", name)).lower()
+    return _NOT_WORD.sub("", _GENERIC.sub("", name))
 
 
 def _names_agree(a: str, b: str) -> bool:
-    return bool(a) and bool(b) and (a in b or b in a)
+    shorter, longer = sorted((a, b), key=len)
+    return _long_enough(shorter) and shorter in longer
+
+
+def _long_enough(name: str) -> bool:
+    return len(name) >= (_MIN_LATIN if name.isascii() else _MIN_HAN)
 
 
 def _nomad_row(cafe_source_id: int, row: Row) -> NomadRow:
