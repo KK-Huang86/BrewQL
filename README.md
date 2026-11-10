@@ -51,8 +51,8 @@ flowchart LR
 
 ```bash
 cp .env.example .env
-# 編輯 .env：設定 POSTGRES_PASSWORD、GENBI_READER_PASSWORD、GENBI_AUDIT_WRITER_PASSWORD
-#           （三組不同，避免 : @ /）、AUDIT_IP_HMAC_KEY（openssl rand -hex 32）
+# 編輯 .env：設定 POSTGRES_PASSWORD、GENBI_READER_PASSWORD、GENBI_AUDIT_WRITER_PASSWORD、
+#           GENBI_KNOWLEDGE_WRITER_PASSWORD（四組不同，避免 : @ /）、AUDIT_IP_HMAC_KEY（openssl rand -hex 32）
 #           以及 AWS_PROFILE、BEDROCK_MODEL_ID
 
 docker compose up --build

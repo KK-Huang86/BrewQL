@@ -7,7 +7,8 @@
 
 ## 2. 匯入
 
-- [ ] 2.1 建立知識庫寫入角色並授權；驗證：該角色無法寫入其他資料表
+- [x] 2.1 建立知識庫寫入角色並授權；驗證：該角色無法寫入其他資料表
+  - 結果：`db/init/05_knowledge.sh` 建立 pgvector extension、`knowledge_documents`（`vector(1024)`、`content_hash`）與 `genbi_knowledge_writer`（只對該表 SELECT／INSERT／UPDATE／DELETE，連線上限 2、`statement_timeout` 30s）；`genbi_reader` 只能 SELECT。整合測試 `test_knowledge_roles.py` 9 個案例紅轉綠（紅燈原因為角色與資料表不存在）：寫入角色可增改刪、碰不到 `cafes`／`ask_audit`、維度不是 1024 被拒；唯讀角色解除唯讀預設後仍不能改、刪、清空。compose、CI、`db/test-db.sh`、`.env.example`、README 同步新密碼變數。後端 547 個測試通過，模擬資料檢查全過
 - [ ] 2.2 測試 + 實作：匯入（雜湊跳過、更新、刪除、單一 transaction、中途失敗 rollback、錯誤記錄），以假 embedding 測試；驗證：測試由紅轉綠
 - [ ] 2.3 實作 Titan embedding client（`to_thread`、模型 ID 設定）並實際匯入；驗證：知識庫筆數等於文件數，重跑不呼叫 embedding
 
