@@ -129,3 +129,10 @@ def test_fixes_list_the_stations_whose_nearest_youbike_lies_across_a_district_bo
         "忠孝新生": ("台北市", "大安區"),
         "雙連": ("台北市", "大同區"),
     }
+
+
+def test_a_fix_to_an_unknown_district_stops_the_build():
+    # A typo in a fix must fail here, not after the snapshot is written. Known districts are those
+    # of the YouBike stations, which youbike_rows already checked against district_population.
+    with pytest.raises(ValueError, match="台北市中政區"):
+        mrt_rows([exit_("北門站出口1", "1", "25.048500")], BIKES, AS_OF, fixes={"北門": ("台北市", "中政區")})
