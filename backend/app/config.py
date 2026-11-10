@@ -37,9 +37,9 @@ class Settings(BaseSettings):
     # RAG (rag-knowledge-base): Titan model for question and document vectors; the importer's role.
     embedding_model_id: str = "amazon.titan-embed-text-v2:0"
     knowledge_database_url: str = ""
-    # static: full schema text (evaluation baseline); rag: retrieved knowledge. Default changes only after
-    # the evaluation shows rag is no worse (D10).
-    prompt_mode: Literal["static", "rag"] = "static"
+    # rag: retrieved knowledge (default since the 2026-11-10 evaluation: as accurate, ~25% cheaper, D10);
+    # static: the full schema text, kept as the evaluation baseline and a fallback switch.
+    prompt_mode: Literal["static", "rag"] = "rag"
 
     @field_validator("bedrock_effort", "bedrock_guardrail_id", "bedrock_guardrail_version", mode="before")
     @classmethod

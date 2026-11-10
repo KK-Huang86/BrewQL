@@ -57,9 +57,9 @@ cp .env.example .env
 
 docker compose up --build
 
-# RAG 知識庫：把 backend/knowledge/*.yaml 向量化寫入 pgvector（呼叫 Titan Embeddings，30 份約 $0.0001）。
-# 重建資料庫後、或修改知識文件後執行；內容沒變的文件不會重算
-docker compose --profile tools run --rm knowledge-import
+# up 會先執行 knowledge-import：把 backend/knowledge/*.yaml 向量化寫入 pgvector（Titan Embeddings，
+# 首次約 $0.0001，內容沒變不重算）。知識文件打包在 image 裡，修改後要加 --build 才會匯入新內容：
+docker compose run --rm --build knowledge-import
 ```
 
 | 服務 | 網址 |

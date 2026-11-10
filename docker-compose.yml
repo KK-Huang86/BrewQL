@@ -37,8 +37,8 @@ services:
       BEDROCK_GUARDRAIL_VERSION: ${BEDROCK_GUARDRAIL_VERSION:-}
       MAX_SQL_RETRIES: ${MAX_SQL_RETRIES:-1}
       DAILY_QUESTION_LIMIT: ${DAILY_QUESTION_LIMIT:-500}
-      # static or rag (rag-knowledge-base); rag needs the knowledge-import to have run.
-      PROMPT_MODE: ${PROMPT_MODE:-static}
+      # rag (default) or static (rag-knowledge-base D10); knowledge-import below runs before the backend.
+      PROMPT_MODE: ${PROMPT_MODE:-rag}
       EMBEDDING_MODEL_ID: ${EMBEDDING_MODEL_ID:-amazon.titan-embed-text-v2:0}
       # Append-only audit role (record-audit-log D2); the backend refuses to start without these.
       AUDIT_DATABASE_URL: postgresql://genbi_audit_writer:${GENBI_AUDIT_WRITER_PASSWORD}@db:5432/genbi
@@ -56,12 +56,15 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      knowledge-import:
+        condition: service_completed_successfully
 
-  # One-shot RAG knowledge import (rag-knowledge-base 2.3): docker compose run --rm knowledge-import
-  # Only in the "tools" profile, so `up` never starts it. Re-running is free when nothing changed.
+  # One-shot RAG knowledge import (rag-knowledge-base): runs on every `up` before the backend, so a
+  # rebuilt database never serves rag with an empty knowledge base. Unchanged documents cost nothing;
+  # a failed import keeps the backend down. The documents are baked into the image, so after editing them:
+  # docker compose run --rm --build knowledge-import
   knowledge-import:
     build: ./backend
-    profiles: ["tools"]
     command: ["python", "-m", "scripts.import_knowledge"]
     environment:
       KNOWLEDGE_DATABASE_URL: postgresql://genbi_knowledge_writer:${GENBI_KNOWLEDGE_WRITER_PASSWORD}@db:5432/genbi
