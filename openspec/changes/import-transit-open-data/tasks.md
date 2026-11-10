@@ -13,7 +13,8 @@
   - 結果：3 個整合測試紅轉綠（紅燈為 `relation "youbike_stations" does not exist`），驗證兩城市站數、台北車站在中正區且 8 個出口、座標 6 位小數與下載日。CI 本來就執行 `06_open_data.sh`，不需改 workflow。`test_schema_context` 要求 `01_schema.sql` 每個欄位都有說明，因此與第一階段相同，`STATIC_KNOWLEDGE` 的兩張表說明在這裡一起加入（屬於 3.1）。`db/checks` 全部通過
 - [x] 2.2 測試 + 實作：SQL 白名單加入兩張表；驗證：測試由紅轉綠
   - 結果：測試紅轉綠（紅燈為 `不允許的資料表：youbike_stations`）。知識文件測試要求白名單每張表都有一份 schema 文件，因此 `knowledge/schema.yaml` 的兩份文件在這裡一起加入（屬於 3.1，內容與 `STATIC_KNOWLEDGE` 相同）
-- [ ] 2.3 `09_open_data_join.sql` 加入兩張表；驗證：demo 通過，mutation 改壞一站行政區時失敗
+- [x] 2.3 `09_open_data_join.sql` 加入兩張表；驗證：demo 通過，mutation 改壞一站行政區時失敗
+  - 結果：demo 通過；`mutate.sh` 把一個 YouBike 站的行政區改成「大安」→ caught `youbike_stations:台北市大安`，把台北車站的城市改成「臺北市」→ caught `mrt_stations:臺北市中正區`
 
 ## 3. 模型與評估
 
