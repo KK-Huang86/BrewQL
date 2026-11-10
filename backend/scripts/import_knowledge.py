@@ -3,8 +3,8 @@
     docker compose run --rm knowledge-import          # in the compose stack
     uv --directory backend run python -m scripts.import_knowledge   # needs KNOWLEDGE_DATABASE_URL
 
-Re-running is free when nothing changed. Exit codes: 0 done, 1 import failed (nothing written),
-2 invalid documents or settings (nothing embedded).
+Re-running is free when nothing changed; PROMPT_MODE=static skips it. Exit codes: 0 done or skipped,
+1 import failed (nothing written), 2 invalid documents or settings (nothing embedded).
 """
 
 import asyncio
@@ -15,7 +15,19 @@ from app.knowledge import KNOWLEDGE_DIR, KnowledgeError, load_knowledge
 from app.knowledge_sync import Embedder, ImportFailed, KnowledgeStore, sync_knowledge
 
 
-async def main(directory: Path, *, embedder: Embedder, store: KnowledgeStore, model_id: str, dimension: int) -> int:
+async def main(
+    directory: Path,
+    *,
+    embedder: Embedder,
+    store: KnowledgeStore,
+    model_id: str,
+    dimension: int,
+    prompt_mode: str = "rag",
+) -> int:
+    if prompt_mode == "static":
+        # compose runs this before the backend on every `up`: a Titan outage must not block the static fallback (D6).
+        print("PROMPT_MODE=static: knowledge import skipped")
+        return 0
     try:
         docs = load_knowledge(directory)
     except KnowledgeError as e:
@@ -52,6 +64,7 @@ async def _run() -> int:
             store=store,
             model_id=settings.embedding_model_id,
             dimension=EMBEDDING_DIMENSION,
+            prompt_mode=settings.prompt_mode,
         )
     finally:
         await store.close()

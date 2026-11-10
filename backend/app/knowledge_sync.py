@@ -93,6 +93,7 @@ async def _embed(embedder: Embedder, doc: KnowledgeDoc, dimension: int) -> list[
         log.error("knowledge embedding failed", extra={"doc_id": doc.id, "error": type(e).__name__})
         raise ImportFailed(f"{doc.id}: embedding failed, knowledge base unchanged: {type(e).__name__}: {e}") from e
     if len(vector) != dimension:
+        log.error("knowledge embedding failed", extra={"doc_id": doc.id, "error": "dimension_mismatch"})
         raise ImportFailed(f"{doc.id}: embedding has {len(vector)} dimensions, expected {dimension}")
     return vector
 

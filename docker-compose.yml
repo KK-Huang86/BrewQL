@@ -61,12 +61,15 @@ services:
 
   # One-shot RAG knowledge import (rag-knowledge-base): runs on every `up` before the backend, so a
   # rebuilt database never serves rag with an empty knowledge base. Unchanged documents cost nothing;
-  # a failed import keeps the backend down. The documents are baked into the image, so after editing them:
+  # a failed import keeps the backend down (PROMPT_MODE=static skips it). The documents are baked into
+  # the image, so after editing them:
   # docker compose run --rm --build knowledge-import
   knowledge-import:
     build: ./backend
     command: ["python", "-m", "scripts.import_knowledge"]
     environment:
+      # static skips the import, so falling back to static never waits on Titan (D6).
+      PROMPT_MODE: ${PROMPT_MODE:-rag}
       KNOWLEDGE_DATABASE_URL: postgresql://genbi_knowledge_writer:${GENBI_KNOWLEDGE_WRITER_PASSWORD}@db:5432/genbi
       AWS_REGION: ${AWS_REGION:-us-east-1}
       AWS_PROFILE: ${AWS_PROFILE:-default}
