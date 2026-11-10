@@ -1,18 +1,9 @@
 """Audit table permissions (record-audit-log D2): the writer appends, nobody in the API edits."""
 
-import os
 import uuid
 
 import asyncpg
 import pytest
-
-
-@pytest.fixture
-def audit_dsn() -> str:
-    dsn = os.environ.get("TEST_AUDIT_DATABASE_URL")
-    if not dsn:
-        pytest.skip("TEST_AUDIT_DATABASE_URL not set")
-    return dsn
 
 
 @pytest.fixture
