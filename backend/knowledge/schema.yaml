@@ -14,8 +14,8 @@
     - user_ratings_total：Google 評論數
     - limited_time：是否限時，'no' 不限時 / 'maybe' 視情況 / 'yes' 限時
     - has_socket：插座多寡，'yes' 很多 / 'maybe' 視座位 / 'no' 很少
-    - pet_friendly：是否可帶寵物（boolean）
-    - has_pet：店內是否有店貓店狗（boolean）
+    - pet_friendly：是否可帶寵物（boolean，NULL 表示未知）
+    - has_pet：店內是否有店貓店狗（boolean，NULL 表示未知）
     - favorite_count：收藏數（等於 favorites 中該店的筆數）
     - view_count：瀏覽數（等於 cafe_views 中該店的筆數）
     - created_at：上架時間（timestamptz）

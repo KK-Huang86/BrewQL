@@ -16,7 +16,8 @@
 
 ## 3. 匯入與資料集模式
 
-- [ ] 3.1 schema：`pet_friendly`、`has_pet` 可為 NULL，`schema.yaml` 同步；驗證：demo 重建後評估參考 SQL 試跑（`--dry-run`）結果不變
+- [x] 3.1 schema：`pet_friendly`、`has_pet` 可為 NULL，`schema.yaml` 同步；驗證：demo 重建後評估參考 SQL 試跑（`--dry-run`）結果不變
+  - 結果：`01_schema.sql` 拿掉兩欄的 `NOT NULL`（保留預設 FALSE），`schema.yaml` 與 `STATIC_KNOWLEDGE` 補「NULL 表示未知」。整合測試以擁有者帳號在 rollback 的交易內寫入 NULL，紅燈原因為 not-null constraint；另一個測試確認 demo 店家沒有 NULL。測試資料庫與 CI 新增 `TEST_OWNER_DATABASE_URL`（3.2 匯入也要用）。重建測試資料庫後：全部 660 個測試通過，評估 `--dry-run` 22 題參考 SQL 全部 ok，`db/checks` 8 個檔案全部通過
 - [ ] 3.2 測試 + 實作：匯入腳本在一個交易內寫入，demo 模式與已有資料時略過，失敗 rollback；驗證：整合測試由紅轉綠
 - [ ] 3.3 `db/seed/real_behavior.sql`：依真實店家產生模擬行為，計數等於明細；驗證：`db/checks` 在 real 資料庫通過
 - [ ] 3.4 compose：`DATASET`、各自的 volume、`cafe-import` 服務（`REAL_DATA_DIR` 唯讀掛載）；`.gitignore` 加 `db/import/`；`.env.example` 同步；驗證：兩種模式都能啟動，`git status` 看不到匯入檔
