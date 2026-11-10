@@ -1,8 +1,12 @@
 """Cleaning the Find Coffee export for real mode (import-real-cafes). Every address here is made up."""
 
+from dataclasses import asdict
+from datetime import UTC, datetime
+from decimal import Decimal
+
 import pytest
 
-from app.real_cafes import Place, locate, parse_address
+from app.real_cafes import CafeRow, Place, clean_cafe, clean_votes, locate, parse_address
 
 
 @pytest.mark.parametrize(
@@ -73,3 +77,61 @@ def test_a_filled_location_is_not_passed_on_to_another_cafe():
     )
 
     assert located.locations == [("台北市", "信義區"), ("台北市", "信義區"), None]
+
+
+# A made-up row shaped like the pgAdmin export: every column, NULL written as the string "NULL".
+EXPORT_ROW = {
+    "id": "42", "place_id": "ChIJ-made-up", "name": "測試咖啡", "address": "台北市大安區測試路 1 號",
+    "phone": "02 1234 5678", "lat": "25.0330", "lng": "121.5654", "rating": "4.6",
+    "user_ratings_total": "321", "opening_hours": "{}", "website": "https://example.com",
+    "google_maps": "https://maps.example.com", "favorite_count": "7", "last_refreshed": "NULL",
+    "created_at": "2026-04-06 17:34:53.840986+00", "updated_at": "NULL",
+    "attributes_last_calculated_at": "NULL", "has_socket": "yes", "limited_time": "NULL",
+    "photo_reference": "ref", "photo_s3_url": "https://s3.example.com/p.jpg", "view_count": "0",
+    "photo_updated_at": "NULL", "has_pet": "no", "pet_friendly": "NULL", "reviews": "[]",
+    "ai_summary": "摘要", "brand_new_column": "anything",
+}  # fmt: skip
+
+
+def test_cafe_keeps_only_the_whitelisted_public_columns():
+    cafe = clean_cafe(EXPORT_ROW)
+
+    assert cafe == CafeRow(
+        source_id=42,
+        place_id="ChIJ-made-up",
+        name="測試咖啡",
+        address="台北市大安區測試路 1 號",
+        lat=25.0330,
+        lng=121.5654,
+        rating=Decimal("4.6"),
+        user_ratings_total=321,
+        has_socket="yes",
+        limited_time=None,
+        pet_friendly=None,
+        has_pet=False,
+        created_at=datetime(2026, 4, 6, 17, 34, 53, 840986, tzinfo=UTC),
+    )
+    # Member aggregates, Google content and unknown new columns never come through (D4).
+    for dropped in ("favorite_count", "view_count", "reviews", "ai_summary", "phone", "brand_new_column"):
+        assert dropped not in asdict(cafe)
+
+
+def test_pet_columns_map_yes_and_no_to_booleans_and_keep_unknown_as_none():
+    assert clean_cafe({**EXPORT_ROW, "pet_friendly": "yes", "has_pet": "NULL"}).pet_friendly is True
+    assert clean_cafe({**EXPORT_ROW, "pet_friendly": "yes", "has_pet": "NULL"}).has_pet is None
+
+
+def vote(source, user_id="NULL", cafe_id="42"):
+    return {
+        "id": "1", "attribute": "socket", "value": "yes", "source": source,
+        "created_at": "2026-04-07 16:42:20.149889+00", "cafe_id": cafe_id, "user_id": user_id,
+    }  # fmt: skip
+
+
+def test_votes_from_members_are_dropped_whole_and_no_user_id_survives():
+    votes = clean_votes([vote("google"), vote("cafenomad"), vote("user", user_id="99")])
+
+    assert [v.source for v in votes.kept] == ["google", "cafenomad"]
+    assert votes.dropped_member_votes == 1
+    assert all("user_id" not in asdict(v) for v in votes.kept)
+    assert votes.kept[0].cafe_source_id == 42
