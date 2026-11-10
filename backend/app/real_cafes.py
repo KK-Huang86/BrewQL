@@ -294,3 +294,43 @@ def _rating(row: Row, column: str) -> Decimal | None:
     # 0 means nobody rated it yet, the same as NULL (D7).
     value = _value(row, column)
     return None if value is None or Decimal(value) == 0 else Decimal(value)
+
+
+# --- one import batch ----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RealBatch:
+    """Everything one import writes, already cleaned, plus the counts it reports."""
+
+    cafes: list[tuple[CafeRow, Location | None]]
+    votes: list[VoteRow]
+    nomad: list[NomadRow]
+    report: dict[str, int]
+
+
+def prepare(cafe_rows: Iterable[Row], vote_rows: Iterable[Row], nomad_rows: Iterable[Row]) -> RealBatch:
+    cafes = [clean_cafe(row) for row in cafe_rows]
+    located = locate([Place(c.address, c.lat, c.lng) for c in cafes])
+    votes = clean_votes(vote_rows)
+    known = {c.source_id for c in cafes}
+    for v in votes.kept:
+        if v.cafe_source_id not in known:
+            raise ValueError(f"vote for unknown cafe {v.cafe_source_id}")
+    nomad = match_nomad(cafes, nomad_rows)
+    return RealBatch(
+        cafes=list(zip(cafes, located.locations, strict=True)),
+        votes=votes.kept,
+        nomad=nomad.kept,
+        report={
+            "cafes": len(cafes),
+            "parsed": located.parsed,
+            "filled": located.filled,
+            "unknown": located.unknown,
+            "votes": len(votes.kept),
+            "member_votes_dropped": votes.dropped_member_votes,
+            "nomad_matched": len(nomad.kept),
+            "nomad_unmatched": nomad.unmatched,
+            "nomad_duplicates": nomad.duplicates,
+        },
+    )
