@@ -8,6 +8,7 @@ same file.
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 
 from app.real_cafes import AREA, demo_spelling
@@ -24,7 +25,7 @@ class PopulationRow:
     district: str
     population: int
     area_km2: Decimal
-    as_of: str  # ISO date: population counts are taken at the end of the year
+    as_of: date  # population counts are taken at the end of the year
 
 
 def population_rows(rows: Iterable[Row]) -> list[PopulationRow]:
@@ -46,7 +47,7 @@ def population_rows(rows: Iterable[Row]) -> list[PopulationRow]:
                 district,
                 int(row["people_total"]),
                 Decimal(row["area"]),
-                f"{int(year) + 1911}-12-31",  # ROC year to Gregorian
+                date(int(year) + 1911, 12, 31),  # ROC year to Gregorian
             )
         )
     return sorted(out, key=lambda r: (r.city, r.district))
