@@ -1,6 +1,7 @@
 ## 1. 資料庫
 
-- [ ] 1.1 `db/init/04_audit.sh`：`ask_audit` 資料表與 `genbi_audit_writer` 角色；compose 與 `db/test-db.sh` 傳入 `GENBI_AUDIT_WRITER_PASSWORD`，`.env.example` 同步；驗證：整合測試確認寫入角色讀不到 `cafes`、改不了也刪不了稽核紀錄，`genbi_reader` 讀不到稽核表
+- [x] 1.1 `db/init/04_audit.sh`：`ask_audit` 資料表與 `genbi_audit_writer` 角色；compose 與 `db/test-db.sh` 傳入 `GENBI_AUDIT_WRITER_PASSWORD`，`.env.example` 同步；驗證：整合測試確認寫入角色讀不到 `cafes`、改不了也刪不了稽核紀錄，`genbi_reader` 讀不到稽核表
+  - 結果：`tests/integration/test_audit_roles.py` 7 個案例（寫入角色可新增並讀回、讀不到 `cafes`、UPDATE／DELETE／TRUNCATE 被拒；`genbi_reader` 在解除唯讀預設後 SELECT／DELETE 仍被拒，證明擋下的是權限而不是唯讀模式）。紅燈原因為角色不存在；整合測試共 37 個通過，模擬資料檢查全部通過。CI 與 `db/test-db.sh` 同步執行 `04_audit.sh`。
 
 ## 2. 後端
 
