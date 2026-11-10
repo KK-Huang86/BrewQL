@@ -77,6 +77,38 @@ curl -s -X POST localhost:8000/api/ask -H 'content-type: application/json' \
 - 資料庫預設發布在 5434，避開本機其他專案常用的 5432；要改就改 `.env` 的 `DB_PORT`，`DATABASE_URL` 的 port 也要一起改。
 - 重建示範資料庫：`docker compose down -v`（資料以固定種子產生，重建後完全相同；稽核紀錄會一併清除）。
 - 少了稽核設定 backend 會拒絕啟動；新增稽核資料表後，既有的本機資料庫要 `down -v` 重建才會有。
+- 資料庫 volume 依資料集命名（`genbi_pgdata_demo`、`genbi_pgdata_real`）；更早建立的 `genbi_pgdata` 已不再使用，可用 `docker volume rm genbi_pgdata` 刪除。
+
+### 資料集：demo 與 real
+
+`DATASET` 決定資料庫裡是哪一套資料，兩套各用自己的 volume，切換不會互相覆蓋：
+
+- `demo`（預設）：200 家示範店家與模擬的會員、搜尋、瀏覽、收藏，以固定種子產生。評估與 CI 只用這一套，評估遇到其他資料會在呼叫 Bedrock 前停止。
+- `real`：Find Coffee 的真實店家，只限台北市、新北市，搭配同樣以模擬方式產生的會員與行為資料。只在本機使用，不部署。
+
+```bash
+# 切到 real：REAL_DATA_DIR 是放 pgAdmin 匯出檔的資料夾（repo 外），需要三個檔案：
+# cafes*.csv、cafe_cafeattributevote*.csv、cafe_nomad_cache*.csv
+DATASET=real REAL_DATA_DIR="/path/to/exports" docker compose up --build
+# 首次啟動由 cafe-import 匯入，印出匯入報告（解析、補上、排除的家數、Cafe Nomad 比對數）；
+# 之後再啟動會略過。匯出檔更新時，重建 real 資料庫再啟動：
+DATASET=real docker compose down -v
+
+# 切回 demo
+docker compose up
+```
+
+real 只匯入公開的店家資訊：
+
+- 匯入：店名、地址、城市與行政區（由地址解析，解析不出來時沿用 1 公里內最近店家）、評分、評論數、插座、限時、寵物欄位、`place_id`，以及 google 與 Cafe Nomad 來源的屬性投票。
+- 不匯入：任何會員資料與行為（搜尋、瀏覽、收藏、會員投票），以及收藏數、瀏覽數這類由會員行為彙總的數字；評論原文、照片、AI 摘要、電話、網站、營業時間。
+- Cafe Nomad 資料以座標（50 公尺內）與店名比對對應店家，對不到的捨棄；real 有社群評分的店家約兩成，demo 是七成。
+
+資料來源與限制：
+
+- 店家資料來自 Google Places（經 Find Coffee 取得），依 Google Maps Platform 條款不得散布，只能留在本機的 real 資料庫。匯出檔放在 repo 外；`db/import/` 已列入 `.gitignore`。
+- Cafe Nomad（[cafenomad.tw](https://cafenomad.tw)）的資料沒有查到正式的授權條款，只在本機使用。
+- real 的資料比 demo 稀疏（例如寵物欄位大多未知），分布也不同，回答只供展示，不作為評估依據。
 
 ### Bedrock 憑證
 
