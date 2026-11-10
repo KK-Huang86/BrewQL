@@ -18,7 +18,8 @@
 
 - [x] 3.1 測試 + 實作：檢索（單次向量化、三類並發、top-N、空知識庫）；驗證：測試由紅轉綠，含並發耗時測試
   - 結果：`app/retrieval.py`：`Retriever` 向量化一次、`asyncio.gather` 三個查詢；`PgVectorSearch` 以 `genbi_reader` 在唯讀 transaction 內依 cosine distance 排序（pool 3 條連線讓三個查詢真的並行、`statement_timeout` 2 秒）；任何失敗轉成 `RetrievalUnavailable`。單元測試 10 個（只向量化一次、各類 top-N、依類別分組、並發耗時 < 0.25 秒（循序需 0.3 秒）、空知識庫、embedding 或查詢失敗、top-N 須 ≥ 1）＋整合測試 2 個（排序與距離、只回傳指定類別）紅轉綠，紅燈原因為模組不存在。實機（Titan + 本機知識庫）4 題的 glossary 第一名都正確：工作友善 0.66、搜尋落空率 0.73、收藏轉換率 0.20、活躍使用者 0.51。觀察：「活躍使用者」題的 schema 前 4 名沒有 `cafe_views`（定義需要它），留待 4.2 評估。後端 582 個測試通過
-- [ ] 3.2 測試 + 實作：流程的 static／rag 模式、固定規則與白名單名稱保底、`sources`；static 模式的 prompt 與現在逐字相同；驗證：測試由紅轉綠
+- [x] 3.2 測試 + 實作：流程的 static／rag 模式、固定規則與白名單名稱保底、`sources`；static 模式的 prompt 與現在逐字相同；驗證：測試由紅轉綠
+  - 結果：`SCHEMA_CONTEXT` 拆成 `REPLY_RULES` + `STATIC_KNOWLEDGE`，拆分前後逐字比對相同；`rag_context` 組成規則、全部白名單表名、檢索到的 schema／名詞／範例。流程在輸入防護之後檢索一次（重試共用、被擋下的問題不花 embedding），結果帶 `sources`；`PROMPT_MODE`（`static` 預設／`rag`）、compose 與 `.env.example` 同步。新增測試 16 個紅轉綠（prompt 組成 4、generator 2、流程 6、API 與設定 3＋既有 1），紅燈原因為介面不存在；`test_api.py` 7 個完整回應比對因新增 `sources` 欄位另以 `test:` commit 更新（需求變更）。實機同一題「台北市有幾家工作友善的咖啡店？」：static 3,157 input tokens、rag 2,108（-33%），兩者都答 57 家。後端 597 個測試通過
 - [ ] 3.4 測試 + 實作：embedding token 與費用計入用量與成本、檢索失敗回 5xx 且不呼叫模型；驗證：測試由紅轉綠
 - [ ] 3.3 測試：知識庫資料表不在白名單、查詢會被拒絕；驗證：測試綠燈
 
