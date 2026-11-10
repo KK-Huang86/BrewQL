@@ -230,8 +230,8 @@ npm --prefix frontend run build
 | 11 | — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 ✅ |
 | 12 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例；預設改為 rag，每題輸入 token -27%（評估 26/26） ✅ |
 | 13 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票、Cafe Nomad，限台北市與新北市），`DATASET=demo\|real` 兩種模式並存 ✅ |
-| 14 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接） |
-| 15 | — | `import-open-data` | 公開資料第二階段：YouBike 站點、捷運出入口與進出人次（距離預先計算） |
+| 14 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接），每萬人咖啡店數；評估 static／rag 皆 29/29 ✅ |
+| 15 | — | `import-transit-open-data` | 公開資料第二階段：YouBike 站點、捷運出入口與進出人次（距離預先計算） |
 | 16 | — | `compare-bedrock-knowledge-bases` | 同一知識文件與測試集比較 pgvector 與 Bedrock Knowledge Bases（實驗資源比完即銷毀）；自建與 AWS 託管方案取捨文件 |
 | 17 | 11 | `show-definitions-and-steps` | 顯示本次使用的名詞定義；LangGraph 流程與 SSE 步驟串流 |
 | 18 | 12 | `model-comparison-report` | 模型比較報告：Haiku 與 Sonnet、錯誤分類與改善、prompt caching 成本優化 |
