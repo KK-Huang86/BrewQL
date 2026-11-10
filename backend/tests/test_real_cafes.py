@@ -249,3 +249,20 @@ def test_prepare_joins_the_three_exports_into_one_batch_with_a_report():
 def test_prepare_refuses_a_vote_for_a_cafe_not_in_the_export():
     with pytest.raises(ValueError, match="vote for unknown cafe 404"):
         prepare([EXPORT_ROW], [vote("google", cafe_id="404")], [])
+
+
+def test_only_taipei_and_new_taipei_cafes_are_kept_with_their_votes():
+    cafes = [
+        {**EXPORT_ROW, "id": "1", "place_id": "p1", "address": "台北市信義區信義路五段 7 號"},
+        {**EXPORT_ROW, "id": "2", "place_id": "p2", "address": "新北市板橋區文化路 1 號", "lat": "25.01"},
+        {**EXPORT_ROW, "id": "3", "place_id": "p3", "address": "臺中市西屯區台灣大道 1 號", "lat": "24.16"},
+        {**EXPORT_ROW, "id": "4", "place_id": "p4", "address": "某條路 1 號", "lat": "23.0"},  # unknown
+    ]
+    votes = [vote("google", cafe_id=i) for i in ("1", "2", "3", "4")]
+
+    batch = prepare(cafes, votes, [nomad("n3", "測試咖啡", north_m=(24.16 - LAT) * 111_000)])
+
+    assert [c.source_id for c, _ in batch.cafes] == [1, 2]
+    assert [v.cafe_source_id for v in batch.votes] == [1, 2]
+    assert batch.nomad == []  # its only match was the Taichung cafe
+    assert (batch.report["cafes"], batch.report["outside_area"], batch.report["unknown"]) == (2, 2, 1)
