@@ -113,3 +113,33 @@ async def test_members_and_their_behaviour_are_simulated_for_the_real_cafes(empt
     assert counts["searches"] > 40_000 and counts["views"] > 150_000 and counts["favorites"] > 0
     assert (counts["searches_elsewhere"], counts["counters_off"], counts["before_joining"]) == (0, 0, 0)
     assert counts["member_votes"] == 0
+
+
+async def test_no_view_or_favorite_comes_before_the_cafe_was_listed(empty_db):
+    # Real cafes keep their listing date; one listed three days ago must not have months of views.
+    from datetime import UTC, datetime, timedelta
+
+    listed = (datetime.now(UTC) - timedelta(days=3)).isoformat(sep=" ")
+    cafes = [
+        {**EXPORT_ROW, "id": "1", "place_id": "p1", "address": "台北市信義區信義路五段 7 號"},
+        {**EXPORT_ROW, "id": "2", "place_id": "p2", "address": "台北市信義區松仁路 1 號", "created_at": listed},
+    ]
+    store = PgRealCafeStore(empty_db)
+    try:
+        await store.write(prepare(cafes, [], []))
+    finally:
+        await store.close()
+
+    [early] = await fetch(
+        empty_db,
+        """
+        SELECT (SELECT count(*) FROM cafe_views v JOIN cafes c ON c.id = v.cafe_id
+                WHERE v.created_at < c.created_at) AS views,
+               (SELECT count(*) FROM favorites f JOIN cafes c ON c.id = f.cafe_id
+                WHERE f.created_at < c.created_at) AS favorites,
+               (SELECT count(*) FROM cafe_views v JOIN cafes c ON c.id = v.cafe_id
+                WHERE c.place_id = 'p2') AS new_cafe_views
+        """,
+    )
+    assert (early["views"], early["favorites"]) == (0, 0)
+    assert early["new_cafe_views"] > 0  # still visited, just not before it existed
