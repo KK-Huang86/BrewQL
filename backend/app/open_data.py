@@ -10,16 +10,12 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
 
-from app.real_cafes import AREA
+from app.real_cafes import AREA, demo_spelling
 
 Row = dict[str, str]
 
 # 戶政司 site_id joins city and district, e.g. 新北市板橋區.
 _DISTRICT = re.compile(r"^.+[區鄉鎮市]$")
-
-
-def _demo_city(city: str) -> str:
-    return city.replace("臺", "台")
 
 
 @dataclass(frozen=True)
@@ -37,7 +33,7 @@ def population_rows(rows: Iterable[Row]) -> list[PopulationRow]:
         year = row["statistic_yyy"]
         if not year.isdigit():  # the official file repeats its header in Chinese on row 2
             continue
-        site = _demo_city(row["site_id"])
+        site = demo_spelling(row["site_id"])
         city = next((c for c in AREA if site.startswith(c)), None)
         if city is None:  # other cities, and 東沙群島 / 南沙群島 that name no city
             continue
@@ -74,7 +70,7 @@ def university_rows(rows: Iterable[Row]) -> list[UniversityRow]:
             row["學校名稱"],
             row["公私立"],
             row["體制"],
-            _demo_city(row["縣市別"]),
+            demo_spelling(row["縣市別"]),
             row["第三級\n行政區"],
         )
         for row in rows
