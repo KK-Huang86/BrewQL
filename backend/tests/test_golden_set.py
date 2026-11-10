@@ -160,3 +160,19 @@ def test_shipped_golden_set_has_cross_source_questions():
 
     assert len(cross) >= 3
     assert any(q.difficulty == "hard" for q in cross)
+
+
+def test_shipped_golden_set_has_transit_questions():
+    # Spec (import-transit-open-data): at least 2 questions joining YouBike or MRT stations with
+    # Find Coffee data, 1 hard.
+    from pathlib import Path
+
+    questions = load_golden_set(Path(__file__).resolve().parents[1] / "evaluation" / "golden.yaml")
+    find_coffee = ("cafes", "search_logs")
+    transit = ("youbike_stations", "mrt_stations")
+    cross = [
+        q for q in questions if q.sql and any(t in q.sql for t in find_coffee) and any(t in q.sql for t in transit)
+    ]
+
+    assert len(cross) >= 2
+    assert any(q.difficulty == "hard" for q in cross)
