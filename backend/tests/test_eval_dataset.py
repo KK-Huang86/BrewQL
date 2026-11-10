@@ -20,3 +20,9 @@ async def test_demo_database_passes():
 async def test_any_real_cafe_stops_the_evaluation():
     with pytest.raises(NotDemoDataset, match="812 cafes are not demo"):
         await check_demo_dataset(Db(total=812, non_demo=812))
+
+
+async def test_empty_database_stops_the_evaluation():
+    # A real volume whose import failed has no cafes; it is not demo either.
+    with pytest.raises(NotDemoDataset, match="no cafes"):
+        await check_demo_dataset(Db(total=0, non_demo=0))
