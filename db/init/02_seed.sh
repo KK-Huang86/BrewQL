@@ -5,9 +5,17 @@
 # Sourced or executed alike: no exit, and BASH_SOURCE (not $0) finds the seed.
 set -euo pipefail
 
-if [ "${DATASET:-demo}" = "real" ]; then
-    echo "DATASET=real: demo seed skipped"
-else
-    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
-         -f "$(dirname "${BASH_SOURCE[0]}")/demo/02_seed.sql"
-fi
+case "${DATASET:-demo}" in
+    demo)
+        psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+             -f "$(dirname "${BASH_SOURCE[0]}")/demo/02_seed.sql"
+        ;;
+    real)
+        echo "DATASET=real: demo seed skipped"
+        ;;
+    *)
+        # A typo would otherwise seed demo into a volume named after it; failing stops init.
+        echo "DATASET must be demo or real, got '${DATASET}'" >&2
+        false
+        ;;
+esac
