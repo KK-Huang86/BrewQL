@@ -2,7 +2,7 @@
 
 import csv
 
-from scripts.prepare_open_data import main
+from scripts.prepare_open_data import main, run
 from tests.test_open_data import POPULATION_HEADER, population, university
 
 
@@ -43,3 +43,8 @@ def test_rerun_writes_identical_files(tmp_path):
     main(*downloads(tmp_path), out)
 
     assert {p.name: p.read_bytes() for p in out.iterdir()} == first
+
+
+def test_wrong_arguments_print_usage(capsys):
+    assert run(["only-one.csv"]) == 2
+    assert "usage" in capsys.readouterr().err

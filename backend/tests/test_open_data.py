@@ -5,6 +5,8 @@ Rows mirror the official files' columns; the numbers are made up.
 
 from decimal import Decimal
 
+import pytest
+
 from app.open_data import PopulationRow, UniversityRow, population_rows, university_rows
 
 POPULATION_HEADER = {"statistic_yyy": "統計年", "site_id": "區域別", "people_total": "年底人口數", "area": "土地面積"}
@@ -67,3 +69,9 @@ def test_universities_keep_taipei_and_new_taipei_schools_without_personal_detail
         UniversityRow("0001", "範例大學", "公立", "一般大學", "台北市", "大安區"),
         UniversityRow("0002", "範例科技大學", "私立", "一般大學", "新北市", "板橋區"),
     ]
+
+
+def test_population_row_without_city_and_district_stops_the_trim():
+    # A format change in the official file must fail loudly, not shrink the snapshot.
+    with pytest.raises(ValueError, match="臺北市"):
+        population_rows([population("臺北市")])
