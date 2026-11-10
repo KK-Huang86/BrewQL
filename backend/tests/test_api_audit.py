@@ -1,10 +1,12 @@
 """/api/ask leaves an audit trail (record-audit-log D3, D5, D6): a log line, then a stored record."""
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
+from prometheus_client.parser import text_string_to_metric_families
 
 from app.audit import visitor_id
 from app.daily_limit import DailyQuestionLimit
@@ -81,8 +83,9 @@ def events():
     logger.setLevel(previous)
 
 
-def make_client(events, generator=None, daily_limit=None, max_sql_retries=0):
-    writer = Writer(events)
+def make_client(events, generator=None, daily_limit=None, max_sql_retries=0, writer=None, audit_timeout=None):
+    writer = writer or Writer(events)
+    timeout = {} if audit_timeout is None else {"audit_timeout_seconds": audit_timeout}
     app = create_app(
         generator=generator or Generator(),
         executor=Executor(),
@@ -92,6 +95,7 @@ def make_client(events, generator=None, daily_limit=None, max_sql_retries=0):
         daily_limit=daily_limit,
         audit_writer=writer,
         visitor_key=KEY,
+        **timeout,
     )
     return TestClient(app, raise_server_exceptions=False), writer
 
@@ -175,3 +179,64 @@ def test_only_the_audit_line_carries_the_question(events, caplog):
 
     carrying = [r for r in caplog.records if QUESTION in r.getMessage() or QUESTION in str(r.__dict__)]
     assert [getattr(r, "event", None) for r in carrying] == ["ask_audit"]
+
+
+class FailingWriter:
+    def __init__(self, exc=None, delay=0.0):
+        self.exc, self.delay, self.calls = exc, delay, 0
+
+    async def write(self, record):
+        self.calls += 1
+        if self.delay:
+            await asyncio.sleep(self.delay)
+        if self.exc:
+            raise self.exc
+
+
+def failures(c):
+    families = text_string_to_metric_families(c.get("/metrics").text)
+    [value] = [s.value for f in families for s in f.samples if s.name == "brewql_audit_write_failures_total"]
+    return value
+
+
+def test_audit_failures_start_at_zero(events):
+    c, _ = make_client(events)
+
+    assert failures(c) == 0
+
+
+def test_failed_write_still_answers_and_is_reported_once(events, caplog):
+    writer = FailingWriter(exc=OSError("connection refused"))
+    c, _ = make_client(events, writer=writer)
+
+    with caplog.at_level(logging.ERROR, logger="app.audit"):
+        response = c.post("/api/ask", json={"question": QUESTION})
+
+    assert response.status_code == 200
+    assert response.json()["rows"] == [[40]]
+    assert writer.calls == 1  # never retried
+    assert failures(c) == 1
+    [error] = [r for r in caplog.records if r.levelno == logging.ERROR]
+    audit_line = next(r for r in caplog.records if getattr(r, "event", None) == "ask_audit")
+    assert error.request_id == audit_line.request_id  # traceable back to the logged copy
+    assert QUESTION not in error.getMessage() and QUESTION not in str(error.__dict__)
+
+
+def test_slow_write_times_out_instead_of_holding_the_answer(events, caplog):
+    writer = FailingWriter(delay=5.0)
+    c, _ = make_client(events, writer=writer, audit_timeout=0.05)
+
+    with caplog.at_level(logging.ERROR, logger="app.audit"):
+        response = c.post("/api/ask", json={"question": QUESTION})
+
+    assert response.status_code == 200
+    assert failures(c) == 1
+    assert any(r.levelno == logging.ERROR and r.error == "TimeoutError" for r in caplog.records)
+
+
+def test_outage_answer_survives_a_failed_audit_write(events):
+    writer = FailingWriter(exc=OSError("connection refused"))
+    c, _ = make_client(events, generator=Generator(ConnectionError("bedrock down")), writer=writer)
+
+    assert c.post("/api/ask", json={"question": QUESTION}).status_code == 502
+    assert failures(c) == 1
