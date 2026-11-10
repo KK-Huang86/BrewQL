@@ -208,7 +208,7 @@ npm --prefix frontend run build
 | 10 | — | `observe-with-grafana` | JSON log、Prometheus 指標、Grafana Alloy → Grafana Cloud；dashboard、告警、成本對帳 ✅ |
 | 11 | — | `record-audit-log` | 稽核紀錄（DB + Grafana Loki），紀錄只供管理者查看 ✅ |
 | 12 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例；預設改為 rag，每題輸入 token -27%（評估 26/26） ✅ |
-| 13 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票彙總、Cafe Nomad），與模擬資料兩種模式並存 |
+| 13 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票、Cafe Nomad，限台北市與新北市），`DATASET=demo\|real` 兩種模式並存 ✅ |
 | 14 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接） |
 | 15 | — | `import-open-data` | 公開資料第二階段：YouBike 站點、捷運出入口與進出人次（距離預先計算） |
 | 16 | — | `compare-bedrock-knowledge-bases` | 同一知識文件與測試集比較 pgvector 與 Bedrock Knowledge Bases（實驗資源比完即銷毀）；自建與 AWS 託管方案取捨文件 |
