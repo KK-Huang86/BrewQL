@@ -5,6 +5,7 @@ import time
 
 import pytest
 
+from app.embeddings import Embedding
 from app.retrieval import RetrievalUnavailable, Retrieved, Retriever, TopN
 
 VECTOR = [0.1] * 1024
@@ -19,11 +20,12 @@ class FakeEmbedder:
         self.texts: list[str] = []
         self._error = error
 
-    async def embed(self, text: str) -> list[float]:
+    # Retrieval needs the billed tokens too (rag-knowledge-base D9), so it asks for usage.
+    async def embed_with_usage(self, text: str) -> Embedding:
         self.texts.append(text)
         if self._error:
             raise self._error
-        return VECTOR
+        return Embedding(vector=VECTOR, input_tokens=5, model_id="titan")
 
 
 class FakeSearch:
@@ -106,3 +108,9 @@ async def test_search_failure_is_retrieval_unavailable():
 def test_limits_must_be_positive(field):
     with pytest.raises(ValueError, match=field):
         TopN(**{field: 0})
+
+
+async def test_result_carries_the_embedding_usage():
+    result = await Retriever(FakeEmbedder(), FakeSearch()).retrieve("q")
+
+    assert (result.embedding_model_id, result.embedding_tokens) == ("titan", 5)
