@@ -14,7 +14,11 @@ CREATE TABLE cafes (
     has_pet            BOOLEAN DEFAULT FALSE,
     favorite_count     INTEGER NOT NULL DEFAULT 0,   -- kept equal to rows in favorites
     view_count         INTEGER NOT NULL DEFAULT 0,   -- kept equal to rows in cafe_views
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- cafe-transit-distance D1: real cafes keep the export's coordinates; demo cafes get generated
+    -- ones after the open data loads (07_demo_locations.sh). NULL only until init finishes.
+    lat                NUMERIC(9, 6),
+    lng                NUMERIC(9, 6)
 );
 
 -- Simulated members. Deliberately no LINE ID, name, email or any field that identifies a person.

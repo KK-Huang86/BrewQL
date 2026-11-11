@@ -1,6 +1,7 @@
 ## 1. 店家座標
 
-- [ ] 1.1 `cafes` 新增 `lat`、`lng`；測試 + 實作：real 匯入寫入座標（含以座標補上位置的店家）；驗證：測試由紅轉綠，重建 real 後 711 家都有座標
+- [x] 1.1 `cafes` 新增 `lat`、`lng`；測試 + 實作：real 匯入寫入座標（含以座標補上位置的店家）；驗證：測試由紅轉綠，重建 real 後 711 家都有座標
+  - 結果：整合測試紅轉綠（紅燈 `column "lat" does not exist`），驗證兩家店都存入匯出檔座標，含以鄰店補上行政區的 p2。`real_cafes_store` 的 INSERT 多了 `lat`、`lng`，`CafeRow` 註解改為會儲存。全部 730 個測試通過。重建 real 的 711 家驗證併入 4.1，避免多次重建 real volume
 - [ ] 1.2 `07_demo_locations.sh`：demo 店家依 D3 產生座標，CI 與測試資料庫一併執行；驗證：整合測試確認 200 家都有座標且在同區 YouBike 錨點 250 公尺內，重建兩次座標相同，既有 `db/checks` 與 `--dry-run` 答案不變
 
 ## 2. 距離 view 與防護

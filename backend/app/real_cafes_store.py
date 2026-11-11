@@ -17,8 +17,8 @@ _HAS_CAFES = "SELECT EXISTS (SELECT 1 FROM cafes)"
 
 _INSERT_CAFE = """
 INSERT INTO cafes (place_id, name, address, city, district, rating, user_ratings_total,
-                   has_socket, limited_time, pet_friendly, has_pet, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                   has_socket, limited_time, pet_friendly, has_pet, created_at, lat, lng)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 """
 _INSERT_VOTE = """
 INSERT INTO cafe_attribute_votes (cafe_id, attribute, value, source, created_at)
@@ -63,7 +63,7 @@ class PgRealCafeStore:
                 _INSERT_CAFE,
                 [
                     (c.place_id, c.name, c.address, *loc, c.rating, c.user_ratings_total,
-                     c.has_socket, c.limited_time, c.pet_friendly, c.has_pet, c.created_at)
+                     c.has_socket, c.limited_time, c.pet_friendly, c.has_pet, c.created_at, c.lat, c.lng)
                     for c, loc in batch.cafes
                 ],
             )  # fmt: skip
