@@ -25,4 +25,5 @@
 
 ## 4. 文件
 
-- [ ] 4.1 README：座標來源（real 為匯出檔、demo 為產生）、距離是直線距離；real 模式實際提問 1 題距離問題；驗證：照 README 重建 demo 與 real 都有 view
+- [x] 4.1 README：座標來源（real 為匯出檔、demo 為產生）、距離是直線距離；real 模式實際提問 1 題距離問題；驗證：照 README 重建 demo 與 real 都有 view
+  - 結果：README「公開資料」加入 `v_cafe_transit` 說明、兩種資料集的座標來源（demo 註明不是真實位置）、YouBike 很密要比站數；roadmap 16 標記完成。real 以匯出檔重建：711 家都有座標（1.1 延後的驗證），view 711 列、最近捷運站 10～23,698 公尺（中位數 389 公尺，400 公尺內 365 家），`EXPLAIN ANALYZE` 466 ms；`10_cafe_locations.sql` 在 real 通過（`07`、`08` 是 demo 故事檢查，在 real 本來就不成立）。real 實際提問「捷運站步行 5 分鐘內、不限時的咖啡店，哪個捷運站附近最多」：模型用 view 篩選 `mrt_distance_m <= 400`，回答行天宮 3 家，其餘 2 家（real 一半店家的 `limited_time` 是 NULL，數字偏小）。demo 由測試資料庫以同一套 init 腳本建立並驗證；本機 compose 的 demo volume 重建會清掉稽核紀錄，留給使用者決定

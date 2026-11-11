@@ -122,10 +122,14 @@ real 只匯入公開的店家資訊：
 | `mrt_stations`（臺北捷運車站、出入口數、座標） | 臺北大眾捷運公司「臺北捷運車站出入口座標」（[data.gov.tw/dataset/128428](https://data.gov.tw/dataset/128428)） | 下載日 2026-11-11 |
 
 - 授權：[政府資料開放授權條款第 1 版](https://data.gov.tw/license)，可以散布，需標示來源。
-- 快照在 `db/init/open_data/`，由 `06_open_data.sh` 在資料庫初始化時載入。既有資料庫要 `docker compose down -v` 重建才會有新的資料表。
+- 快照在 `db/init/open_data/`，由 `06_open_data.sh` 在資料庫初始化時載入。既有資料庫要 `docker compose down -v` 重建才會有新的資料表與店家座標（demo 與 real 各自重建）。
 - 快照不收個人資訊：大專校院名錄的校長姓名、電話、傳真、地址都不收。
 - YouBike 只收營運中的站，不收可借車輛等即時欄位；「臺大公館校區」的站算在大安區。
 - 捷運資料只有出入口：同站出入口合成一列，位置取平均；檔案沒有行政區，取最近 YouBike 站的行政區，7 個位在行政區交界的車站以對照表修正（`MRT_DISTRICT_FIXES`，已和捷運官網的車站地址逐站核對）。只有臺北捷運公司的路網，不含機場捷運與輕軌。
+- 店家到站點的距離在 view `v_cafe_transit`：每家店最近的捷運站、直線距離（公尺）、300 公尺內的 YouBike 站數；「步行 5 分鐘」以直線 400 公尺計算，不是步行路徑。
+  - real 的店家座標來自匯出檔（Google Places 內容，和店名一樣只留在本機 real 資料庫）。
+  - demo 的店家座標由 `07_demo_locations.sh` 產生：每家店放在同區某個 YouBike 站 250 公尺內，由 `place_id` 決定、重建不變，**不是真實位置**。
+  - 雙北 YouBike 很密，幾乎每家店 300 公尺內都有站，比較時看站數而不是有沒有。
 - 學校代碼照官方下載檔保留；檔案裡數字代碼的前導 0 已經不見（例如政大是 `1`），不是正式的四碼格式。
 - 官方更新時重產快照（下載檔放 repo 外；同樣的下載檔與下載日重跑，結果不變）：
 
@@ -241,7 +245,7 @@ npm --prefix frontend run build
 | 13 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票、Cafe Nomad，限台北市與新北市），`DATASET=demo\|real` 兩種模式並存 ✅ |
 | 14 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接），每萬人咖啡店數；評估 static／rag 皆 29/29 ✅ |
 | 15 | — | `import-transit-open-data` | 公開資料第二階段：YouBike 站點、捷運車站（以行政區串接）；評估 static／rag 皆 31/31 ✅ |
-| 16 | — | `cafe-transit-distance` | 店家加上經緯度，預先計算到捷運站、YouBike 站的距離 |
+| 16 | — | `cafe-transit-distance` | 店家加上經緯度，view `v_cafe_transit` 提供到捷運站、YouBike 站的直線距離；評估 static／rag 皆 33/33 ✅ |
 | 17 | — | `compare-bedrock-knowledge-bases` | 同一知識文件與測試集比較 pgvector 與 Bedrock Knowledge Bases（實驗資源比完即銷毀）；自建與 AWS 託管方案取捨文件 |
 | 18 | 11 | `show-definitions-and-steps` | 顯示本次使用的名詞定義；LangGraph 流程與 SSE 步驟串流 |
 | 19 | 12 | `model-comparison-report` | 模型比較報告：Haiku 與 Sonnet、錯誤分類與改善、prompt caching 成本優化 |
