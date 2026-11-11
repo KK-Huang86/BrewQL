@@ -11,7 +11,8 @@
   - 結果：4 個整合測試紅轉綠（紅燈 `relation "v_cafe_transit" does not exist`）。已知距離在東部外海（25.30 N 122.05 E，遠離所有真實站點）以 owner 交易建立、測完一定 rollback：500 公尺的測試站為最近站且誤差 < 1%，100、250 公尺的 YouBike 計入、350 公尺不計入；SQL 的 `distance_m` 與 Python 的 haversine 相對誤差 < 1e-6（台北車站到板橋）；demo 200 家都有一列。YouBike 先以經緯度方框篩選再算距離。效能：在交易中加入 511 家假店家湊到 real 的 711 家，`EXPLAIN ANALYZE` 整個 view 386 ms（目標 1 秒、timeout 5 秒），維持一般 view，不需要 materialized view。`genbi_reader` 授權寫在 `03_readonly_role.sh`，和其他 view 相同
 - [x] 2.2 測試 + 實作：SQL 白名單加入 `v_cafe_transit`；驗證：測試由紅轉綠
   - 結果：測試紅轉綠（紅燈 `不允許的資料表：v_cafe_transit`）。知識文件測試要求白名單每張表都有一份 schema 文件，因此 `schema-v_cafe_transit` 與 `cafes.lat`、`lng` 的說明（含「距離問題用 view，不要自己計算」）在這裡一起加入 `schema.yaml` 與 `STATIC_KNOWLEDGE`（屬於 3.1）。`distance_m` 函式不在白名單與知識文件中
-- [ ] 2.3 `db/checks` 新增座標檢查（D6）；驗證：demo 通過，mutation 把一家店移到台中時失敗
+- [x] 2.3 `db/checks` 新增座標檢查（D6）；驗證：demo 通過，mutation 把一家店移到台中時失敗
+  - 結果：新增 `10_cafe_locations.sql`，demo 通過；`mutate.sh` 三種改法都 caught：移到台中（`cafes outside Taipei and New Taipei`）、座標設為 NULL（`cafes without coordinates`）、移到外海（`demo cafes far from every MRT station: ... 42450 m`）。demo 分布：最近捷運站 14～4,685 公尺、中位數 430 公尺，400 公尺內 90 家；300 公尺內有 YouBike 的是 200 家全部。試過把 demo 偏移放大到 400／500／600 公尺，沒有 YouBike 的店也只有 1／6／4 家：雙北 YouBike 很密，「附近有沒有 YouBike」本來就幾乎都是有，維持 250 公尺，名詞與題目改用站數（例如 3 站以上）
 
 ## 3. 模型與評估
 
