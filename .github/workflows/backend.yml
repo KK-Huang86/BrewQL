@@ -51,6 +51,7 @@ jobs:
           bash db/init/04_audit.sh
           bash db/init/05_knowledge.sh
           bash db/init/06_open_data.sh
+          bash db/init/07_demo_locations.sh
       - name: Check the demo data story
         run: PSQL="psql -U $POSTGRES_USER -d $POSTGRES_DB" bash db/checks/run.sh
       - name: Install
