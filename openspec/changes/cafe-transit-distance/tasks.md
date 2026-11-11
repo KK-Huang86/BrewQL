@@ -1,0 +1,20 @@
+## 1. 店家座標
+
+- [ ] 1.1 `cafes` 新增 `lat`、`lng`；測試 + 實作：real 匯入寫入座標（含以座標補上位置的店家）；驗證：測試由紅轉綠，重建 real 後 711 家都有座標
+- [ ] 1.2 `07_demo_locations.sh`：demo 店家依 D3 產生座標，CI 與測試資料庫一併執行；驗證：整合測試確認 200 家都有座標且在同區 YouBike 錨點 250 公尺內，重建兩次座標相同，既有 `db/checks` 與 `--dry-run` 答案不變
+
+## 2. 距離 view 與防護
+
+- [ ] 2.1 `distance_m` 函式與 `v_cafe_transit`，授權 `genbi_reader`；驗證：整合測試以已知座標驗證距離（誤差 < 1%）與 300 公尺內站數，量測 real 模式整個 view 的查詢時間
+- [ ] 2.2 測試 + 實作：SQL 白名單加入 `v_cafe_transit`；驗證：測試由紅轉綠
+- [ ] 2.3 `db/checks` 新增座標檢查（D6）；驗證：demo 通過，mutation 把一家店移到台中時失敗
+
+## 3. 模型與評估
+
+- [ ] 3.1 知識文件與 `STATIC_KNOWLEDGE`：`cafes` 座標、`v_cafe_transit`、名詞「捷運站附近／步行 5 分鐘」「附近有 YouBike」；驗證：知識文件測試通過、名詞中的 SQL 以唯讀角色可執行
+- [ ] 3.2 golden set 新增 2 題距離題目；驗證：`--dry-run` 全部 ok
+- [ ] 3.3 static 與 rag 各跑 2 次評估；驗證：結果、token 變化與檢索情況記入 `RESULTS.md`
+
+## 4. 文件
+
+- [ ] 4.1 README：座標來源（real 為匯出檔、demo 為產生）、距離是直線距離；real 模式實際提問 1 題距離問題；驗證：照 README 重建 demo 與 real 都有 view
