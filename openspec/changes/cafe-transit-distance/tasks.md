@@ -7,7 +7,8 @@
 
 ## 2. 距離 view 與防護
 
-- [ ] 2.1 `distance_m` 函式與 `v_cafe_transit`，授權 `genbi_reader`；驗證：整合測試以已知座標驗證距離（誤差 < 1%）與 300 公尺內站數，量測 real 模式整個 view 的查詢時間
+- [x] 2.1 `distance_m` 函式與 `v_cafe_transit`，授權 `genbi_reader`；驗證：整合測試以已知座標驗證距離（誤差 < 1%）與 300 公尺內站數，量測 real 模式整個 view 的查詢時間
+  - 結果：4 個整合測試紅轉綠（紅燈 `relation "v_cafe_transit" does not exist`）。已知距離在東部外海（25.30 N 122.05 E，遠離所有真實站點）以 owner 交易建立、測完一定 rollback：500 公尺的測試站為最近站且誤差 < 1%，100、250 公尺的 YouBike 計入、350 公尺不計入；SQL 的 `distance_m` 與 Python 的 haversine 相對誤差 < 1e-6（台北車站到板橋）；demo 200 家都有一列。YouBike 先以經緯度方框篩選再算距離。效能：在交易中加入 511 家假店家湊到 real 的 711 家，`EXPLAIN ANALYZE` 整個 view 386 ms（目標 1 秒、timeout 5 秒），維持一般 view，不需要 materialized view。`genbi_reader` 授權寫在 `03_readonly_role.sh`，和其他 view 相同
 - [ ] 2.2 測試 + 實作：SQL 白名單加入 `v_cafe_transit`；驗證：測試由紅轉綠
 - [ ] 2.3 `db/checks` 新增座標檢查（D6）；驗證：demo 通過，mutation 把一家店移到台中時失敗
 

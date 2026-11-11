@@ -177,3 +177,32 @@ CREATE TABLE mrt_stations (
     lng        NUMERIC(9, 6) NOT NULL,
     as_of      DATE NOT NULL                      -- download day of the exit file
 );
+
+-- Straight-line (haversine) distance in metres on a 6,371 km sphere, the same formula as
+-- app.real_cafes.distance_m (cafe-transit-distance D4). Used by v_cafe_transit and the checks;
+-- the model is pointed at the view instead.
+CREATE FUNCTION distance_m(lat1 float8, lng1 float8, lat2 float8, lng2 float8) RETURNS float8
+LANGUAGE sql IMMUTABLE PARALLEL SAFE
+RETURN 2 * 6371000 * asin(sqrt(
+    sin(radians(lat2 - lat1) / 2) ^ 2
+    + cos(radians(lat1)) * cos(radians(lat2)) * sin(radians(lng2 - lng1) / 2) ^ 2
+));
+
+-- One row per located cafe: the nearest Taipei Metro station and how many YouBike stations lie
+-- within 300 m. A plain view: real cafes are imported after init, so nothing needs refreshing.
+-- The YouBike count first keeps a lat/lng box (0.0028 deg lat is about 311 m, 0.0031 deg lng
+-- about 312 m at 25 N) so only nearby stations reach the distance formula.
+CREATE VIEW v_cafe_transit AS
+SELECT c.id AS cafe_id,
+       m.name AS nearest_mrt,
+       round(m.d)::int AS mrt_distance_m,
+       (SELECT count(*)::int FROM youbike_stations y
+        WHERE y.lat BETWEEN c.lat - 0.0028 AND c.lat + 0.0028
+          AND y.lng BETWEEN c.lng - 0.0031 AND c.lng + 0.0031
+          AND distance_m(c.lat, c.lng, y.lat, y.lng) <= 300) AS youbike_within_300m
+FROM cafes c
+CROSS JOIN LATERAL (
+    SELECT s.name, distance_m(c.lat, c.lng, s.lat, s.lng) AS d
+    FROM mrt_stations s ORDER BY d, s.name LIMIT 1
+) m
+WHERE c.lat IS NOT NULL AND c.lng IS NOT NULL;
