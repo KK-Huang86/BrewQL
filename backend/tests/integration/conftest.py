@@ -22,6 +22,14 @@ def reader_dsn() -> str:
 
 
 @pytest.fixture
+async def reader(reader_dsn):
+    """A plain genbi_reader connection; tests that need a writable session override it."""
+    conn = await asyncpg.connect(reader_dsn)
+    yield conn
+    await conn.close()
+
+
+@pytest.fixture
 async def executor(reader_dsn):
     ex = PgExecutor(reader_dsn)
     yield ex

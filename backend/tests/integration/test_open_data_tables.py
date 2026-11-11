@@ -1,15 +1,5 @@
 """Open-data snapshots loaded at init and readable by the API role (import-open-data D3, D4)."""
 
-import asyncpg
-import pytest
-
-
-@pytest.fixture
-async def reader(reader_dsn):
-    conn = await asyncpg.connect(reader_dsn)
-    yield conn
-    await conn.close()
-
 
 async def test_reader_sees_every_taipei_and_new_taipei_district(reader):
     rows = await reader.fetch("SELECT city, count(*) AS n FROM district_population GROUP BY city ORDER BY city")

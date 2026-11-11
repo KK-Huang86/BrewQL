@@ -9,7 +9,7 @@ set -euo pipefail
 case "${DATASET:-demo}" in
     demo)
         psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<'SQL'
-WITH h AS (
+WITH draws AS (
     -- Three independent 28-bit numbers per cafe from its md5.
     SELECT c.id, c.city, c.district,
            ('x' || substr(md5(c.place_id), 1, 7))::bit(28)::int AS pick,
@@ -24,8 +24,8 @@ anchors AS (
     FROM youbike_stations
 ),
 placed AS (
-    SELECT h.id, a.lat AS a_lat, a.lng AS a_lng, 2 * pi() * h.turn AS bearing, 250 * h.reach AS metres
-    FROM h JOIN anchors a ON a.city = h.city AND a.district = h.district AND a.i = h.pick % a.n
+    SELECT d.id, a.lat AS a_lat, a.lng AS a_lng, 2 * pi() * d.turn AS bearing, 250 * d.reach AS metres
+    FROM draws d JOIN anchors a ON a.city = d.city AND a.district = d.district AND a.i = d.pick % a.n
 )
 UPDATE cafes c
 SET lat = round((p.a_lat + p.metres * cos(p.bearing) / 111320)::numeric, 6),

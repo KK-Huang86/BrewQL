@@ -4,32 +4,18 @@ Known distances are built far from every real station (off the east coast, 25.30
 inside a transaction that is always rolled back. 0.001 degree of latitude is about 111.2 m.
 """
 
-from dataclasses import dataclass
-
 import asyncpg
 import pytest
 
 from app.real_cafes import distance_m
+from tests.integration.points import Point
 
 LAT, LNG = 25.300000, 122.050000
 M_PER_DEG_LAT = 111_195  # haversine on a 6,371 km sphere
 
 
-@dataclass(frozen=True)
-class Point:
-    lat: float
-    lng: float
-
-
 def north(metres: float) -> float:
     return round(LAT + metres / M_PER_DEG_LAT, 6)
-
-
-@pytest.fixture
-async def reader(reader_dsn):
-    conn = await asyncpg.connect(reader_dsn)
-    yield conn
-    await conn.close()
 
 
 @pytest.fixture

@@ -1,24 +1,7 @@
 """Generated demo cafe coordinates (cafe-transit-distance D3), on the demo test database."""
 
-from dataclasses import dataclass
-
-import asyncpg
-import pytest
-
 from app.real_cafes import distance_m
-
-
-@dataclass(frozen=True)
-class Point:
-    lat: float
-    lng: float
-
-
-@pytest.fixture
-async def reader(reader_dsn):
-    conn = await asyncpg.connect(reader_dsn)
-    yield conn
-    await conn.close()
+from tests.integration.points import Point
 
 
 async def test_every_demo_cafe_has_coordinates(reader):
