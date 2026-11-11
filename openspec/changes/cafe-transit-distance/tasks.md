@@ -16,7 +16,8 @@
 
 ## 3. 模型與評估
 
-- [ ] 3.1 知識文件與 `STATIC_KNOWLEDGE`：`cafes` 座標、`v_cafe_transit`、名詞「捷運站附近／步行 5 分鐘」「附近有 YouBike」；驗證：知識文件測試通過、名詞中的 SQL 以唯讀角色可執行
+- [x] 3.1 知識文件與 `STATIC_KNOWLEDGE`：`cafes` 座標、`v_cafe_transit`、名詞「捷運站附近／步行 5 分鐘」「附近有 YouBike」；驗證：知識文件測試通過、名詞中的 SQL 以唯讀角色可執行
+  - 結果：schema 說明已在 2.2 加入；本任務新增一份名詞 `glossary-near-mrt`，把「捷運站附近／步行 5 分鐘」（`mrt_distance_m <= 400`，N 分鐘 = N × 80 公尺）、「附近有 YouBike」與「YouBike 多寡比站數」寫在同一份，避免多份交通名詞擠掉其他文件（`import-transit-open-data` 的教訓）。`STATIC_KNOWLEDGE` 同步。知識文件測試通過；名詞中的 SQL 以 `genbi_reader` 執行得到 90 家
 - [ ] 3.2 golden set 新增 2 題距離題目；驗證：`--dry-run` 全部 ok
 - [ ] 3.3 static 與 rag 各跑 2 次評估；驗證：結果、token 變化與檢索情況記入 `RESULTS.md`
 

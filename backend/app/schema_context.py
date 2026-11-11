@@ -202,6 +202,10 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
   要包含沒有捷運站的行政區時，從 district_population 開始 LEFT JOIN，站數用 coalesce(..., 0)
   寫法：WITH m AS (SELECT district, count(*) AS n FROM mrt_stations GROUP BY district)
   SELECT p.district, coalesce(m.n, 0) AS mrt_stations FROM district_population p LEFT JOIN m USING (district)
+- 捷運站附近：用 v_cafe_transit，以 t.cafe_id = c.id 串接 cafes；距離是直線距離（公尺）
+  捷運站附近、步行 5 分鐘：mrt_distance_m <= 400；步行 N 分鐘 = N × 80 公尺
+  附近有 YouBike：youbike_within_300m > 0；問 YouBike 多寡時比較 youbike_within_300m 的站數
+  寫法：SELECT count(*) FROM cafes c JOIN v_cafe_transit t ON t.cafe_id = c.id WHERE t.mrt_distance_m <= 400
 """
 
 SCHEMA_CONTEXT = REPLY_RULES + STATIC_KNOWLEDGE
