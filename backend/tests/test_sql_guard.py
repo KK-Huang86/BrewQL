@@ -113,6 +113,11 @@ def test_open_data_tables_are_queryable():
     validate_sql("SELECT district, count(*) FROM universities GROUP BY district")
 
 
+def test_cafe_transit_view_is_queryable():
+    # cafe-transit-distance: distances come from the view, joined to cafes by id.
+    validate_sql("SELECT c.name FROM cafes c JOIN v_cafe_transit t ON t.cafe_id = c.id WHERE t.mrt_distance_m <= 400")
+
+
 def test_transit_open_data_tables_are_queryable():
     # import-transit-open-data: YouBike and MRT stations join the rest by district.
     validate_sql(
@@ -191,6 +196,12 @@ def test_blocked_columns_are_rejected_anywhere(sql):
 def test_dangerous_functions_are_rejected_anywhere(sql):
     with pytest.raises(SqlGuardError, match="不允許的函式"):
         validate_sql(sql)
+
+
+def test_distance_function_behind_the_transit_view_is_rejected():
+    # Distance questions go through v_cafe_transit; the model never computes distances itself.
+    with pytest.raises(SqlGuardError, match="不允許的函式"):
+        validate_sql("SELECT name FROM cafes WHERE distance_m(lat, lng, 25.0478, 121.517) < 400")
 
 
 def test_ordinary_functions_pass():

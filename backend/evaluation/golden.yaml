@@ -234,6 +234,22 @@
     SELECT y.district FROM y LEFT JOIN s USING (district)
     ORDER BY COALESCE(s.searches, 0)::numeric / y.docks DESC LIMIT 1
 
+- id: q32
+  difficulty: medium
+  question: 捷運站步行 5 分鐘內的工作友善咖啡店有幾家？
+  sql: >-
+    SELECT COUNT(*) FROM cafes c JOIN v_cafe_transit t ON t.cafe_id = c.id
+    WHERE t.mrt_distance_m <= 400
+      AND c.limited_time IN ('no', 'maybe') AND c.has_socket IN ('yes', 'maybe')
+
+- id: q33
+  difficulty: hard
+  question: 哪個行政區的咖啡店中，位在捷運站步行 5 分鐘內的比例最高？只列出行政區名稱
+  sql: >-
+    SELECT c.district FROM cafes c JOIN v_cafe_transit t ON t.cafe_id = c.id
+    GROUP BY c.district
+    ORDER BY COUNT(*) FILTER (WHERE t.mrt_distance_m <= 400)::numeric / COUNT(*) DESC LIMIT 1
+
 # --- refuse / clarify: no SQL should run ------------------------------------------------------
 - id: q12
   difficulty: refuse

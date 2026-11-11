@@ -15,5 +15,5 @@ ALTER ROLE genbi_reader SET statement_timeout = '5s';
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO genbi_reader;
 GRANT SELECT ON cafes, users, search_logs, cafe_views, favorites, cafe_nomad_cache,
-    cafe_attribute_votes, v_daily_activity, v_cafe_profile TO genbi_reader;
+    cafe_attribute_votes, v_daily_activity, v_cafe_profile, v_cafe_transit TO genbi_reader;
 SQL

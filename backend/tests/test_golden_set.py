@@ -176,3 +176,14 @@ def test_shipped_golden_set_has_transit_questions():
 
     assert len(cross) >= 2
     assert any(q.difficulty == "hard" for q in cross)
+
+
+def test_shipped_golden_set_has_distance_questions():
+    # Spec (cafe-transit-distance): at least 2 questions on v_cafe_transit, 1 hard.
+    from pathlib import Path
+
+    questions = load_golden_set(Path(__file__).resolve().parents[1] / "evaluation" / "golden.yaml")
+    distance = [q for q in questions if q.sql and "v_cafe_transit" in q.sql]
+
+    assert len(distance) >= 2
+    assert any(q.difficulty == "hard" for q in distance)

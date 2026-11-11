@@ -5,7 +5,7 @@ import pytest
 
 from app.real_cafes import prepare_batch
 from app.real_cafes_store import PgRealCafeStore
-from tests.test_real_cafes import EXPORT_ROW, LAT, nomad, vote
+from tests.test_real_cafes import EXPORT_ROW, LAT, LNG, nomad, vote
 
 
 def batch(nomad_override=None):
@@ -124,3 +124,19 @@ async def test_no_view_or_favorite_comes_before_the_cafe_was_listed(empty_db):
     )
     assert (early["views"], early["favorites"]) == (0, 0)
     assert early["new_cafe_views"] > 0  # still visited, just not before it existed
+
+
+async def test_cafes_keep_their_export_coordinates(empty_db):
+    # cafe-transit-distance D2: coordinates are stored, including p2, whose district was filled from
+    # a neighbour's address; its coordinates stay its own.
+    store = PgRealCafeStore(empty_db)
+    try:
+        await store.write(batch())
+    finally:
+        await store.close()
+
+    rows = await fetch(empty_db, "SELECT place_id, lat, lng FROM cafes ORDER BY place_id")
+    assert [(r["place_id"], float(r["lat"]), float(r["lng"])) for r in rows] == [
+        ("p1", round(LAT, 6), round(LNG, 6)),
+        ("p2", round(LAT + 300 / 111_000, 6), round(LNG, 6)),
+    ]

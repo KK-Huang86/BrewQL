@@ -73,3 +73,11 @@
     要列出沒有捷運站的行政區時，從 district_population LEFT JOIN，站數用 coalesce(..., 0)。
     寫法：WITH m AS (SELECT district, count(*) AS n FROM mrt_stations GROUP BY district)
     SELECT p.district, coalesce(m.n, 0) AS mrt_stations FROM district_population p LEFT JOIN m USING (district)
+
+- id: glossary-near-mrt
+  title: 捷運站附近（步行幾分鐘、離捷運站多遠、附近的 YouBike）
+  content: |
+    用 v_cafe_transit，以 t.cafe_id = c.id 串接 cafes；距離是直線距離（公尺）。
+    捷運站附近、步行 5 分鐘：mrt_distance_m <= 400；步行 N 分鐘 = N × 80 公尺。
+    附近有 YouBike：youbike_within_300m > 0；問 YouBike 多寡時比較 youbike_within_300m 的站數。
+    寫法：SELECT count(*) FROM cafes c JOIN v_cafe_transit t ON t.cafe_id = c.id WHERE t.mrt_distance_m <= 400

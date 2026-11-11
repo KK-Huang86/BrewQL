@@ -1,0 +1,38 @@
+## 1. 店家座標
+
+- [x] 1.1 `cafes` 新增 `lat`、`lng`；測試 + 實作：real 匯入寫入座標（含以座標補上位置的店家）；驗證：測試由紅轉綠，重建 real 後 711 家都有座標
+  - 結果：整合測試紅轉綠（紅燈 `column "lat" does not exist`），驗證兩家店都存入匯出檔座標，含以鄰店補上行政區的 p2。`real_cafes_store` 的 INSERT 多了 `lat`、`lng`，`CafeRow` 註解改為會儲存。全部 730 個測試通過。重建 real 的 711 家驗證併入 4.1，避免多次重建 real volume
+- [x] 1.2 `07_demo_locations.sh`：demo 店家依 D3 產生座標，CI 與測試資料庫一併執行；驗證：整合測試確認 200 家都有座標且在同區 YouBike 錨點 250 公尺內，重建兩次座標相同，既有 `db/checks` 與 `--dry-run` 答案不變
+  - 結果：3 個整合測試紅轉綠（紅燈 `(200, 0, 0) == (200, 200, 200)`）：200 家都有座標、都在同區某個 YouBike 站 251 公尺內（含 6 位小數的進位誤差）、大安區 40 家分散在至少 30 個位置。錨點、方位、距離取自 `md5(place_id)` 的三段 28 位元，不使用 `random()`。CI workflow 加入 `07_demo_locations.sh`；測試資料庫掛載整個 init 目錄，不需修改。重建兩次座標的 md5 相同。golden set 27 題參考答案：除了依建庫時間產生的 q16（每月搜尋次數）之外全部不變；q16 在沒有 `07` 的兩次重建之間也會變（搜尋時間以 `now()` 為基準），與座標無關。`db/checks` 全部通過，全部 733 個測試通過
+
+## 2. 距離 view 與防護
+
+- [x] 2.1 `distance_m` 函式與 `v_cafe_transit`，授權 `genbi_reader`；驗證：整合測試以已知座標驗證距離（誤差 < 1%）與 300 公尺內站數，量測 real 模式整個 view 的查詢時間
+  - 結果：4 個整合測試紅轉綠（紅燈 `relation "v_cafe_transit" does not exist`）。已知距離在東部外海（25.30 N 122.05 E，遠離所有真實站點）以 owner 交易建立、測完一定 rollback：500 公尺的測試站為最近站且誤差 < 1%，100、250 公尺的 YouBike 計入、350 公尺不計入；SQL 的 `distance_m` 與 Python 的 haversine 相對誤差 < 1e-6（台北車站到板橋）；demo 200 家都有一列。YouBike 先以經緯度方框篩選再算距離。效能：在交易中加入 511 家假店家湊到 real 的 711 家，`EXPLAIN ANALYZE` 整個 view 386 ms（目標 1 秒、timeout 5 秒），維持一般 view，不需要 materialized view。`genbi_reader` 授權寫在 `03_readonly_role.sh`，和其他 view 相同
+- [x] 2.2 測試 + 實作：SQL 白名單加入 `v_cafe_transit`；驗證：測試由紅轉綠
+  - 結果：測試紅轉綠（紅燈 `不允許的資料表：v_cafe_transit`）。知識文件測試要求白名單每張表都有一份 schema 文件，因此 `schema-v_cafe_transit` 與 `cafes.lat`、`lng` 的說明（含「距離問題用 view，不要自己計算」）在這裡一起加入 `schema.yaml` 與 `STATIC_KNOWLEDGE`（屬於 3.1）。`distance_m` 函式不在白名單與知識文件中
+- [x] 2.3 `db/checks` 新增座標檢查（D6）；驗證：demo 通過，mutation 把一家店移到台中時失敗
+  - 結果：新增 `10_cafe_locations.sql`，demo 通過；`mutate.sh` 三種改法都 caught：移到台中（`cafes outside Taipei and New Taipei`）、座標設為 NULL（`cafes without coordinates`）、移到外海（`demo cafes far from every MRT station: ... 42450 m`）。demo 分布：最近捷運站 14～4,685 公尺、中位數 430 公尺，400 公尺內 90 家；300 公尺內有 YouBike 的是 200 家全部。試過把 demo 偏移放大到 400／500／600 公尺，沒有 YouBike 的店也只有 1／6／4 家：雙北 YouBike 很密，「附近有沒有 YouBike」本來就幾乎都是有，維持 250 公尺，名詞與題目改用站數（例如 3 站以上）
+
+## 3. 模型與評估
+
+- [x] 3.1 知識文件與 `STATIC_KNOWLEDGE`：`cafes` 座標、`v_cafe_transit`、名詞「捷運站附近／步行 5 分鐘」「附近有 YouBike」；驗證：知識文件測試通過、名詞中的 SQL 以唯讀角色可執行
+  - 結果：schema 說明已在 2.2 加入；本任務新增一份名詞 `glossary-near-mrt`，把「捷運站附近／步行 5 分鐘」（`mrt_distance_m <= 400`，N 分鐘 = N × 80 公尺）、「附近有 YouBike」與「YouBike 多寡比站數」寫在同一份，避免多份交通名詞擠掉其他文件（`import-transit-open-data` 的教訓）。`STATIC_KNOWLEDGE` 同步。知識文件測試通過；名詞中的 SQL 以 `genbi_reader` 執行得到 90 家
+- [x] 3.2 golden set 新增 2 題距離題目；驗證：`--dry-run` 全部 ok
+  - 結果：測試紅轉綠（紅燈 `assert 0 >= 2`）。q32（medium，spec 情境）：捷運站步行 5 分鐘內的工作友善咖啡店，答案 33 家；q33（hard）：步行 5 分鐘內比例最高的行政區，答案大安區（22/40 = 55.0%，第二名中正區、信義區 52.0%，沒有同分）。`--dry-run` 29 題 SQL 全部 ok
+- [x] 3.3 static 與 rag 各跑 2 次評估；驗證：結果、token 變化與檢索情況記入 `RESULTS.md`
+  - 結果：在測試資料庫（demo，41 份知識文件）執行，static 與 rag 各兩次都是 33/33。static 每題輸入約 4,498 token（+約 400），rag 約 2,381 token（比 static -47%）。距離題在 rag 檢索第一名都是 view 說明與距離名詞；其他題只有 5/31 取到距離文件。四次評估中沒有任何 SQL 自己用 `lat`、`lng` 算距離。評估花費約 US$0.57
+
+## 4. 文件
+
+- [x] 4.1 README：座標來源（real 為匯出檔、demo 為產生）、距離是直線距離；real 模式實際提問 1 題距離問題；驗證：照 README 重建 demo 與 real 都有 view
+  - 結果：README「公開資料」加入 `v_cafe_transit` 說明、兩種資料集的座標來源（demo 註明不是真實位置）、YouBike 很密要比站數；roadmap 16 標記完成。real 以匯出檔重建：711 家都有座標（1.1 延後的驗證），view 711 列、最近捷運站 10～23,698 公尺（中位數 389 公尺，400 公尺內 365 家），`EXPLAIN ANALYZE` 466 ms；`10_cafe_locations.sql` 在 real 通過（`07`、`08` 是 demo 故事檢查，在 real 本來就不成立）。real 實際提問「捷運站步行 5 分鐘內、不限時的咖啡店，哪個捷運站附近最多」：模型用 view 篩選 `mrt_distance_m <= 400`，回答行天宮 3 家，其餘 2 家（real 一半店家的 `limited_time` 是 NULL，數字偏小）。demo 由測試資料庫以同一套 init 腳本建立並驗證；本機 compose 的 demo volume 重建會清掉稽核紀錄，留給使用者決定
+
+## 5. Review 修正
+
+- [x] 5.1 測試 + 實作：SQL 防護拒絕直接呼叫 `distance_m`，查 `v_cafe_transit` 照常通過；驗證：測試由紅轉綠
+  - 結果：測試紅轉綠（紅燈 `DID NOT RAISE`）。`distance_m` 加入 `BLOCKED_FUNCTIONS`，既有的「每個封鎖函式都被 parser 抓到」參數化測試自動涵蓋。不用 REVOKE：view 內部呼叫函式時需要查詢者的 EXECUTE 權限，撤銷會讓 view 失效。查 view 的白名單測試照常通過
+- [x] 5.2 整合測試鎖定 demo 座標（全部店家座標的 checksum），重建後必須相同；驗證：mutation 改一家店座標時失敗
+  - 結果：寫下時即綠燈（產生方式本來就穩定），重建測試資料庫後 checksum 相同；mutation 把一家店移動 0.000001 度時失敗
+- [x] 5.3 重構：整合測試共用的 `reader` fixture 移到 `conftest.py`、`Point` 移到共用模組，`07_demo_locations.sh` 的 CTE `h` 改名；驗證：全部測試通過
+  - 結果：`reader` 移到 `conftest.py`（需要可寫 session 的 audit、knowledge 測試保留自己的覆寫），`Point` 移到 `tests/integration/points.py`，CTE 改名 `draws`。重建測試資料庫後 checksum 不變，全部 742 個測試通過，`db/checks` 全部通過

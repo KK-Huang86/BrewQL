@@ -112,7 +112,7 @@ class CafeRow:
     place_id: str
     name: str
     address: str
-    lat: float  # matching and location fill only; not stored (D4)
+    lat: float  # used for matching and location fill, and stored (cafe-transit-distance D2)
     lng: float
     rating: Decimal | None
     user_ratings_total: int
