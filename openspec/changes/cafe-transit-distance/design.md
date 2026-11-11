@@ -26,7 +26,7 @@
 ```sql
 v_cafe_transit (cafe_id, nearest_mrt, mrt_distance_m, youbike_within_300m)
 ```
-- 直線距離用 haversine，寫成 `IMMUTABLE` 的 SQL 函式 `distance_m(lat1, lng1, lat2, lng2)`，view 與檢查共用；模型不直接使用函式（不在白名單內也不寫進知識文件）。
+- 直線距離用 haversine，寫成 `IMMUTABLE` 的 SQL 函式 `distance_m(lat1, lng1, lat2, lng2)`，view 與檢查共用；模型不直接使用函式：不寫進知識文件，並加入 SQL 防護的封鎖函式（view 內部呼叫時需要查詢者的 EXECUTE 權限，不能用 REVOKE 擋）。
 - 一般 view，不用 materialized view：real 匯入在 init 之後執行，materialized view 需要額外的 refresh 步驟。雙北規模（711 家 × 3,398 站）以經緯度方框先篩選再算距離，目標是整個 view 在 1 秒內查完（statement timeout 5 秒）。實作時量測，超過時改用 materialized view 並在匯入後 refresh。
 - 300 公尺固定寫在 view：營運最常問「附近有沒有 YouBike」，固定一個門檻比讓模型自己算距離穩定。其他門檻的 YouBike 問題不在本 change 範圍。
 
