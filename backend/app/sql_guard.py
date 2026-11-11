@@ -42,6 +42,9 @@ DEFAULT_ALLOWED_TABLES = frozenset(
         # Government open data (import-open-data)
         "district_population",
         "universities",
+        # Transit open data (import-transit-open-data)
+        "youbike_stations",
+        "mrt_stations",
     }
 )
 

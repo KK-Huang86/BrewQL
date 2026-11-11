@@ -112,23 +112,32 @@ real 只匯入公開的店家資訊：
 
 ### 公開資料
 
-兩種資料集都會載入政府公開資料的快照，以行政區和店家、搜尋資料串接，可以問「每萬人咖啡店數」「有大專校院的行政區」這類問題。只收台北市、新北市。
+兩種資料集都會載入政府公開資料的快照，以行政區和店家、搜尋資料串接，可以問「每萬人咖啡店數」「有大專校院的行政區」「捷運站多的區有幾家店」這類問題。只收台北市、新北市。
 
 | 資料表 | 來源 | 資料時間 |
 |---|---|---|
 | `district_population`（人口、土地面積） | 內政部戶政司「各鄉鎮市區人口密度」（[data.gov.tw/dataset/8410](https://data.gov.tw/dataset/8410)） | 民國 114 年底 |
 | `universities`（學校代碼、名稱、公私立、體制、行政區） | 教育部「全國大學校院名錄」（[data.gov.tw/dataset/33207](https://data.gov.tw/dataset/33207)） | 108 學年度（官方之後沒有更新，少數學校可能已合併或改名） |
+| `youbike_stations`（營運中的 YouBike 2.0 站點、車柱數、座標） | 臺北市政府交通局「YouBike2.0臺北市公共自行車即時資訊」（[data.gov.tw/dataset/137993](https://data.gov.tw/dataset/137993)）、新北市政府交通局「新北市公共自行車租賃系統(YouBike2.0)」（[data.gov.tw/dataset/146969](https://data.gov.tw/dataset/146969)） | 下載日 2026-11-11（即時資料，`as_of` 記下載日） |
+| `mrt_stations`（臺北捷運車站、出入口數、座標） | 臺北大眾捷運公司「臺北捷運車站出入口座標」（[data.gov.tw/dataset/128428](https://data.gov.tw/dataset/128428)） | 下載日 2026-11-11 |
 
 - 授權：[政府資料開放授權條款第 1 版](https://data.gov.tw/license)，可以散布，需標示來源。
-- 快照在 `db/init/open_data/`，由 `06_open_data.sh` 在資料庫初始化時載入。既有資料庫要 `docker compose down -v` 重建才會有這兩張表。
+- 快照在 `db/init/open_data/`，由 `06_open_data.sh` 在資料庫初始化時載入。既有資料庫要 `docker compose down -v` 重建才會有新的資料表。
 - 快照不收個人資訊：大專校院名錄的校長姓名、電話、傳真、地址都不收。
+- YouBike 只收營運中的站，不收可借車輛等即時欄位；「臺大公館校區」的站算在大安區。
+- 捷運資料只有出入口：同站出入口合成一列，位置取平均；檔案沒有行政區，取最近 YouBike 站的行政區，7 個位在行政區交界的車站以對照表修正（`MRT_DISTRICT_FIXES`，已和捷運官網的車站地址逐站核對）。只有臺北捷運公司的路網，不含機場捷運與輕軌。
 - 學校代碼照官方下載檔保留；檔案裡數字代碼的前導 0 已經不見（例如政大是 `1`），不是正式的四碼格式。
-- 官方更新時重產快照（下載檔放 repo 外；同樣的下載檔重跑，結果不變）：
+- 官方更新時重產快照（下載檔放 repo 外；同樣的下載檔與下載日重跑，結果不變）：
 
 ```bash
 curl -L -o /tmp/population.csv "https://opdadm.moi.gov.tw/api/v1/no-auth/resource/api/dataset/D1450798-F85B-4063-9761-A24B8929A684/resource/B7938B44-1E42-4ED2-A980-31629877B152/download"
 curl -L -o /tmp/universities.csv "https://ws.moe.edu.tw/001/Upload/4/relfile/0/5038/55f39b31-27a0-4009-866a-ea260eb45eaf.csv"
-uv --directory backend run python -m scripts.prepare_open_data /tmp/population.csv /tmp/universities.csv ../db/init/open_data
+curl -L -o /tmp/youbike_taipei.json "https://tcgbusfs.blob.core.windows.net/dotapp/youbike/v2/youbike_immediate.json"
+curl -L -o /tmp/youbike_new_taipei.json "https://data.ntpc.gov.tw/api/datasets/010e5b15-3823-4b20-b401-b1cf000550c5/json?page=0&size=3000"
+curl -L -o /tmp/mrt_exits.csv "https://data.taipei/api/dataset/cfa4778c-62c1-497b-b704-756231de348b/resource/307a7f61-e302-4108-a817-877ccbfca7c1/download"
+# 最後一個日期參數是 YouBike 與捷運檔的下載日，寫進 as_of
+uv --directory backend run python -m scripts.prepare_open_data /tmp/population.csv /tmp/universities.csv \
+  /tmp/youbike_taipei.json /tmp/youbike_new_taipei.json /tmp/mrt_exits.csv 2026-11-11 ../db/init/open_data
 ```
 
 ### Bedrock 憑證
@@ -231,12 +240,13 @@ npm --prefix frontend run build
 | 12 | 9 | `rag-knowledge-base` | Titan Embeddings + pgvector 檢索 schema、名詞與範例；預設改為 rag，每題輸入 token -27%（評估 26/26） ✅ |
 | 13 | — | `import-real-cafes` | 匯入真實店家（Find Coffee 店家、屬性投票、Cafe Nomad，限台北市與新北市），`DATASET=demo\|real` 兩種模式並存 ✅ |
 | 14 | — | `import-open-data` | 公開資料第一階段：行政區人口、大專校院（以行政區串接），每萬人咖啡店數；評估 static／rag 皆 29/29 ✅ |
-| 15 | — | `import-transit-open-data` | 公開資料第二階段：YouBike 站點、捷運出入口與進出人次（距離預先計算） |
-| 16 | — | `compare-bedrock-knowledge-bases` | 同一知識文件與測試集比較 pgvector 與 Bedrock Knowledge Bases（實驗資源比完即銷毀）；自建與 AWS 託管方案取捨文件 |
-| 17 | 11 | `show-definitions-and-steps` | 顯示本次使用的名詞定義；LangGraph 流程與 SSE 步驟串流 |
-| 18 | 12 | `model-comparison-report` | 模型比較報告：Haiku 與 Sonnet、錯誤分類與改善、prompt caching 成本優化 |
-| 19 | 10 | `edit-and-rerun-sql` | 編輯 SQL 後重新執行（同樣經過 SQL 防護） |
-| 20 | 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
+| 15 | — | `import-transit-open-data` | 公開資料第二階段：YouBike 站點、捷運車站（以行政區串接）；評估 static／rag 皆 31/31 ✅ |
+| 16 | — | `cafe-transit-distance` | 店家加上經緯度，預先計算到捷運站、YouBike 站的距離 |
+| 17 | — | `compare-bedrock-knowledge-bases` | 同一知識文件與測試集比較 pgvector 與 Bedrock Knowledge Bases（實驗資源比完即銷毀）；自建與 AWS 託管方案取捨文件 |
+| 18 | 11 | `show-definitions-and-steps` | 顯示本次使用的名詞定義；LangGraph 流程與 SSE 步驟串流 |
+| 19 | 12 | `model-comparison-report` | 模型比較報告：Haiku 與 Sonnet、錯誤分類與改善、prompt caching 成本優化 |
+| 20 | 10 | `edit-and-rerun-sql` | 編輯 SQL 後重新執行（同樣經過 SQL 防護） |
+| 21 | 13 | `deploy-public-demo` | Terraform 部署 EC2、IAM role、預算警報 |
 
 依「順序」由上而下執行，`#` 是原始 ticket 編號（文件與程式註解中的「ticket 9」等指此編號）：
 

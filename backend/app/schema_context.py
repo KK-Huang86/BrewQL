@@ -141,6 +141,27 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
 - city：城市，值為 '台北市' 或 '新北市'
 - district：行政區
 
+## 資料表 youbike_stations：YouBike 2.0 站點（政府公開資料，台北市、新北市營運中的站，每站一列）
+
+- station_no：站號（主鍵）
+- name：站名
+- city：城市，值為 '台北市' 或 '新北市'
+- district：行政區，以 district 與 cafes、search_logs 串接；雙北每個行政區都有站
+- docks：車柱數（可停車位數）
+- lat：站點緯度
+- lng：站點經度
+- as_of：資料下載日（date）
+
+## 資料表 mrt_stations：臺北捷運車站（政府公開資料，每站一列，不含機場捷運與輕軌）
+
+- name：站名（主鍵），例如 '板橋'、'台北車站'；轉乘站只有一列
+- city：城市，值為 '台北市' 或 '新北市'
+- district：車站所在行政區，以 district 串接；有些行政區沒有捷運站
+- exit_count：出入口數
+- lat：車站緯度（出入口平均）
+- lng：車站經度（出入口平均）
+- as_of：資料下載日（date）
+
 ## 名詞定義
 
 - 工作友善：limited_time IN ('no', 'maybe') AND has_socket IN ('yes', 'maybe')
@@ -165,6 +186,12 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
   寫法：count(*)::numeric / p.population * 10000
   FROM cafes c JOIN district_population p USING (district) GROUP BY c.district, p.population
   整個城市：該城市店數 ÷ sum(population)；搜尋次數等其他指標的「每萬人」寫法相同
+- 交通便利度：以行政區的站數衡量，以 district 串接：捷運站數 count(*) FROM mrt_stations；
+  YouBike 站數 count(*) 或車柱數 sum(docks) FROM youbike_stations；沒指定時分開列，不要自創加權分數
+  先把每張表各自依 district 彙總再串接，不要直接 JOIN cafes 與站點表，否則筆數會相乘
+  要包含沒有捷運站的行政區時，從 district_population 開始 LEFT JOIN，站數用 coalesce(..., 0)
+  寫法：WITH m AS (SELECT district, count(*) AS n FROM mrt_stations GROUP BY district)
+  SELECT p.district, coalesce(m.n, 0) AS mrt_stations FROM district_population p LEFT JOIN m USING (district)
 """
 
 SCHEMA_CONTEXT = REPLY_RULES + STATIC_KNOWLEDGE

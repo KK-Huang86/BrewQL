@@ -113,6 +113,14 @@ def test_open_data_tables_are_queryable():
     validate_sql("SELECT district, count(*) FROM universities GROUP BY district")
 
 
+def test_transit_open_data_tables_are_queryable():
+    # import-transit-open-data: YouBike and MRT stations join the rest by district.
+    validate_sql(
+        "SELECT district, count(*) FROM youbike_stations GROUP BY 1 "
+        "UNION ALL SELECT district, count(*) FROM mrt_stations GROUP BY 1"
+    )
+
+
 @pytest.mark.parametrize(
     "sql",
     [

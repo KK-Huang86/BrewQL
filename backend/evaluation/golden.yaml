@@ -213,6 +213,27 @@
     SELECT t.district FROM top5 t JOIN district_population p USING (city, district)
     ORDER BY t.searches::numeric / p.population DESC LIMIT 1
 
+- id: q30
+  difficulty: medium
+  question: 捷運站最多的 3 個行政區，各有幾家咖啡店？列出行政區、捷運站數與咖啡店數
+  sql: >-
+    WITH m AS (SELECT district, COUNT(*) AS mrt_stations FROM mrt_stations GROUP BY district),
+    c AS (SELECT district, COUNT(*) AS cafes FROM cafes GROUP BY district)
+    SELECT m.district, m.mrt_stations, COALESCE(c.cafes, 0) AS cafes
+    FROM m LEFT JOIN c USING (district) ORDER BY m.mrt_stations DESC, m.district LIMIT 3
+
+- id: q31
+  difficulty: hard
+  question: YouBike 車柱數前 3 名的行政區中，平均每個車柱的搜尋次數最高的是哪一區？只列出行政區名稱
+  sql: >-
+    WITH y AS (
+      SELECT district, SUM(docks) AS docks FROM youbike_stations
+      GROUP BY district ORDER BY docks DESC LIMIT 3
+    ),
+    s AS (SELECT district, COUNT(*) AS searches FROM search_logs GROUP BY district)
+    SELECT y.district FROM y LEFT JOIN s USING (district)
+    ORDER BY COALESCE(s.searches, 0)::numeric / y.docks DESC LIMIT 1
+
 # --- refuse / clarify: no SQL should run ------------------------------------------------------
 - id: q12
   difficulty: refuse

@@ -63,3 +63,13 @@
     寫法：count(*)::numeric / p.population * 10000
     FROM cafes c JOIN district_population p USING (district) GROUP BY c.district, p.population
     整個城市：該城市店數 ÷ sum(population)；搜尋次數等其他指標的「每萬人」寫法相同。
+
+- id: glossary-transit
+  title: 交通便利度（捷運站、YouBike 站多寡）
+  content: |
+    捷運站數 count(*) FROM mrt_stations；YouBike 站數 count(*) 或車柱數 sum(docks) FROM youbike_stations。
+    沒指定時捷運與 YouBike 分開列，不要自創加權分數。
+    站點表先依 district 彙總成站數，再和店數、搜尋數串接；直接 JOIN 明細會讓筆數相乘。
+    要列出沒有捷運站的行政區時，從 district_population LEFT JOIN，站數用 coalesce(..., 0)。
+    寫法：WITH m AS (SELECT district, count(*) AS n FROM mrt_stations GROUP BY district)
+    SELECT p.district, coalesce(m.n, 0) AS mrt_stations FROM district_population p LEFT JOIN m USING (district)
