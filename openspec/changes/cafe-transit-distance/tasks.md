@@ -20,7 +20,8 @@
   - 結果：schema 說明已在 2.2 加入；本任務新增一份名詞 `glossary-near-mrt`，把「捷運站附近／步行 5 分鐘」（`mrt_distance_m <= 400`，N 分鐘 = N × 80 公尺）、「附近有 YouBike」與「YouBike 多寡比站數」寫在同一份，避免多份交通名詞擠掉其他文件（`import-transit-open-data` 的教訓）。`STATIC_KNOWLEDGE` 同步。知識文件測試通過；名詞中的 SQL 以 `genbi_reader` 執行得到 90 家
 - [x] 3.2 golden set 新增 2 題距離題目；驗證：`--dry-run` 全部 ok
   - 結果：測試紅轉綠（紅燈 `assert 0 >= 2`）。q32（medium，spec 情境）：捷運站步行 5 分鐘內的工作友善咖啡店，答案 33 家；q33（hard）：步行 5 分鐘內比例最高的行政區，答案大安區（22/40 = 55.0%，第二名中正區、信義區 52.0%，沒有同分）。`--dry-run` 29 題 SQL 全部 ok
-- [ ] 3.3 static 與 rag 各跑 2 次評估；驗證：結果、token 變化與檢索情況記入 `RESULTS.md`
+- [x] 3.3 static 與 rag 各跑 2 次評估；驗證：結果、token 變化與檢索情況記入 `RESULTS.md`
+  - 結果：在測試資料庫（demo，41 份知識文件）執行，static 與 rag 各兩次都是 33/33。static 每題輸入約 4,498 token（+約 400），rag 約 2,381 token（比 static -47%）。距離題在 rag 檢索第一名都是 view 說明與距離名詞；其他題只有 5/31 取到距離文件。四次評估中沒有任何 SQL 自己用 `lat`、`lng` 算距離。評估花費約 US$0.57
 
 ## 4. 文件
 
