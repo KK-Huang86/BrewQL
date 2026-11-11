@@ -113,6 +113,11 @@ def test_open_data_tables_are_queryable():
     validate_sql("SELECT district, count(*) FROM universities GROUP BY district")
 
 
+def test_cafe_transit_view_is_queryable():
+    # cafe-transit-distance: distances come from the view, joined to cafes by id.
+    validate_sql("SELECT c.name FROM cafes c JOIN v_cafe_transit t ON t.cafe_id = c.id WHERE t.mrt_distance_m <= 400")
+
+
 def test_transit_open_data_tables_are_queryable():
     # import-transit-open-data: YouBike and MRT stations join the rest by district.
     validate_sql(
