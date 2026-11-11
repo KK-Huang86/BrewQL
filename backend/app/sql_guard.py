@@ -39,6 +39,7 @@ DEFAULT_ALLOWED_TABLES = frozenset(
         "cafe_attribute_votes",
         "v_daily_activity",
         "v_cafe_profile",
+        "v_cafe_transit",  # cafe-transit-distance
         # Government open data (import-open-data)
         "district_population",
         "universities",

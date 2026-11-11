@@ -45,6 +45,8 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
 - favorite_count：收藏數（等於 favorites 中該店的筆數）
 - view_count：瀏覽數（等於 cafe_views 中該店的筆數）
 - created_at：上架時間（timestamptz）
+- lat：緯度（距離問題用 v_cafe_transit，不要自己計算）
+- lng：經度
 
 ## 資料表 users：模擬會員（每列一位，沒有姓名或聯絡資訊）
 
@@ -115,6 +117,14 @@ STATIC_KNOWLEDGE = """## 資料表 cafes：咖啡店（每列一家店）
 
 - cafes 的所有欄位
 - wifi、seat、quiet、tasty、cheap、music、mrt：同 cafe_nomad_cache，沒有社群評分的店為 NULL
+
+## View v_cafe_transit：店家到交通站點的直線距離（每家有座標的店一列，以 cafe_id 對應 cafes.id）
+
+- cafe_id：對應 cafes.id
+- nearest_mrt：最近的臺北捷運站名（對應 mrt_stations.name）
+- mrt_distance_m：到最近捷運站的直線距離（公尺，整數）
+- youbike_within_300m：直線距離 300 公尺內的 YouBike 站數，0 表示附近沒有
+- 距離問題都用這個 view，不要用 cafes.lat、lng 自己計算距離
 
 ## View v_daily_activity：每日活動（從第一筆搜尋到今天每天一列，沒有活動為 0）
 
