@@ -51,3 +51,13 @@ async def test_cafes_are_spread_over_many_anchors(reader):
     )
 
     assert row["spots"] >= 30
+
+
+async def test_demo_coordinates_are_the_same_on_every_rebuild(reader):
+    # Locks the md5(place_id) placement: changing 07_demo_locations.sh or the seed on purpose
+    # means updating this checksum (and checking the golden answers) in the same commit.
+    checksum = await reader.fetchval(
+        "SELECT md5(string_agg(place_id || ':' || lat || ',' || lng, ';' ORDER BY place_id)) FROM cafes"
+    )
+
+    assert checksum == "2c0273ef838c84cc0aae134ea391921d"
