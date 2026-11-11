@@ -198,6 +198,12 @@ def test_dangerous_functions_are_rejected_anywhere(sql):
         validate_sql(sql)
 
 
+def test_distance_function_behind_the_transit_view_is_rejected():
+    # Distance questions go through v_cafe_transit; the model never computes distances itself.
+    with pytest.raises(SqlGuardError, match="不允許的函式"):
+        validate_sql("SELECT name FROM cafes WHERE distance_m(lat, lng, 25.0478, 121.517) < 400")
+
+
 def test_ordinary_functions_pass():
     validate_sql("SELECT district, round(avg(rating), 2), count(*) FROM cafes GROUP BY district")
 
