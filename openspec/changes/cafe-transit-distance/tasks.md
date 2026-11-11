@@ -30,6 +30,9 @@
 
 ## 5. Review 修正
 
-- [ ] 5.1 測試 + 實作：SQL 防護拒絕直接呼叫 `distance_m`，查 `v_cafe_transit` 照常通過；驗證：測試由紅轉綠
-- [ ] 5.2 整合測試鎖定 demo 座標（全部店家座標的 checksum），重建後必須相同；驗證：mutation 改一家店座標時失敗
-- [ ] 5.3 重構：整合測試共用的 `reader` fixture 移到 `conftest.py`、`Point` 移到共用模組，`07_demo_locations.sh` 的 CTE `h` 改名；驗證：全部測試通過
+- [x] 5.1 測試 + 實作：SQL 防護拒絕直接呼叫 `distance_m`，查 `v_cafe_transit` 照常通過；驗證：測試由紅轉綠
+  - 結果：測試紅轉綠（紅燈 `DID NOT RAISE`）。`distance_m` 加入 `BLOCKED_FUNCTIONS`，既有的「每個封鎖函式都被 parser 抓到」參數化測試自動涵蓋。不用 REVOKE：view 內部呼叫函式時需要查詢者的 EXECUTE 權限，撤銷會讓 view 失效。查 view 的白名單測試照常通過
+- [x] 5.2 整合測試鎖定 demo 座標（全部店家座標的 checksum），重建後必須相同；驗證：mutation 改一家店座標時失敗
+  - 結果：寫下時即綠燈（產生方式本來就穩定），重建測試資料庫後 checksum 相同；mutation 把一家店移動 0.000001 度時失敗
+- [x] 5.3 重構：整合測試共用的 `reader` fixture 移到 `conftest.py`、`Point` 移到共用模組，`07_demo_locations.sh` 的 CTE `h` 改名；驗證：全部測試通過
+  - 結果：`reader` 移到 `conftest.py`（需要可寫 session 的 audit、knowledge 測試保留自己的覆寫），`Point` 移到 `tests/integration/points.py`，CTE 改名 `draws`。重建測試資料庫後 checksum 不變，全部 742 個測試通過，`db/checks` 全部通過
