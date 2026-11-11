@@ -68,6 +68,7 @@ BLOCKED_FUNCTIONS = frozenset(
         "dblink", "dblink_exec", "dblink_connect",
         "set_config", "current_setting",
         "pg_terminate_backend", "pg_cancel_backend", "pg_reload_conf",
+        "distance_m",  # behind v_cafe_transit; distance questions use the view (cafe-transit-distance D4)
     }
 )  # fmt: skip
 
